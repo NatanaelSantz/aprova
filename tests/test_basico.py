@@ -510,3 +510,29 @@ def test_contas_admin_e_aluno(tmp_path):
         assert all(g["codigo"] != cod for g in adm.todos_grupos())
     finally:
         srv.parar()
+
+
+def test_estudos_separados_por_conta(tmp_path, monkeypatch):
+    from aprova import config
+    from aprova.ui import app as A
+
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    A._BANCOS.clear()
+    visitante = A.banco_em(A.pasta_dados(None) / "aprova.db")
+    pid = visitante.criar_prova(titulo="Minha prova", origem_url="https://x/p.pdf", modo="questoes")
+    visitante.salvar_questoes(pid, [{"numero": 1, "enunciado": "Q", "alternativas": {"A": "a", "B": "b"}, "gabarito": "A", "disciplina": "Língua Portuguesa"}])
+    t = visitante.iniciar_tentativa(pid, "estudo")
+    visitante.registrar_resposta(t, 1, "Língua Portuguesa", "A", True)
+    # outra conta começa vazia (só o simulado de demonstração)
+    outra = A.banco_em(A.pasta_dados("conta-b") / "aprova.db")
+    assert outra.estatisticas()["respondidas"] == 0
+    # levar os estudos para a conta A copia tudo e mantém o original
+    falso = type("F", (), {})()
+    falso.sessao = config.Ajustes(tmp_path / "sessao.json")
+    A.App._levar_estudos_para(falso, "conta-a")
+    conta_a = A.banco_em(A.pasta_dados("conta-a") / "aprova.db")
+    assert conta_a.estatisticas()["respondidas"] == 1
+    assert any(p["titulo"] == "Minha prova" for p in conta_a.provas())
+    assert visitante.estatisticas()["respondidas"] == 1
+    assert falso.sessao.get("estudos_levados_para") == "conta-a"
+    A._BANCOS.clear()

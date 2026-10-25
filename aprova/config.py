@@ -98,3 +98,16 @@ class Ajustes:
     @property
     def chave_claude(self) -> str:
         return (self._dados.get("claude_api_key") or os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+
+
+class AjustesMemoria(Ajustes):
+    """Mesma interface de Ajustes, mas só na memória (sessões abertas pelo celular)."""
+
+    def __init__(self, inicial: dict | None = None):
+        self.caminho = None
+        self._lock = threading.Lock()
+        self._dados = dict(PADROES)
+        self._dados.update(inicial or {})
+
+    def _salvar(self) -> None:
+        pass

@@ -49,7 +49,7 @@ class SecaoRanking:
         if not self.r.configurado:
             return self._nao_configurado()
         if not self.r.logado:
-            return self._entrar()
+            return self._convite_entrar()
         if not self.r.apelido:
             return self._pedir_apelido()
         if self.linhas is None and not self.carregando and self.erro is None:
@@ -71,6 +71,17 @@ class SecaoRanking:
     def _depois_config(self):
         self.r.recarregar_config()
         self.recarregar()
+
+    def _convite_entrar(self) -> ft.Control:
+        app, c = self.app, self.app.c
+        return comp.vazio(
+            ft.Icons.EMOJI_EVENTS_OUTLINED,
+            "Entre para ver o ranking",
+            "Com uma conta você compara horas, questões e acerto da semana com outras pessoas e cria grupos com a sua turma. "
+            "No ranking aparecem só o seu apelido e os números.",
+            c,
+            comp.botao("Entrar ou criar conta", lambda e: app.mostrar_login(), ft.Icons.LOGIN),
+        )
 
     def _entrar(self) -> ft.Control:
         app, c = self.app, self.app.c
