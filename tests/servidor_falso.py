@@ -20,7 +20,8 @@ CHAVE = "chave-anon-de-teste-1234567890"
 class Dados:
     def __init__(self):
         self.usuarios: dict[str, dict] = {}  # id -> {email, senha}
-        self.tabelas: dict[str, list[dict]] = {"perfis": [], "estatisticas": [], "grupos": [], "membros": []}
+        self.tabelas: dict[str, list[dict]] = {"perfis": [], "estatisticas": [], "grupos": [], "membros": [], "comunicados": []}
+        self._seq = 0
         self.lock = threading.Lock()
 
     def ranking_semana(self) -> list[dict]:
@@ -28,11 +29,14 @@ class Dados:
         saida = []
         for e in self.tabelas["estatisticas"]:
             p = perfis.get(e["usuario_id"])
-            if not p:
+            if not p or p.get("bloqueado"):
                 continue
             taxa = round(e["acertos"] / e["questoes"], 4) if e["questoes"] else None
             saida.append({**e, "apelido": p["apelido"], "concurso": p.get("concurso", ""), "taxa": taxa})
         return saida
+
+    def eh_admin(self, uid: str) -> bool:
+        return any(p["id"] == uid and p.get("papel") == "admin" for p in self.tabelas["perfis"])
 
     def ranking_grupo(self) -> list[dict]:
         rs = self.ranking_semana()
@@ -44,7 +48,7 @@ def _filtrar(linhas: list[dict], filtros: list[tuple[str, str]]) -> list[dict]:
     for col, expr in filtros:
         op, _, val = expr.partition(".")
         if op == "eq":
-            out = [l for l in out if str(l.get(col)) == val]
+            out = [l for l in out if (str(l.get(col)).lower() if isinstance(l.get(col), bool) else str(l.get(col))) == val]
         elif op == "in":
             vals = val.strip("()").split(",")
             out = [l for l in out if str(l.get(col)) in vals]
@@ -113,6 +117,14 @@ class Manipulador(BaseHTTPRequestHandler):
             uid = self._uid()
             if uid is None:
                 return self._json(401, {"code": "PGRST301", "message": "JWT expired"})
+            if caminho == "/rest/v1/rpc/virar_primeiro_admin":
+                if any(p.get("papel") == "admin" for p in d.tabelas["perfis"]):
+                    return self._json(200, False)
+                for p in d.tabelas["perfis"]:
+                    if p["id"] == uid:
+                        p["papel"] = "admin"
+                        return self._json(200, True)
+                return self._json(200, False)
             if caminho == "/rest/v1/rpc/apagar_minha_conta":
                 d.usuarios.pop(uid, None)
                 for t in d.tabelas:
@@ -128,14 +140,16 @@ class Manipulador(BaseHTTPRequestHandler):
                     linhas = d.ranking_semana()
                 elif tabela == "ranking_grupo":
                     linhas = d.ranking_grupo()
+                elif tabela == "comunicados" and not d.eh_admin(uid):
+                    linhas = [c for c in d.tabelas[tabela] if c["ativo"]]
                 else:
                     linhas = d.tabelas[tabela]
                 linhas = _filtrar(linhas, filtros)
                 ordem = dict(query).get("order", "")
                 for parte in reversed(ordem.split(",") if ordem else []):
                     col, *mods = parte.split(".")
-                    desc = "desc" in mods
-                    linhas = sorted(linhas, key=lambda l: (l.get(col) is None, -(l.get(col) or 0) if desc else (l.get(col) or 0)))
+                    com = sorted((l for l in linhas if l.get(col) is not None), key=lambda l: l[col], reverse="desc" in mods)
+                    linhas = com + [l for l in linhas if l.get(col) is None]
                 limite = int(dict(query).get("limit", 1000))
                 return self._json(200, linhas[:limite])
             if metodo == "POST":
@@ -143,9 +157,21 @@ class Manipulador(BaseHTTPRequestHandler):
                 novas = corpo if isinstance(corpo, list) else [corpo]
                 chave = [c for c in dict(query).get("on_conflict", "").split(",") if c]
                 for n in novas:
+                    if tabela == "comunicados":
+                        if not d.eh_admin(uid):
+                            return self._json(403, {"code": "42501", "message": "new row violates row-level security policy"})
+                        d._seq += 1
+                        d.tabelas["comunicados"].append({"id": d._seq, "ativo": True, "criado_em": "2026-10-25T10:00:00", **n})
+                        continue
                     dono = n.get("id") if tabela == "perfis" else n.get("criado_por") if tabela == "grupos" else n.get("usuario_id")
                     if dono != uid:
                         return self._json(403, {"code": "42501", "message": "new row violates row-level security policy"})
+                    if tabela == "perfis" and not d.eh_admin(uid):
+                        # gatilho proteger_perfil: o aluno não escolhe o próprio papel
+                        atual = next((p for p in d.tabelas["perfis"] if p["id"] == uid), None)
+                        n["papel"] = atual.get("papel", "aluno") if atual else "aluno"
+                        n["bloqueado"] = atual.get("bloqueado", False) if atual else False
+                        n.setdefault("criado_em", "2026-10-25T09:00:00")
                     if tabela == "perfis" and any(p["apelido"].lower() == n["apelido"].lower() and p["id"] != uid for p in d.tabelas["perfis"]):
                         return self._json(409, {"code": "23505", "message": 'duplicate key value violates unique constraint "perfis_apelido_unico"'})
                     pk = chave or {"grupos": ["codigo"], "membros": ["codigo", "usuario_id"], "perfis": ["id"], "estatisticas": ["usuario_id", "semana"]}[tabela]
@@ -157,9 +183,35 @@ class Manipulador(BaseHTTPRequestHandler):
                     else:
                         d.tabelas[tabela].append(dict(n))
                 return self._json(201)
+            if metodo == "PATCH":
+                corpo = self._corpo() or {}
+                alvo = _filtrar(d.tabelas[tabela], filtros)
+                admin = d.eh_admin(uid)
+                for l in alvo:
+                    if tabela == "perfis":
+                        if l["id"] != uid and not admin:
+                            continue  # RLS: não enxerga para atualizar
+                        mudanca = dict(corpo)
+                        if not admin:
+                            mudanca.pop("papel", None)
+                            mudanca.pop("bloqueado", None)
+                        l.update(mudanca)
+                    elif tabela == "comunicados" and admin:
+                        l.update(corpo)
+                return self._json(204)
             if metodo == "DELETE":
                 alvo = _filtrar(d.tabelas[tabela], filtros)
-                d.tabelas[tabela] = [l for l in d.tabelas[tabela] if l not in alvo or l.get("usuario_id") != uid]
+                admin = d.eh_admin(uid)
+                if tabela == "grupos":
+                    apagar = [g for g in alvo if admin or g.get("criado_por") == uid]
+                    cods = {g["codigo"] for g in apagar}
+                    d.tabelas["grupos"] = [g for g in d.tabelas["grupos"] if g not in apagar]
+                    d.tabelas["membros"] = [m for m in d.tabelas["membros"] if m["codigo"] not in cods]
+                elif tabela == "comunicados":
+                    if admin:
+                        d.tabelas["comunicados"] = [c for c in d.tabelas["comunicados"] if c not in alvo]
+                else:
+                    d.tabelas[tabela] = [l for l in d.tabelas[tabela] if l not in alvo or l.get("usuario_id") != uid]
                 return self._json(204)
         return self._json(405, {"message": "método não suportado"})
 
@@ -171,6 +223,9 @@ class Manipulador(BaseHTTPRequestHandler):
 
     def do_DELETE(self):
         self._rota("DELETE")
+
+    def do_PATCH(self):
+        self._rota("PATCH")
 
 
 class ServidorFalso:
@@ -194,7 +249,7 @@ class ServidorFalso:
         for apelido, concurso, nums in pessoas:
             uid = str(uuid.uuid4())
             self.dados.usuarios[uid] = {"email": f"{apelido.lower()}@exemplo.com", "senha": "123456"}
-            self.dados.tabelas["perfis"].append({"id": uid, "apelido": apelido, "concurso": concurso})
+            self.dados.tabelas["perfis"].append({"id": uid, "apelido": apelido, "concurso": concurso, "papel": "aluno", "bloqueado": False, "criado_em": "2026-10-20T12:00:00"})
             self.dados.tabelas["estatisticas"].append({"usuario_id": uid, "semana": semana, **nums})
             if grupo:
                 self.dados.tabelas["membros"].append({"codigo": grupo[0], "usuario_id": uid})

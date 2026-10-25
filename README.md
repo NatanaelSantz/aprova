@@ -1,4 +1,4 @@
-# Aprova — estudo para concursos públicos (v1.5)
+# Aprova — estudo para concursos públicos (v1.6)
 
 App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolver as provas no próprio app e ver onde focar os estudos.
 
@@ -35,6 +35,8 @@ App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolv
   - *Tempo*: meta, horas por dia, mapa das últimas 12 semanas, em que dias da semana você estuda e tempo por disciplina.
   - *Lembretes*: alarmes de atividades extras. Na hora, o app toca e leva você ao conteúdo: pesquisa na internet, vídeo-aulas, um link, a revisão, um treino ou um simulado.
   - *Livros*: indicações por disciplina, das mais fracas para as mais fortes, com material oficial gratuito (leis no Planalto).
+- **Contas e login**: cada pessoa entra com e-mail e senha e tem seus estudos separados. Há dois tipos de conta: **aluno** e **administrador** (veja abaixo). Quem não quiser conta usa o app normalmente com “Usar sem conta”.
+- **Tela que se ajusta ao aparelho**: no celular, menu embaixo; em tela média, menu lateral compacto; em tela grande, menu lateral completo e o conteúdo centralizado.
 - **Ranking**: crie uma conta com apelido e compare horas, questões, acerto e sequência da semana com outras pessoas, no geral ou em grupos com código (a turma do concurso, os amigos). Fica em Painel → Ranking.
 - **Revisão espaçada** (Estudar → Revisão): o que você erra ou marca com a bandeira volta no dia certo (1, 3, 7, 15 e 30 dias) até ficar dominado.
 - **Dúvidas**: no painel de Ajuda de cada questão, escreva sua dúvida; o Aprova pesquisa na internet para responder (com a chave do Claude, a resposta vem explicada). Todas ficam guardadas em Estudar → Dúvidas.
@@ -96,15 +98,49 @@ Se a pasta de downloads for outra, ajuste em **Ajustes → Geral**. Também dá 
 | M | marcar para revisar |
 | H | abrir a ajuda |
 
+## Contas: login, aluno e administrador
+
+Ao abrir, o Aprova mostra a tela **Entrar / Criar conta**:
+
+- **Entrar** ou **Criar conta** (e-mail, senha e apelido). Na próxima vez ele entra sozinho.
+- **Usar sem conta**: estuda normalmente no computador, sem ranking. Dá para criar a conta depois em **Ajustes → Conta**.
+- **Esqueci a senha**: o Supabase manda um e-mail para trocar a senha.
+
+Cada conta tem os **próprios estudos** (provas, respostas, metas, tempo), então duas pessoas podem usar o mesmo computador. Na primeira vez que alguém entra, se já existirem estudos feitos sem conta, o app pergunta se quer **levar esses estudos para a conta**.
+
+Tipos de conta:
+
+| | Aluno | Administrador |
+|---|---|---|
+| Estudar, provas, painel, ranking | sim | sim |
+| Ver comunicados na tela Início | sim | sim |
+| Tela **Admin** (no menu) | — | sim |
+
+A **primeira pessoa que cria conta** no servidor vira administrador sozinha. Depois disso, só um administrador transforma outra conta em administrador. Na tela **Admin**:
+
+- *Visão geral*: contas, quem estudou na semana, horas e questões somadas, quem mais estudou e os concursos mais estudados;
+- *Usuários*: procurar por apelido ou concurso, **tornar administrador**, voltar para aluno, **bloquear** (some do ranking) e desbloquear;
+- *Grupos*: ver e apagar grupos;
+- *Comunicados*: escrever um aviso que aparece na tela Início de todos (ex.: “Simulado coletivo no sábado”), ligar/desligar e apagar.
+
+As regras ficam no próprio servidor (`supabase/ranking.sql`): um aluno não consegue se promover nem se desbloquear, mesmo mexendo no app.
+
+Sem o servidor configurado, a tela de entrada mostra **Começar a estudar** (o app funciona todo, só sem contas e ranking).
+
 ## Ranking (comparar com outras pessoas)
 
-O ranking precisa de um servidor na internet. Usamos o **Supabase**, que tem plano grátis. Quem cuida do app configura **uma vez** (uns 10 minutos):
+O ranking e as contas precisam de um servidor na internet. Usamos o **Supabase**, que tem plano grátis. Quem cuida do app configura **uma vez** (uns 10 minutos):
 
 1. Crie uma conta em [supabase.com](https://supabase.com) e um projeto novo no plano **Free**.
 2. No projeto, abra **SQL Editor**, cole todo o arquivo `supabase/ranking.sql` (está na pasta do app) e clique em **Run**.
 3. Opcional: em **Authentication**, nas opções do login por e-mail, desligue **Confirm email** para as pessoas entrarem sem precisar confirmar o e-mail. Se deixar ligado, cada pessoa confirma pelo e-mail antes do primeiro acesso.
 4. Em **Project Settings → API Keys**, copie a **Project URL** e a chave pública (**anon public** ou **publishable**).
-5. No Aprova: **Ajustes → Ranking → Servidor do ranking**, cole as duas e salve. Isso cria o arquivo `ranking.json` na pasta do app, que vai junto no .zip para os testadores.
+5. No Aprova: na tela de entrada, **Ligar as contas online** (ou **Ajustes → Ranking → Servidor do ranking**), cole as duas e salve.
+6. Crie a sua conta primeiro: a primeira conta vira **administrador**.
+
+Se você já tinha rodado o `ranking.sql` da versão 1.5, rode o arquivo novo de novo: ele acrescenta os papéis e os comunicados sem apagar nada.
+
+O passo 5 cria o arquivo `ranking.json` na pasta do app, que vai junto no .zip para os testadores.
 
 Nunca coloque no app a chave **service_role** / **secret** (o Aprova recusa).
 
@@ -125,7 +161,7 @@ O uso da API é cobrado pela Anthropic. O modelo padrão é o Haiku, o mais bara
 
 ## Onde ficam seus dados
 
-Tudo fica no seu computador, na pasta `.aprova` dentro da sua pasta de usuário (`C:\Users\<você>\.aprova`): provas importadas, respostas, favoritos e ajustes.
+Tudo fica no seu computador, na pasta `.aprova` dentro da sua pasta de usuário (`C:\Users\<você>\.aprova`): provas importadas, respostas, favoritos e ajustes. Os estudos de cada conta ficam em `.aprova\contas\<conta>`; os de quem usa sem conta, direto em `.aprova`. No servidor vão só o apelido, o concurso e os números da semana.
 
 ## Limites
 
@@ -145,18 +181,22 @@ aprova/
   analise.py      números do Painel (tempo, dias da semana, desempenho)
   sessoes.py      revisão espaçada, treino e "próximo estudo"
   livros.py       indicações de livros e material oficial
-  ranking.py      cliente do ranking (Supabase: contas, números da semana, grupos)
-supabase/         ranking.sql: tabelas e regras de acesso do servidor do ranking
+  ranking.py      cliente do servidor (Supabase: login, papéis, números da semana, grupos, admin)
+supabase/         ranking.sql: tabelas, papéis e regras de acesso do servidor
   pdfprova.py     texto do PDF, questões, gabarito, imagens das páginas
   importador.py   importa PDFs para o banco
   ajuda.py        pesquisa na internet + dica
   ia.py           recursos opcionais com a API do Claude
   db.py           banco SQLite local
   voz.py          leitura em voz alta
-  ui/             telas (Flet)
+  ui/             telas (Flet); login.py = entrada e conta, admin.py = tela do administrador
 iniciar.pyw       abre o app sem console; instala o que faltar com uma janela de progresso
 ferramentas/      ajudantes do instalador (achar e instalar o Python)
 tests/            testes com páginas e PDFs de exemplo
 ```
 
 Rodar os testes: `python -m pytest -q tests`
+
+Testar contas sem internet: `python tests/servidor_falso.py 8788` sobe um servidor falso com 6 pessoas e o grupo `DATAPREV-7A2F`; aponte o app para `http://127.0.0.1:8788` com qualquer chave.
+
+Versões: o projeto usa git, com uma etiqueta por versão (`git tag` lista; `git log --oneline` mostra o histórico).

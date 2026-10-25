@@ -22,7 +22,7 @@ class TelaInicio:
         app, c = self.app, self.app.c
         agora = datetime.now()
         saudacao = "Bom dia" if agora.hour < 12 else "Boa tarde" if agora.hour < 18 else "Boa noite"
-        nome = (app.aj["nome"] or "").strip()
+        nome = app.nome_exibicao
         hoje = date.today()
         cabecalho = ft.Column(
             [
@@ -46,11 +46,17 @@ class TelaInicio:
             spacing=14,
         )
         cronometro = app.botao_estudo()
-        cabecalho = (
-            ft.Row([cabecalho, ft.Container(expand=True), cronometro], vertical_alignment=ft.CrossAxisAlignment.END)
-            if app.largo
-            else ft.Column([cabecalho, cronometro], spacing=12)
-        )
+        if app.modo_nav == "lateral":
+            cabecalho = ft.Row([cabecalho, ft.Container(expand=True), cronometro], vertical_alignment=ft.CrossAxisAlignment.END)
+        elif app.modo_nav == "trilho":
+            cabecalho = ft.Row([cabecalho, ft.Container(expand=True), cronometro], vertical_alignment=ft.CrossAxisAlignment.END)
+        else:
+            # celular: o menu da conta fica no canto do cabeçalho
+            cabecalho = ft.Column(
+                [ft.Row([cabecalho, ft.Container(expand=True), app.menu_conta(compacto=True)], vertical_alignment=ft.CrossAxisAlignment.START), cronometro],
+                spacing=12,
+            )
+        self.caixa_comunicados = ft.Column(self._cartoes_comunicados(app.comunicados_cache()), spacing=10)
         if app.largo:
             corpo = ft.ResponsiveRow(
                 [
@@ -64,11 +70,59 @@ class TelaInicio:
         else:
             corpo = ft.Column([continuar, alarmes, foco, prazos], spacing=28, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)
         return ft.Column(
-            [cabecalho, avisos, motivacao, numeros, corpo, ft.Container(height=30)],
+            [cabecalho, self.caixa_comunicados, avisos, motivacao, numeros, corpo, ft.Container(height=30)],
             spacing=26,
             scroll=ft.ScrollMode.AUTO,
             expand=True,
         )
+
+    def ao_mostrar(self):
+        self.app.page.run_task(self._buscar_comunicados)
+
+    async def _buscar_comunicados(self):
+        lista = await self.app.carregar_comunicados()
+        try:
+            self.caixa_comunicados.controls = self._cartoes_comunicados(lista)
+            self.caixa_comunicados.update()
+        except Exception:  # noqa: BLE001 - saiu da tela
+            pass
+
+    def _cartoes_comunicados(self, lista: list) -> list[ft.Control]:
+        c = self.app.c
+        vistos = set(self.app.aj.get("comunicados_vistos", []) or [])
+        cartoes = []
+        for m in lista[:3]:
+            if m.get("id") in vistos:
+                continue
+
+            def fechar(e, mid=m.get("id")):
+                v = list(self.app.aj.get("comunicados_vistos", []) or [])
+                v.append(mid)
+                self.app.aj.set("comunicados_vistos", v[-50:])
+                self.caixa_comunicados.controls = self._cartoes_comunicados(self.app.comunicados_cache())
+                self.caixa_comunicados.update()
+
+            cartoes.append(
+                ft.Container(
+                    ft.Row(
+                        [
+                            ft.Icon(ft.Icons.CAMPAIGN_OUTLINED, color=c["marca"], size=26),
+                            ft.Column(
+                                [ft.Text(m["titulo"], size=16, weight=ft.FontWeight.W_700, color=c["texto"]), ft.Text(m["texto"], size=14, color=c["texto"], selectable=True)],
+                                spacing=2,
+                                expand=True,
+                            ),
+                            ft.IconButton(ft.Icons.CLOSE, tooltip="Já li", on_click=fechar, icon_size=18),
+                        ],
+                        spacing=12,
+                        vertical_alignment=ft.CrossAxisAlignment.START,
+                    ),
+                    bgcolor=c["marca_suave"],
+                    border_radius=14,
+                    padding=ft.Padding.only(left=18, right=6, top=12, bottom=12),
+                )
+            )
+        return cartoes
 
     def _alarmes_hoje(self) -> ft.Control:
         """Alarmes de estudo de hoje, com atalho para criar."""

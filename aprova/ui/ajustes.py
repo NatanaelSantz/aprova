@@ -31,6 +31,7 @@ class TelaAjustes:
         app, c = self.app, self.app.c
         secoes = [
             comp.titulo("Ajustes", c, 34 if app.largo else 28),
+            self._conta(),
             self._leitura(),
             self._pausa(),
         ]
@@ -210,6 +211,32 @@ class TelaAjustes:
         )
 
     # ------------------------------------------------------------------ Claude
+
+    def _conta(self) -> ft.Control:
+        app, c = self.app, self.app.c
+        from .login import dialogo_conta
+
+        r = app.ranking
+        if r.logado:
+            papel = "administrador" if r.eh_admin else "aluno"
+            filhos = [
+                ft.Row([app.menu_conta(), ], spacing=8),
+                comp.apagado(f"Você entrou como {papel}. Seus estudos ficam separados dos de outras contas neste computador.", c, 13),
+                ft.Row(
+                    [
+                        comp.botao_contorno("Minha conta", lambda e: dialogo_conta(app), ft.Icons.MANAGE_ACCOUNTS_OUTLINED),
+                        comp.botao_texto("Sair / trocar de conta", lambda e: app.sair_da_conta(), ft.Icons.LOGOUT),
+                    ],
+                    spacing=8,
+                    wrap=True,
+                ),
+            ]
+        else:
+            filhos = [
+                comp.apagado("Você está usando o Aprova sem conta: os estudos ficam só neste computador e você não aparece no ranking.", c, 13.5),
+                comp.botao("Entrar ou criar conta", lambda e: app.mostrar_login(), ft.Icons.LOGIN),
+            ]
+        return self._secao("Conta", "Quem está usando o Aprova agora.", *filhos)
 
     def _ranking(self) -> ft.Control:
         app, c = self.app, self.app.c

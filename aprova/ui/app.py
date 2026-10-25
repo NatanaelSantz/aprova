@@ -6,6 +6,7 @@ import asyncio
 import os
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import flet as ft
 
@@ -18,7 +19,8 @@ from ..voz import Leitor
 from . import comp, tema
 from .tema import FONTE_TITULO
 
-LARGURA_MINIMA_LATERAL = 900
+LARGURA_TRILHO = 700  # abaixo disso: celular (barra embaixo)
+LARGURA_LATERAL = 1180  # a partir disso: barra lateral completa; entre os dois: trilho só com ícones
 
 DESTINOS = [
     ("inicio", "Início", ft.Icons.HOME_OUTLINED, ft.Icons.HOME_ROUNDED),
@@ -28,50 +30,85 @@ DESTINOS = [
     ("painel", "Painel", ft.Icons.INSIGHTS_OUTLINED, ft.Icons.INSIGHTS_ROUNDED),
     ("ajustes", "Ajustes", ft.Icons.TUNE_OUTLINED, ft.Icons.TUNE_ROUNDED),
 ]
+DESTINO_ADMIN = ("admin", "Admin", ft.Icons.ADMIN_PANEL_SETTINGS_OUTLINED, ft.Icons.ADMIN_PANEL_SETTINGS)
 
 INATIVO_S = 8 * 60  # sem tocar no app por mais que isso, o tempo para de contar
 TIQUE_S = 30
 
 # Recursos compartilhados entre sessões (no modo celular cada aparelho abre uma sessão)
-_BANCO: Banco | None = None
+_BANCOS: dict[str, Banco] = {}
 _PCI: ClientePCI | None = None
 _CENTRAL: Centralizador | None = None
 _SERVIDOR = ServidorCelular()
 
 
-def _recursos() -> tuple[Banco, ClientePCI, Centralizador]:
-    global _BANCO, _PCI, _CENTRAL
-    if _BANCO is None:
-        config.garantir_pastas()
-        _BANCO = Banco()
-        amostras.instalar(_BANCO)
+def banco_em(caminho: Path) -> Banco:
+    """Um banco por pasta de dados (visitante ou cada conta), aberto uma vez só."""
+    chave = str(caminho)
+    if chave not in _BANCOS:
+        caminho.parent.mkdir(parents=True, exist_ok=True)
+        b = Banco(caminho)
+        amostras.instalar(b)
+        _BANCOS[chave] = b
+    return _BANCOS[chave]
+
+
+def pasta_dados(conta_id: str | None) -> Path:
+    """Visitante usa a pasta .aprova; cada conta tem a sua subpasta (estudos separados por pessoa)."""
+    return config.DATA_DIR / "contas" / conta_id if conta_id else config.DATA_DIR
+
+
+def _recursos() -> tuple[ClientePCI, Centralizador]:
+    global _PCI, _CENTRAL
+    config.garantir_pastas()
     if _PCI is None:
         _PCI = ClientePCI()
     if _CENTRAL is None:
         _CENTRAL = Centralizador(_PCI)
-    return _BANCO, _PCI, _CENTRAL
+    return _PCI, _CENTRAL
+
+
+def _sessao_maquina(modo_web: bool):
+    """Conta lembrada neste computador. No celular a sessão fica só na memória daquele aparelho."""
+    arquivo = config.DATA_DIR / "sessao.json"
+    if not modo_web:
+        return config.Ajustes(arquivo)
+    inicial = {}
+    try:
+        import json as _json
+
+        inicial = _json.loads(arquivo.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        pass
+    return config.AjustesMemoria(inicial)
 
 
 class App:
     def __init__(self, page: ft.Page, modo_web: bool = False):
         self.page = page
         self.modo_web = modo_web or bool(page.web)
-        self.aj = config.Ajustes()
-        self.db, self.pci, self.central = _recursos()
+        self.pci, self.central = _recursos()
+        self.sessao = _sessao_maquina(self.modo_web)
+        self.conta_id: str | None = None
+        self.em_login = False
+        self._abrir_dados(None)
         self.leitor = Leitor()
         self.servidor = _SERVIDOR
         self.secao = os.environ.get("APROVA_TELA_INICIAL", "inicio")
         self.foco: ft.Control | None = None  # tela em modo foco (prova em andamento)
         self.telas: dict[str, object] = {}
         self._largo: bool | None = None
+        self._modo_nav: str | None = None
         self.conteudo = ft.Container(expand=True)
+        self._moldura: ft.Container | None = None
+        self._comunicados: tuple[float, list] = (0.0, [])
         self._pausa_task = None
         self._ultima_atividade = time.time()
         self._rotulos_crono: list[ft.Text] = []
         self._adiados: dict[int, float] = {}
         from ..ranking import Ranking
 
-        self.ranking = Ranking(self.aj)
+        self.ranking = Ranking(self.sessao)
         self._ultima_sync = 0.0
 
     # ------------------------------------------------------------ utilidades
@@ -81,8 +118,194 @@ class App:
         return tema.paleta(self.aj["tema"])
 
     @property
+    def modo_nav(self) -> str:
+        """'lateral' (barra completa), 'trilho' (só ícones) ou 'inferior' (celular)."""
+        w = self.page.width or 1200
+        if w < LARGURA_TRILHO:
+            return "inferior"
+        return "trilho" if w < LARGURA_LATERAL else "lateral"
+
+    @property
     def largo(self) -> bool:
-        return (self.page.width or 1200) >= LARGURA_MINIMA_LATERAL
+        return self.modo_nav != "inferior"
+
+    def destinos(self) -> list[tuple]:
+        return DESTINOS[:-1] + [DESTINO_ADMIN, DESTINOS[-1]] if self.ranking.eh_admin else list(DESTINOS)
+
+    # ------------------------------------------------------------ contas e dados de cada pessoa
+
+    def _abrir_dados(self, conta_id: str | None) -> None:
+        pasta = pasta_dados(conta_id)
+        self.conta_id = conta_id
+        self.aj = config.Ajustes(pasta / "ajustes.json")
+        self.db = banco_em(pasta / "aprova.db")
+        if hasattr(self, "telas"):
+            self.telas.clear()
+
+    @property
+    def nome_exibicao(self) -> str:
+        if self.ranking.logado and self.ranking.apelido:
+            return self.ranking.apelido
+        return (self.aj["nome"] or "").strip()
+
+    def mostrar_login(self) -> None:
+        from .login import TelaLogin
+
+        self.foco = None
+        self.em_login = True
+        self._tela_login = TelaLogin(self)
+        self.montar()
+
+    def continuar_sem_conta(self) -> None:
+        self.sessao.set("pular_login", True)
+        self.em_login = False
+        if self.conta_id is not None:
+            self._abrir_dados(None)
+            self._migrar_tempo()
+        tema.aplicar(self.page, self.aj["tema"])
+        self.secao = "inicio"
+        self.montar()
+
+    def _tem_estudos_de_visitante(self) -> bool:
+        try:
+            b = banco_em(pasta_dados(None) / "aprova.db")
+            return b.estatisticas()["respondidas"] > 0 or any(p["origem_url"] != "aprova://demo" for p in b.provas())
+        except Exception:  # noqa: BLE001
+            return False
+
+    def _levar_estudos_para(self, conta_id: str) -> None:
+        """Copia os estudos feitos sem conta para a pasta da conta (o original fica onde está)."""
+        import shutil
+        import sqlite3
+
+        origem = banco_em(pasta_dados(None) / "aprova.db")
+        destino = pasta_dados(conta_id)
+        destino.mkdir(parents=True, exist_ok=True)
+        with origem._lock:
+            alvo = sqlite3.connect(destino / "aprova.db")
+            origem._con.backup(alvo)
+            alvo.close()
+        aj_origem = pasta_dados(None) / "ajustes.json"
+        if aj_origem.exists():
+            shutil.copy2(aj_origem, destino / "ajustes.json")
+        self.sessao.set("estudos_levados_para", conta_id)
+
+    async def _perguntar(self, titulo: str, texto: str, sim: str, nao: str) -> bool:
+        fut: asyncio.Future = asyncio.get_running_loop().create_future()
+
+        def responder(valor: bool):
+            def _f(e):
+                self.page.pop_dialog()
+                if not fut.done():
+                    fut.set_result(valor)
+
+            return _f
+
+        self.page.show_dialog(
+            ft.AlertDialog(
+                modal=True,
+                title=ft.Text(titulo, font_family=FONTE_TITULO, size=22, weight=ft.FontWeight.W_600),
+                content=ft.Text(texto, size=15, width=min(460, (self.page.width or 500) - 40)),
+                actions=[ft.TextButton(nao, on_click=responder(False)), comp.botao(sim, responder(True), ft.Icons.CHECK)],
+            )
+        )
+        return await fut
+
+    async def depois_do_login(self) -> None:
+        """Abre os estudos da conta que entrou e leva para a tela certa (admin ou aluno)."""
+        cid = self.ranking.usuario_id
+        if not cid:
+            return
+        pasta = pasta_dados(cid)
+        if not (pasta / "aprova.db").exists() and not self.sessao.get("estudos_levados_para", "") and self._tem_estudos_de_visitante():
+            levar = await self._perguntar(
+                "Levar seus estudos para a conta?",
+                "Neste computador já há provas e respostas feitas sem conta. Quer usar esses estudos na sua conta? "
+                "Você não perde nada: o original continua guardado.",
+                "Sim, levar",
+                "Começar do zero",
+            )
+            if levar:
+                await self.em_segundo_plano(self._levar_estudos_para, cid)
+        self._abrir_dados(cid)
+        self._migrar_tempo()
+        self.sessao.set("pular_login", False)
+        self.em_login = False
+        tema.aplicar(self.page, self.aj["tema"])
+        self.secao = "admin" if self.ranking.eh_admin else "inicio"
+        self.montar()
+        self.page.run_task(self.sincronizar_ranking)
+
+    def sair_da_conta(self) -> None:
+        self.page.run_task(self._sair)
+
+    async def _sair(self) -> None:
+        if self.cronometro_rodando:
+            self.parar_cronometro()
+        await self.em_segundo_plano(self.ranking.sair)
+        self.sessao.set("pular_login", False)
+        self._abrir_dados(None)
+        self.secao = "inicio"
+        tema.aplicar(self.page, self.aj["tema"])
+        self.mostrar_login()
+
+    def menu_conta(self, compacto: bool = False) -> ft.Control:
+        """Avatar com o nome; abre o menu da conta (entrar, minha conta, sair)."""
+        from .login import dialogo_conta
+
+        c = self.c
+        logado = self.ranking.logado
+        nome = self.nome_exibicao or "Visitante"
+        papel = "Administrador" if self.ranking.eh_admin else ("Aluno" if logado else "Sem conta")
+        avatar = ft.Container(
+            ft.Text((nome[:1] or "?").upper(), size=16, weight=ft.FontWeight.W_700, color=c["sobre_tinta"]),
+            width=38,
+            height=38,
+            border_radius=19,
+            bgcolor=c["tinta"] if logado else c["texto2"],
+            alignment=ft.Alignment.CENTER,
+        )
+        if compacto:
+            rosto = avatar
+        else:
+            rosto = ft.Row(
+                [
+                    avatar,
+                    ft.Column(
+                        [
+                            ft.Text(nome, size=14.5, weight=ft.FontWeight.W_600, color=c["texto"], max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                            ft.Text(papel, size=12, color=c["tinta"] if self.ranking.eh_admin else c["texto2"]),
+                        ],
+                        spacing=0,
+                        expand=True,
+                    ),
+                    ft.Icon(ft.Icons.EXPAND_MORE, size=18, color=c["texto2"]),
+                ],
+                spacing=10,
+            )
+        if logado:
+            itens = [
+                ft.PopupMenuItem(content="Minha conta", icon=ft.Icons.MANAGE_ACCOUNTS_OUTLINED, on_click=lambda e: dialogo_conta(self)),
+                ft.PopupMenuItem(content="Sair / trocar de conta", icon=ft.Icons.LOGOUT, on_click=lambda e: self.sair_da_conta()),
+            ]
+        else:
+            itens = [ft.PopupMenuItem(content="Entrar ou criar conta", icon=ft.Icons.LOGIN, on_click=lambda e: self.mostrar_login())]
+        return ft.PopupMenuButton(content=rosto, items=itens, tooltip=f"{nome} · {papel}")
+
+    def comunicados_cache(self) -> list:
+        return self._comunicados[1]
+
+    async def carregar_comunicados(self, forcar: bool = False) -> list:
+        if not (self.ranking.configurado and self.ranking.logado):
+            return []
+        if not forcar and time.time() - self._comunicados[0] < 300:
+            return self._comunicados[1]
+        try:
+            lista = await self.em_segundo_plano(self.ranking.comunicados)
+        except Exception:  # noqa: BLE001
+            lista = self._comunicados[1]
+        self._comunicados = (time.time(), lista)
+        return lista
 
     @property
     def tem_voz(self) -> bool:
@@ -123,9 +346,19 @@ class App:
                     p.window.icon = str(icone)
                 except Exception:  # noqa: BLE001
                     pass
-        tema.aplicar(p, self.aj["tema"])
         p.on_resize = self._ao_redimensionar
         p.on_keyboard_event = self._teclado
+        sem_login = bool(os.environ.get("APROVA_SEM_LOGIN")) or (bool(config.FIXTURES_DIR) and not os.environ.get("APROVA_LOGIN"))
+        if self.ranking.configurado and self.ranking.logado and self.ranking.usuario_id:
+            self._abrir_dados(self.ranking.usuario_id)  # conta lembrada: entra direto
+            if self.ranking.eh_admin and self.secao == "inicio" and not os.environ.get("APROVA_TELA_INICIAL"):
+                self.secao = "admin"
+        elif not (sem_login or self.sessao.get("pular_login")):
+            self.em_login = True
+            from .login import TelaLogin
+
+            self._tela_login = TelaLogin(self)
+        tema.aplicar(p, self.aj["tema"])
         self._migrar_tempo()
         self.montar()
         self._agendar_pausa()
@@ -210,6 +443,10 @@ class App:
                 lem = next((l for l in self.db.lembretes() if not arg or str(l["id"]) == arg), None)
                 if lem:
                     await self.disparar_lembrete(lem)
+            elif nome == "entrar":
+                email, _, senha = arg.partition(":")
+                await self.em_segundo_plano(self.ranking.entrar, email, senha)
+                self.page.run_task(self.depois_do_login)
             elif nome == "cronometro":
                 self.iniciar_cronometro(arg)
             elif nome == "parar":
@@ -242,7 +479,16 @@ class App:
             await asyncio.sleep(0.6)
 
     def _ao_redimensionar(self, e) -> None:
-        if self._largo is not None and self._largo != self.largo:
+        if self._modo_nav is not None and self._modo_nav != self.modo_nav:
+            self.montar()
+            return
+        if self._moldura is not None and not self.em_login and self.foco is None:
+            try:
+                self._moldura.padding = self._margens()
+                self._moldura.update()
+            except Exception:  # noqa: BLE001
+                pass
+        if False and self._largo is not None and self._largo != self.largo:
             self.montar()
 
     def _teclado(self, e: ft.KeyboardEvent) -> None:
@@ -254,40 +500,110 @@ class App:
     # ------------------------------------------------------------ layout
 
     def montar(self) -> None:
-        """Reconstrói o esqueleto (barra lateral ou barra inferior) e a tela atual."""
+        """Reconstrói o esqueleto (barra lateral, trilho ou barra inferior) e a tela atual."""
         p = self.page
         self._largo = self.largo
+        self._modo_nav = self.modo_nav
         c = self.c
         p.bgcolor = c["bg"]
         p.controls.clear()
         p.navigation_bar = None
         p.appbar = None
+        if self.em_login:
+            p.controls.append(ft.SafeArea(self._tela_login.build(), expand=True))
+            p.update()
+            return
         if self.foco is not None:
             p.controls.append(ft.SafeArea(self.foco_container(), expand=True))
             p.update()
             return
+        destinos = self.destinos()
+        chaves = [d[0] for d in destinos]
+        if self.secao not in chaves:
+            self.secao = "inicio"
         self.conteudo = ft.Container(expand=True, bgcolor=c["bg"])
-        if self._largo:
+        modo = self._modo_nav
+        if modo == "lateral":
+            self._moldura = ft.Container(self.conteudo, expand=True, padding=self._margens())
             p.controls.append(
-                ft.Row(
-                    [self._barra_lateral(), ft.Container(self.conteudo, expand=True, padding=ft.Padding.only(left=36, right=36, top=28))],
-                    spacing=0,
-                    expand=True,
-                    vertical_alignment=ft.CrossAxisAlignment.STRETCH,
-                )
+                ft.Row([self._barra_lateral(), self._moldura], spacing=0, expand=True, vertical_alignment=ft.CrossAxisAlignment.STRETCH)
+            )
+        elif modo == "trilho":
+            self._moldura = ft.Container(self.conteudo, expand=True, padding=self._margens())
+            p.controls.append(
+                ft.Row([self._trilho(destinos), self._moldura], spacing=0, expand=True, vertical_alignment=ft.CrossAxisAlignment.STRETCH)
             )
         else:
-            idx = [d[0] for d in DESTINOS].index(self.secao) if self.secao in [d[0] for d in DESTINOS] else 0
             p.navigation_bar = ft.NavigationBar(
-                selected_index=idx,
+                selected_index=chaves.index(self.secao),
                 bgcolor=c["sup"],
                 indicator_color=c["tinta_suave"],
-                destinations=[ft.NavigationBarDestination(icon=d[2], selected_icon=d[3], label=d[1]) for d in DESTINOS],
+                destinations=[ft.NavigationBarDestination(icon=d[2], selected_icon=d[3], label=d[1]) for d in destinos],
                 label_behavior=ft.NavigationBarLabelBehavior.ONLY_SHOW_SELECTED if (p.width or 0) < 460 else ft.NavigationBarLabelBehavior.ALWAYS_SHOW,
-                on_change=lambda e: self.ir(DESTINOS[e.control.selected_index][0]),
+                on_change=lambda e: self.ir(destinos[e.control.selected_index][0]),
             )
-            p.controls.append(ft.SafeArea(ft.Container(self.conteudo, expand=True, padding=ft.Padding.only(left=16, right=16, top=12)), expand=True))
+            self._moldura = ft.Container(self.conteudo, expand=True, padding=self._margens())
+            p.controls.append(ft.SafeArea(self._moldura, expand=True))
         self.ir(self.secao, reconstruir_layout=False)
+
+    def _margens(self) -> ft.Padding:
+        """Margens por tamanho; em telas muito largas o conteúdo fica centralizado (linhas não ficam longas demais)."""
+        w = self.page.width or 1200
+        modo = self.modo_nav
+        if modo == "inferior":
+            return ft.Padding.only(left=16, right=16, top=12)
+        barra = 236 if modo == "lateral" else 88
+        lado = 36 if modo == "lateral" else 24
+        sobra = (w - barra) - 1480
+        if sobra > 0:
+            lado += sobra // 2
+        return ft.Padding.only(left=lado, right=lado, top=28 if modo == "lateral" else 20)
+
+    def _trilho(self, destinos: list[tuple]) -> ft.Control:
+        """Navegação só com ícones, para janelas médias."""
+        c = self.c
+        chaves = [d[0] for d in destinos]
+        estudo = (
+            ft.IconButton(ft.Icons.STOP_CIRCLE_OUTLINED, tooltip="Parar o estudo", icon_color=c["tinta"], on_click=lambda e: self.dialogo_parar())
+            if self.cronometro_rodando
+            else ft.IconButton(ft.Icons.PLAY_CIRCLE_OUTLINE, tooltip="Iniciar estudo", icon_color=c["tinta"], on_click=lambda e: self.iniciar_cronometro(""))
+        )
+        proximo = {"claro": "sepia", "sepia": "escuro", "escuro": "claro"}
+        icone_tema = {"claro": ft.Icons.LIGHT_MODE_OUTLINED, "sepia": ft.Icons.AUTO_STORIES_OUTLINED, "escuro": ft.Icons.DARK_MODE_OUTLINED}
+        return ft.Container(
+            ft.NavigationRail(
+                selected_index=chaves.index(self.secao) if self.secao in chaves else 0,
+                label_type=ft.NavigationRailLabelType.ALL,
+                bgcolor=c["sup"],
+                indicator_color=c["tinta_suave"],
+                min_width=88,
+                group_alignment=-0.85,
+                leading=ft.Column(
+                    [ft.Image(src="icon.png", width=40, height=40), self.menu_conta(compacto=True)],
+                    spacing=14,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                trailing=ft.Column(
+                    [
+                        ft.Container(height=12),
+                        estudo,
+                        self.rotulo_cronometro(11.5) if self.cronometro_rodando else ft.Container(),
+                        ft.IconButton(
+                            icone_tema.get(self.aj["tema"], ft.Icons.LIGHT_MODE_OUTLINED),
+                            tooltip=f"Leitura: {tema.NOMES_TEMA.get(self.aj['tema'], '')} (toque para trocar)",
+                            on_click=lambda e: self.trocar_tema(proximo.get(self.aj["tema"], "claro")),
+                        ),
+                    ],
+                    spacing=2,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                destinations=[ft.NavigationRailDestination(icon=d[2], selected_icon=d[3], label=d[1]) for d in destinos],
+                on_change=lambda e: self.ir(destinos[e.control.selected_index][0]),
+                expand=True,
+            ),
+            border=ft.Border.only(right=ft.BorderSide(1, c["borda"])),
+            width=88,
+        )
 
     def foco_container(self) -> ft.Control:
         return self.foco.build() if hasattr(self.foco, "build") else self.foco
@@ -295,7 +611,7 @@ class App:
     def _barra_lateral(self) -> ft.Container:
         c = self.c
         itens = []
-        for chave, rotulo, icone, icone_sel in DESTINOS:
+        for chave, rotulo, icone, icone_sel in self.destinos():
             sel = chave == self.secao
             itens.append(
                 ft.Container(
@@ -351,8 +667,9 @@ class App:
                             ],
                             spacing=10,
                         ),
-                        padding=ft.Padding.only(left=6, bottom=24),
+                        padding=ft.Padding.only(left=6, bottom=16),
                     ),
+                    ft.Container(self.menu_conta(), padding=ft.Padding.only(left=4, right=2, bottom=14)),
                     *itens,
                     ft.Container(expand=True),
                     self._pilula_cronometro(),
@@ -370,6 +687,7 @@ class App:
         from .concursos import TelaConcursos
         from .estudar import TelaEstudar
         from .inicio import TelaInicio
+        from .admin import TelaAdmin
         from .painel import TelaPainel
         from .provas import TelaProvas
 
@@ -380,13 +698,16 @@ class App:
             "estudar": TelaEstudar,
             "painel": TelaPainel,
             "ajustes": TelaAjustes,
+            "admin": TelaAdmin,
         }
         if chave not in self.telas:
             self.telas[chave] = classes[chave](self)
         return self.telas[chave]
 
     def ir(self, chave: str, reconstruir_layout: bool = True, **kwargs) -> None:
-        if chave not in {d[0] for d in DESTINOS}:
+        if self.em_login:
+            return
+        if chave not in {d[0] for d in self.destinos()}:
             chave = "inicio"
         mudou = chave != self.secao
         self.secao = chave
@@ -395,12 +716,15 @@ class App:
         tela = self._tela(chave)
         if kwargs and hasattr(tela, "preparar"):
             tela.preparar(**kwargs)
-        if reconstruir_layout and self._largo and mudou:
+        if reconstruir_layout and self._modo_nav == "lateral" and mudou:
             # redesenha a barra lateral para marcar a seção
             self.montar()
             return
-        if not self._largo and self.page.navigation_bar is not None:
-            self.page.navigation_bar.selected_index = [d[0] for d in DESTINOS].index(chave)
+        if self._modo_nav == "inferior" and self.page.navigation_bar is not None:
+            self.page.navigation_bar.selected_index = [d[0] for d in self.destinos()].index(chave)
+        elif self._modo_nav == "trilho" and mudou and reconstruir_layout:
+            self.montar()
+            return
         self.conteudo.content = tela.build()
         self.page.update()
         if hasattr(tela, "ao_mostrar"):
