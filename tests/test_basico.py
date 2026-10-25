@@ -647,3 +647,83 @@ def test_plano_em_uso_e_progresso(tmp_path):
     assert grupos.quando_texto((agora - timedelta(hours=3)).isoformat()) == "há 3 h"
     assert grupos.quando_texto((agora - timedelta(days=1, hours=1)).isoformat()) == "ontem"
     assert grupos.dias_texto([4, 0, 2]) == "seg, qua e sex"
+
+
+def test_link_de_convite(tmp_path, monkeypatch):
+    from aprova import config, convite
+
+    url = convite.link("dataprev-7a2f")
+    assert url == "https://natanaelsantz.github.io/aprova/convite/?g=DATAPREV-7A2F"
+    assert convite.link("X1-AB", {"convite": "https://exemplo.com/c"}) == "https://exemplo.com/c/?g=X1-AB"
+    for texto in (url, f"Bora estudar? {url} valeu", "aprova://grupo/DATAPREV-7A2F", "APROVA://GRUPO/dataprev-7a2f/"):
+        assert convite.extrair_codigo(texto) == "DATAPREV-7A2F", texto
+        assert convite.eh_convite(texto), texto
+    assert convite.extrair_codigo("https://site.com/?g=1") is None  # código curto demais
+    assert not convite.eh_convite("https://youtube.com/watch?g=ABCDEF")  # não é do Aprova
+    assert not convite.eh_convite("texto qualquer")
+    w = convite.links_compartilhar("Turma Dataprev", url)
+    assert w["whatsapp"].startswith("https://wa.me/?text=") and "DATAPREV-7A2F" in w["whatsapp"]
+    assert w["telegram"].startswith("https://t.me/share/url?url=")
+    # convite chegando pelo aprova:// enquanto o app está aberto
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    assert not convite.outro_app_aberto()
+    convite.marcar_vivo()
+    assert convite.outro_app_aberto()
+    convite.guardar_pendente("DATAPREV-7A2F")
+    assert convite.pegar_pendente()["codigo"] == "DATAPREV-7A2F"
+    assert convite.pegar_pendente() is None  # lido uma vez só
+    convite.parar_vivo()
+    assert not convite.outro_app_aberto()
+    # imagem para Stories
+    img = convite.imagem_stories("Turma Dataprev 2026 — reta final", "DATAPREV-7A2F", url, tmp_path / "c.png")
+    from PIL import Image
+
+    assert Image.open(img).size == (1080, 1920)
+
+
+def test_entrada_rapida_e_convite(tmp_path):
+    sys.path.insert(0, str(Path(__file__).parent))
+    from servidor_falso import CHAVE, ServidorFalso
+
+    from aprova import config, ranking
+
+    srv = ServidorFalso().iniciar()
+    try:
+        cfg = {"url": srv.url, "chave": CHAVE}
+        adm = ranking.Ranking(config.Ajustes(tmp_path / "adm.json"), cfg)
+        adm.criar_conta("adm@exemplo.com", "segredo1", "Natan")
+        cod = adm.criar_grupo("Turma Dataprev")
+        # a página do convite (e o app sem conta) leem o nome do grupo sem login
+        visitante = ranking.Ranking(config.Ajustes(tmp_path / "v.json"), cfg)
+        info = visitante.convite_info(cod.lower())
+        assert info == {"codigo": cod, "nome": "Turma Dataprev", "membros": 1}
+        assert visitante.convite_info("NAO-EXISTE") is None
+        assert visitante.convite_info("x") is None
+        # entrada rápida: só o apelido, sem e-mail e senha
+        visitante.entrar_rapido("Natan")  # apelido em uso: ganha um número
+        assert visitante.logado and visitante.eh_anonimo and visitante.apelido.startswith("Natan ")
+        assert not visitante.eh_admin  # o admin já existe
+        visitante.entrar_grupo(cod)
+        assert visitante.sou_membro(cod) and visitante.convite_info(cod)["membros"] == 2
+        visitante.forum_publicar(cod, "Cheguei pelo link!")
+        assert adm.forum(cod)[0]["texto"] == "Cheguei pelo link!"
+        # proteger a conta: vira conta normal com e-mail e senha
+        with pytest.raises(ranking.ErroRanking):
+            visitante.proteger_conta("adm@exemplo.com", "segredo1")  # e-mail de outra pessoa
+        assert visitante.proteger_conta("novo@exemplo.com", "segredo2") == "ok"
+        assert not visitante.eh_anonimo and visitante.email == "novo@exemplo.com"
+        outro_pc = ranking.Ranking(config.Ajustes(tmp_path / "pc2.json"), cfg)
+        assert outro_pc.entrar("novo@exemplo.com", "segredo2")["apelido"] == visitante.apelido
+        # projeto que exige confirmar o e-mail
+        srv.dados.confirmar_email = True
+        rapido = ranking.Ranking(config.Ajustes(tmp_path / "r2.json"), cfg)
+        rapido.entrar_rapido()
+        assert rapido.apelido.startswith("Estudante ")
+        assert rapido.proteger_conta("depois@exemplo.com", "segredo3") == "confirmar"
+        assert rapido.eh_anonimo
+        # servidor com a entrada rápida desligada: mensagem clara
+        srv.dados.anonimo_ligado = False
+        with pytest.raises(ranking.ErroRanking, match="entrada rápida"):
+            ranking.Ranking(config.Ajustes(tmp_path / "r3.json"), cfg).entrar_rapido("Alguem")
+    finally:
+        srv.parar()

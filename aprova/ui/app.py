@@ -10,7 +10,7 @@ from pathlib import Path
 
 import flet as ft
 
-from .. import amostras, config
+from .. import amostras, config, convite
 from ..db import Banco
 from ..fontes import Centralizador
 from ..pci import ClientePCI
@@ -115,6 +115,8 @@ class App:
         self.ranking = Ranking(self.sessao)
         self._ultima_sync = 0.0
         self._antes_extra = "inicio"
+        self.convite: dict | None = None  # convite de grupo esperando a pessoa entrar
+        self._ultimo_texto_area = ""
 
     # ------------------------------------------------------------ utilidades
 
@@ -163,6 +165,8 @@ class App:
         self.foco = None
         self.em_login = True
         self._tela_login = TelaLogin(self)
+        if self.convite:
+            self._tela_login.modo = "convite"
         self.montar()
 
     def continuar_sem_conta(self) -> None:
@@ -242,7 +246,13 @@ class App:
         self.em_login = False
         tema.aplicar(self.page, self.aj["tema"])
         self.secao = "admin" if self.ranking.eh_admin else "inicio"
-        self.montar()
+        if self.convite:
+            pendente, self.convite = self.convite, None
+            self.secao = "grupos"
+            self.montar()
+            await self._entrar_no_grupo(pendente)
+        else:
+            self.montar()
         self.page.run_task(self.sincronizar_ranking)
 
     def sair_da_conta(self) -> None:
@@ -401,6 +411,15 @@ class App:
         self._agendar_pausa()
         p.run_task(self._relogio_estudo)
         p.run_task(self._tique_cronometro)
+        if not self.modo_web:
+            p.run_task(self._vigiar_convites)
+            import threading
+
+            threading.Thread(target=convite.registrar_protocolo, args=(config.RAIZ,), daemon=True).start()
+            try:
+                p.window.on_event = self._evento_janela
+            except Exception:  # noqa: BLE001
+                pass
         if not self.modo_web and not config.FIXTURES_DIR:
             p.run_task(self._verificar_provas_novas)
         if os.environ.get("APROVA_DEMO"):
@@ -519,6 +538,21 @@ class App:
                     usar_plano(self, lista[0], t.grupo)
             elif nome == "ir":
                 self.ir(arg)
+            elif nome == "convite":
+                await self.processar_convite(arg, "link")
+            elif nome == "rapido":
+                await self.em_segundo_plano(self.ranking.entrar_rapido, arg)
+                await self.depois_do_login()
+            elif nome == "convidar":
+                from .grupos import dialogo_convidar
+
+                t = self._tela("grupos")
+                for _ in range(30):
+                    if t.grupo:
+                        break
+                    await asyncio.sleep(0.5)
+                if t.grupo:
+                    dialogo_convidar(self, t.grupo)
             elif nome == "cronometro":
                 self.iniciar_cronometro(arg)
             elif nome == "parar":
@@ -1087,6 +1121,110 @@ class App:
             self.ranking.enviar(self.db)
         except Exception as e:  # noqa: BLE001 - sem internet não atrapalha o estudo
             config.registrar(f"ranking: não enviou ({type(e).__name__}: {e})")
+
+    # ------------------------------------------------------------ convites por link
+
+    async def _vigiar_convites(self) -> None:
+        """Pega convites que chegam pelo link (aprova://) e marca que o app está aberto."""
+        await asyncio.sleep(1.2)
+        await self._ler_area_de_transferencia()
+        passo = 0
+        while True:
+            if passo % 15 == 0:
+                await self.em_segundo_plano(convite.marcar_vivo)
+            pendente = convite.pegar_pendente()
+            if pendente:
+                try:
+                    await self.page.window.to_front()
+                except Exception:  # noqa: BLE001
+                    pass
+                await self.processar_convite(pendente["codigo"], "link")
+            passo += 1
+            await asyncio.sleep(2)
+
+    async def _evento_janela(self, e) -> None:
+        if str(getattr(e, "type", "")).lower().endswith("focus"):
+            await self._ler_area_de_transferencia()
+
+    async def _ler_area_de_transferencia(self) -> None:
+        """Quem clicou no convite antes de instalar o app tem o link copiado: oferece entrar no grupo."""
+        if self.modo_web or not self.ranking.configurado or config.FIXTURES_DIR and not os.environ.get("APROVA_LER_AREA"):
+            return
+        try:
+            texto = await ft.Clipboard().get()
+        except Exception:  # noqa: BLE001
+            return
+        if not texto or texto == self._ultimo_texto_area or not convite.eh_convite(texto):
+            return
+        self._ultimo_texto_area = texto
+        codigo = convite.extrair_codigo(texto)
+        vistos = list(self.sessao.get("convites_vistos", []) or [])
+        if codigo and codigo not in vistos:
+            self.sessao.set("convites_vistos", (vistos + [codigo])[-30:])
+            await self.processar_convite(codigo, "area")
+
+    async def processar_convite(self, codigo: str, origem: str = "link") -> None:
+        """Convite aberto: com conta, entra no grupo; sem conta, mostra a entrada rápida já com o grupo."""
+        r = self.ranking
+        vistos = list(self.sessao.get("convites_vistos", []) or [])
+        if codigo not in vistos:
+            self.sessao.set("convites_vistos", (vistos + [codigo])[-30:])
+        if not r.configurado:
+            self.msg("Este app ainda não está ligado ao servidor dos grupos.")
+            return
+        try:
+            info = await self.em_segundo_plano(r.convite_info, codigo)
+        except Exception as ex:  # noqa: BLE001
+            self.msg(f"Não deu para abrir o convite: {ex}")
+            return
+        if not info:
+            self.msg(f"O convite {codigo} não vale mais (o grupo pode ter sido apagado).")
+            return
+        if not (r.logado and r.apelido):
+            self.convite = info
+            if self.foco is not None:
+                self.msg(f"Convite para o grupo {info['nome']} guardado: ao terminar a prova, entre para participar.")
+                return
+            if self.em_login:
+                self._tela_login.modo = "convite"
+                self.montar()
+            else:
+                self.mostrar_login()
+            return
+        try:
+            ja = await self.em_segundo_plano(r.sou_membro, info["codigo"])
+        except Exception:  # noqa: BLE001
+            ja = False
+        if ja:
+            if self.foco is None:
+                self.ir("grupos", codigo=info["codigo"], aba="conversa")
+            self.msg(f"Você já está no grupo {info['nome']}.")
+            return
+        if origem == "link":
+            await self._entrar_no_grupo(info)
+            return
+        if await self._perguntar(
+            f"Entrar no grupo {info['nome']}?",
+            f"Você abriu um convite do Aprova. O grupo tem {info['membros']} membro{'s' if info['membros'] != 1 else ''}: "
+            "lá a turma conversa, tira dúvidas e compartilha planos de estudo.",
+            "Entrar no grupo",
+            "Agora não",
+        ):
+            await self._entrar_no_grupo(info)
+
+    async def _entrar_no_grupo(self, info: dict) -> None:
+        try:
+            await self.em_segundo_plano(self.ranking.entrar_grupo, info["codigo"])
+        except Exception as ex:  # noqa: BLE001
+            self.msg(str(ex))
+            return
+        self.aj.set("grupo_atual", info["codigo"])
+        tela = self.telas.get("grupos")
+        if tela is not None:
+            tela.grupos = None
+        if self.foco is None:
+            self.ir("grupos", codigo=info["codigo"], aba="conversa")
+        self.msg(f"Você entrou no grupo {info['nome']}! 🎉")
 
     async def sincronizar_ranking(self) -> None:
         if self.ranking.configurado and self.ranking.logado:

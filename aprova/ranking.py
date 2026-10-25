@@ -24,6 +24,8 @@ import requests
 from . import analise, config
 
 ARQUIVO = Path(os.environ.get("APROVA_RANKING_ARQUIVO") or config.RAIZ / "ranking.json")
+# servidor que vai junto com o app (endereço e chave pública); ranking.json, se existir, vale mais
+PADRAO = Path(__file__).resolve().parent / "servidor.json"
 METRICAS = {
     "horas": ("segundos", "Horas"),
     "questoes": ("questoes", "Questões"),
@@ -37,15 +39,28 @@ class ErroRanking(Exception):
     pass
 
 
-def carregar_config(caminho: Path | None = None) -> dict:
-    caminho = caminho or ARQUIVO
+def _ler_config(caminho: Path) -> dict:
     try:
         dados = json.loads(caminho.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
     url = str(dados.get("url") or "").strip().rstrip("/")
     chave = str(dados.get("chave") or "").strip()
-    return {"url": url, "chave": chave} if url.startswith("http") and chave else {}
+    if not (url.startswith("http") and chave):
+        return {}
+    cfg = {"url": url, "chave": chave}
+    if str(dados.get("convite") or "").startswith("http"):
+        cfg["convite"] = str(dados["convite"]).strip()
+    return cfg
+
+
+def carregar_config(caminho: Path | None = None) -> dict:
+    if caminho is not None:
+        return _ler_config(caminho)
+    cfg = _ler_config(ARQUIVO)
+    if cfg or os.environ.get("APROVA_RANKING_ARQUIVO"):
+        return cfg
+    return _ler_config(PADRAO)
 
 
 def salvar_config(url: str, chave: str, caminho: Path | None = None) -> None:
@@ -171,6 +186,11 @@ class Ranking:
     def email(self) -> str:
         return self.aj.get("ranking_email", "") or ""
 
+    @property
+    def eh_anonimo(self) -> bool:
+        """Conta rápida (entrou só com apelido): vale só neste computador até ganhar e-mail e senha."""
+        return self.logado and bool(self.aj.get("ranking_anonimo", False))
+
     def recarregar_config(self) -> None:
         self.cfg = carregar_config()
 
@@ -212,6 +232,8 @@ class Ranking:
             self.aj.set("ranking_usuario", usuario["id"])
         if usuario.get("email"):
             self.aj.set("ranking_email", usuario["email"])
+        if usuario:
+            self.aj.set("ranking_anonimo", bool(usuario.get("is_anonymous")))
 
     def _sessao(self) -> str:
         with self._lock:
@@ -240,6 +262,7 @@ class Ranking:
         self._expira = 0
         for k in ("ranking_refresh", "ranking_usuario", "ranking_apelido", "ranking_email", "ranking_papel"):
             self.aj.set(k, "")
+        self.aj.set("ranking_anonimo", False)
 
     # ---- conta
 
@@ -256,6 +279,82 @@ class Ranking:
         self.salvar_perfil(apelido, concurso)
         self._depois_de_entrar()
         return "ok"
+
+    def entrar_rapido(self, apelido: str = "") -> dict:
+        """Conta rápida, sem e-mail e senha (login anônimo do Supabase): a pessoa só confirma o apelido."""
+        apelido = validar_apelido(apelido or sugerir_apelido())
+        try:
+            resp = self._pedir("POST", "/auth/v1/signup", autenticado=False, json={"data": {"apelido": apelido}})
+        except ErroRanking as e:
+            t = str(e).lower()
+            if "anonymous" in t or "disabled" in t or "signups not allowed" in t:
+                raise ErroRanking("A entrada rápida está desligada no servidor. Crie a conta com e-mail e senha.") from e
+            raise
+        dados = resp.json()
+        if not dados.get("access_token"):
+            raise ErroRanking("O servidor não liberou a entrada rápida. Crie a conta com e-mail e senha.")
+        self._guardar_sessao(dados)
+        self.aj.set("ranking_anonimo", True)
+        base, perfil = apelido, None
+        for tentativa in range(6):
+            try:
+                perfil = self.salvar_perfil(apelido)
+                break
+            except ErroRanking as e:
+                if "apelido já está em uso" not in str(e) or tentativa == 5:
+                    raise
+                apelido = f"{base[:19]} {secrets.randbelow(900) + 100}"
+        self._depois_de_entrar()
+        return perfil or {}
+
+    def proteger_conta(self, email: str, senha: str) -> str:
+        """Dá e-mail e senha à conta rápida (vira conta normal, que entra de qualquer computador).
+
+        Devolve 'ok' ou 'confirmar' (o servidor mandou um e-mail para confirmar; depois a pessoa cria a senha)."""
+        email = (email or "").strip()
+        if "@" not in email or "." not in email.split("@")[-1]:
+            raise ErroRanking("Digite um e-mail válido.")
+        if len(senha or "") < 6:
+            raise ErroRanking("Use uma senha com pelo menos 6 caracteres.")
+        usuario = self._pedir("PUT", "/auth/v1/user", json={"email": email}).json()
+        if (usuario.get("email") or "").lower() != email.lower():
+            self.aj.set("ranking_email_pendente", email)
+            return "confirmar"
+        self._pedir("PUT", "/auth/v1/user", json={"password": senha})
+        self.aj.set("ranking_email", email)
+        self.aj.set("ranking_anonimo", False)
+        self.aj.set("ranking_email_pendente", "")
+        return "ok"
+
+    def criar_senha(self, senha: str) -> str:
+        """Depois de confirmar o e-mail: cria a senha da conta rápida."""
+        if len(senha or "") < 6:
+            raise ErroRanking("Use uma senha com pelo menos 6 caracteres.")
+        self._expira = 0  # pega um token novo, já com o e-mail confirmado
+        usuario = self._pedir("PUT", "/auth/v1/user", json={"password": senha}).json()
+        if usuario.get("email"):
+            self.aj.set("ranking_email", usuario["email"])
+            self.aj.set("ranking_anonimo", False)
+            self.aj.set("ranking_email_pendente", "")
+            return "ok"
+        return "confirmar"
+
+    def convite_info(self, codigo: str) -> dict | None:
+        """Nome e número de membros de um grupo pelo código do convite (funciona mesmo sem conta)."""
+        codigo = (codigo or "").strip().upper()
+        if not re.fullmatch(r"[A-Z0-9-]{4,24}", codigo):
+            return None
+        linhas = self._pedir("POST", "/rest/v1/rpc/convite_info", autenticado=False, json={"cod": codigo}).json()
+        if isinstance(linhas, dict):
+            linhas = [linhas]
+        if not linhas:
+            return None
+        g = linhas[0]
+        return {"codigo": g.get("codigo") or codigo, "nome": g.get("nome") or codigo, "membros": int(g.get("membros") or 0)}
+
+    def sou_membro(self, codigo: str) -> bool:
+        linhas = self._pedir("GET", f"/rest/v1/membros?codigo=eq.{codigo}&usuario_id=eq.{self.usuario_id}&select=codigo").json()
+        return bool(linhas)
 
     def entrar(self, email: str, senha: str) -> dict | None:
         """Entra e devolve o perfil (None se a conta ainda não tem apelido)."""
@@ -665,6 +764,10 @@ def analise_norm(texto: str) -> str:
     import unicodedata
 
     return unicodedata.normalize("NFKD", texto or "").encode("ascii", "ignore").decode()
+
+
+def sugerir_apelido() -> str:
+    return f"Estudante {secrets.randbelow(9000) + 1000}"
 
 
 def validar_apelido(apelido: str) -> str:

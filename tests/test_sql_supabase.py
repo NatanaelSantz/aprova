@@ -143,6 +143,24 @@ def test_moderacao_e_edicao(db):
     assert db.como(None).q("select count(*) from forum_respostas") == [(0,)]
 
 
+def test_convite_sem_login(db):
+    db.como(B).q("insert into grupos (codigo, nome, criado_por) values ('CONVITE-01', 'Turma do convite', %s)", (B,))
+    db.como(B).q("insert into membros (codigo, usuario_id) values ('CONVITE-01', %s)", (B,))
+    # a página do convite usa a chave pública (papel anon): vê nome e membros, nada mais
+    con = db.con.cursor()
+    con.execute("reset role")
+    con.execute("set role anon")
+    con.execute("select * from convite_info(' convite-01 ')")
+    assert con.fetchall() == [("CONVITE-01", "Turma do convite", 1)]
+    for tabela in ("grupos", "membros", "perfis", "forum_posts"):
+        try:
+            con.execute(f"select count(*) from {tabela}")
+            assert con.fetchone() == (0,), tabela  # sem permissão ou sem linhas
+        except psycopg.Error:
+            pass
+    con.execute("reset role")
+
+
 def test_ranking_e_comunicados(db):
     from datetime import date, timedelta
 

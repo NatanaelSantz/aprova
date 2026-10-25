@@ -118,6 +118,16 @@ create policy "membros: entra" on public.membros for insert to authenticated wit
 drop policy if exists "membros: sai" on public.membros;
 create policy "membros: sai" on public.membros for delete to authenticated using (usuario_id = auth.uid());
 
+-- convite por link: nome do grupo e número de membros, para a página do convite (funciona sem conta)
+create or replace function public.convite_info(cod text) returns table (codigo text, nome text, membros bigint)
+language sql stable security definer set search_path = public as $$
+    select g.codigo, g.nome, (select count(*) from public.membros m where m.codigo = g.codigo)
+    from public.grupos g
+    where g.codigo = upper(trim(cod));
+$$;
+revoke all on function public.convite_info(text) from public;
+grant execute on function public.convite_info(text) to anon, authenticated;
+
 -- ---------------------------------------------------------------- rankings (só apelido e números; e-mail nunca aparece)
 create or replace view public.ranking_semana with (security_invoker = true) as
 select e.semana, p.id as usuario_id, p.apelido, p.concurso, e.segundos, e.questoes, e.acertos, e.dias, e.sequencia,

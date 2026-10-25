@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime, timezone
+from pathlib import Path
 
 import flet as ft
 
@@ -360,7 +361,10 @@ class TelaGrupos:
             pilulas.append(comp.pilula("Admin visitando", c["marca_suave"], c["marca"], ft.Icons.ADMIN_PANEL_SETTINGS_OUTLINED, 11.5))
         elif g.get("modero"):
             pilulas.append(comp.pilula("Você modera", c["tinta_suave"], c["tinta"], ft.Icons.SHIELD_OUTLINED, 11.5))
-        menu = [ft.PopupMenuItem(content="Copiar código para convidar", icon=ft.Icons.CONTENT_COPY, on_click=lambda e: app.page.run_task(self._copiar, g["codigo"]))]
+        menu = [
+            ft.PopupMenuItem(content="Convidar pessoas (link)", icon=ft.Icons.SHARE_OUTLINED, on_click=lambda e: dialogo_convidar(app, g)),
+            ft.PopupMenuItem(content="Copiar só o código", icon=ft.Icons.CONTENT_COPY, on_click=lambda e: app.page.run_task(self._copiar, g["codigo"])),
+        ]
         if not g.get("visitante"):
             menu.append(ft.PopupMenuItem(content="Sair do grupo", icon=ft.Icons.LOGOUT, on_click=lambda e: self._confirmar_sair(g)))
         if g.get("modero") and (g.get("criado_por") == self.r.usuario_id or self.r.eh_admin):
@@ -380,7 +384,19 @@ class TelaGrupos:
                     spacing=2,
                     expand=True,
                 ),
-                ft.IconButton(ft.Icons.PERSON_ADD_ALT, tooltip="Convidar: copia o código do grupo", on_click=lambda e: app.page.run_task(self._copiar, g["codigo"])),
+                (
+                    ft.FilledButton(
+                        "Convidar",
+                        icon=ft.Icons.SHARE_OUTLINED,
+                        tooltip="Mandar o link do grupo pelo WhatsApp, Instagram, TikTok…",
+                        on_click=lambda e: dialogo_convidar(app, g),
+                        style=ft.ButtonStyle(shape=comp.forma(10), padding=ft.Padding.symmetric(horizontal=14, vertical=12)),
+                    )
+                    if self.app.largo
+                    else ft.IconButton(ft.Icons.SHARE_OUTLINED, tooltip="Convidar pelo link", icon_color=c["tinta"], on_click=lambda e: dialogo_convidar(app, g))
+                )
+                if not g.get("visitante")
+                else ft.Container(),
                 ft.IconButton(ft.Icons.REFRESH, tooltip="Atualizar", on_click=lambda e: self._atualizar()),
                 ft.PopupMenuButton(icon=ft.Icons.MORE_VERT, items=menu),
             ],
@@ -1343,3 +1359,123 @@ def dialogo_plano(app, g: dict, ao_publicar) -> None:
             actions=[ft.TextButton("Cancelar", on_click=lambda e: app.page.pop_dialog()), comp.botao("Publicar no grupo", publicar, ft.Icons.SEND_ROUNDED)],
         )
     )
+
+
+# ---------------------------------------------------------------------- convidar por link
+
+
+def dialogo_convidar(app, g: dict) -> None:
+    """Link do grupo para mandar no WhatsApp, Telegram, e-mail, Instagram e TikTok (com imagem para Stories)."""
+    from .. import convite
+
+    c = app.c
+    url = convite.link(g["codigo"], app.ranking.cfg)
+    destinos = convite.links_compartilhar(g["nome"], url)
+    largura = min(520, (app.page.width or 560) - 40)
+    msg = ft.Container()
+
+    async def copiar(texto: str, aviso: str):
+        try:
+            await ft.Clipboard().set(texto)
+            app.msg(aviso)
+        except Exception:  # noqa: BLE001
+            app.msg(texto)
+
+    async def salvar_imagem(e):
+        pasta = Path(app.aj["pasta_downloads"] or Path.home() / "Downloads")
+        nome_arq = f"convite-{g['codigo'].lower()}.png"
+        try:
+            caminho = await app.em_segundo_plano(convite.imagem_stories, g["nome"], g["codigo"], url, pasta / nome_arq)
+        except Exception as ex:  # noqa: BLE001
+            msg.content = comp.aviso(f"Não deu para criar a imagem: {ex}", c, "erro")
+            app.page.update()
+            return
+        await copiar(url, "Link copiado também.")
+        msg.content = comp.aviso(
+            f"Imagem salva em {caminho}. Poste nos Stories ou no TikTok e cole o link (já copiado) no adesivo de link ou na legenda.",
+            c,
+            "ok",
+            comp.botao_texto("Abrir pasta", lambda ev: _abrir_pasta(app, caminho.parent), ft.Icons.FOLDER_OPEN),
+        )
+        app.page.update()
+
+    def botao_rede(rotulo: str, cor: str, icone, ao_clicar) -> ft.Control:
+        return ft.Container(
+            ft.Column(
+                [
+                    ft.Container(ft.Icon(icone, color="#FFFFFF", size=24), width=52, height=52, border_radius=26, bgcolor=cor, alignment=ft.Alignment.CENTER),
+                    ft.Text(rotulo, size=12.5, color=c["texto"], text_align=ft.TextAlign.CENTER),
+                ],
+                spacing=6,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                tight=True,
+            ),
+            on_click=ao_clicar,
+            ink=True,
+            border_radius=12,
+            padding=ft.Padding.symmetric(horizontal=6, vertical=8),
+            width=88,
+        )
+
+    redes = ft.Row(
+        [
+            botao_rede("WhatsApp", "#25D366", ft.Icons.CHAT, lambda e: app.page.run_task(app.abrir_url, destinos["whatsapp"])),
+            botao_rede("Instagram", "#C13584", ft.Icons.CAMERA_ALT_OUTLINED, lambda e: app.page.run_task(salvar_imagem, e)),
+            botao_rede("TikTok", "#111111", ft.Icons.MUSIC_NOTE, lambda e: app.page.run_task(salvar_imagem, e)),
+            botao_rede("Telegram", "#229ED9", ft.Icons.SEND_ROUNDED, lambda e: app.page.run_task(app.abrir_url, destinos["telegram"])),
+            botao_rede("E-mail", c["tinta"], ft.Icons.MAIL_OUTLINE, lambda e: app.page.run_task(app.abrir_url, destinos["email"])),
+        ],
+        wrap=True,
+        spacing=4,
+        run_spacing=4,
+        alignment=ft.MainAxisAlignment.CENTER,
+    )
+    campo_link = ft.TextField(value=url, read_only=True, dense=True, border_radius=10, expand=True, text_size=13.5)
+    app.page.show_dialog(
+        ft.AlertDialog(
+            title=ft.Text(f"Convidar para {g['nome']}", font_family=FONTE_TITULO, size=22, weight=ft.FontWeight.W_600),
+            content=ft.Column(
+                [
+                    comp.apagado(
+                        "Quem abrir o link vê o grupo e entra com um clique: o Aprova abre sozinho e não precisa digitar código nem fazer cadastro.",
+                        c,
+                        13.5,
+                    ),
+                    redes,
+                    ft.Row(
+                        [campo_link, ft.IconButton(ft.Icons.CONTENT_COPY, tooltip="Copiar link", on_click=lambda e: app.page.run_task(copiar, url, "Link copiado. Cole no WhatsApp, no direct, na bio…"))],
+                        spacing=6,
+                    ),
+                    comp.botao_contorno(
+                        "Copiar mensagem pronta",
+                        lambda e: app.page.run_task(copiar, convite.mensagem(g["nome"], url), "Mensagem copiada. É só colar."),
+                        ft.Icons.CONTENT_PASTE,
+                    ),
+                    comp.apagado(
+                        "Instagram e TikTok não aceitam compartilhar direto do computador: o Aprova salva uma imagem com QR code para os Stories "
+                        "e copia o link para você colar no adesivo de link, na bio ou no direct.",
+                        c,
+                        12,
+                    ),
+                    msg,
+                ],
+                tight=True,
+                spacing=14,
+                width=largura,
+            ),
+            actions=[ft.TextButton("Fechar", on_click=lambda e: app.page.pop_dialog())],
+        )
+    )
+
+
+def _abrir_pasta(app, pasta: Path) -> None:
+    import os
+    import sys
+
+    try:
+        if sys.platform == "win32":
+            os.startfile(str(pasta))  # noqa: S606
+            return
+    except OSError:
+        pass
+    app.page.run_task(app.abrir_url, pasta.as_uri())

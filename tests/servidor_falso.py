@@ -26,6 +26,8 @@ class Dados:
             "forum_posts": [], "forum_respostas": [], "forum_uteis": [],
         }
         self._seq = 0
+        self.anonimo_ligado = True
+        self.confirmar_email = False
         self.lock = threading.Lock()
 
     def ranking_semana(self) -> list[dict]:
@@ -137,7 +139,8 @@ class Manipulador(BaseHTTPRequestHandler):
 
     def _sessao(self, uid: str):
         u = self.dados.usuarios[uid]
-        return {"access_token": f"tok-{uid}", "refresh_token": f"ref-{uid}", "expires_in": 3600, "user": {"id": uid, "email": u["email"]}}
+        return {"access_token": f"tok-{uid}", "refresh_token": f"ref-{uid}", "expires_in": 3600,
+                "user": {"id": uid, "email": u["email"], "is_anonymous": not u["email"]}}
 
     def _rota(self, metodo: str):
         if self.headers.get("apikey") != CHAVE:
@@ -146,8 +149,20 @@ class Manipulador(BaseHTTPRequestHandler):
         caminho, query = partes.path, parse_qsl(partes.query, keep_blank_values=True)
         d = self.dados
         with d.lock:
+            if caminho == "/rest/v1/rpc/convite_info":
+                cod = str((self._corpo() or {}).get("cod") or "").strip().upper()
+                g = next((g for g in d.tabelas["grupos"] if g["codigo"] == cod), None)
+                n = sum(1 for m in d.tabelas["membros"] if m["codigo"] == cod)
+                return self._json(200, [{"codigo": g["codigo"], "nome": g["nome"], "membros": n}] if g else [])
             if caminho == "/auth/v1/signup":
-                c = self._corpo()
+                c = self._corpo() or {}
+                if not c.get("email"):
+                    # login anônimo (entrada rápida)
+                    if not d.anonimo_ligado:
+                        return self._json(422, {"code": 422, "error_code": "anonymous_provider_disabled", "msg": "Anonymous sign-ins are disabled"})
+                    uid = str(uuid.uuid4())
+                    d.usuarios[uid] = {"email": "", "senha": ""}
+                    return self._json(200, self._sessao(uid))
                 if any(u["email"] == c["email"] for u in d.usuarios.values()):
                     return self._json(422, {"code": 422, "error_code": "user_already_exists", "msg": "User already registered"})
                 if len(c["password"]) < 6:
@@ -172,6 +187,21 @@ class Manipulador(BaseHTTPRequestHandler):
             uid = self._uid()
             if uid is None:
                 return self._json(401, {"code": "PGRST301", "message": "JWT expired"})
+            if caminho == "/auth/v1/user" and metodo == "PUT":
+                c = self._corpo() or {}
+                u = d.usuarios[uid]
+                if c.get("email"):
+                    if any(x["email"] == c["email"] for k, x in d.usuarios.items() if k != uid):
+                        return self._json(422, {"code": 422, "error_code": "email_exists", "msg": "A user with this email address has already been registered"})
+                    if d.confirmar_email:
+                        u["email_pendente"] = c["email"]
+                    else:
+                        u["email"] = c["email"]
+                if c.get("password"):
+                    if not u["email"]:
+                        return self._json(422, {"code": 422, "msg": "Email must be verified before setting a password"})
+                    u["senha"] = c["password"]
+                return self._json(200, self._sessao(uid)["user"])
             if caminho == "/rest/v1/rpc/virar_primeiro_admin":
                 if any(p.get("papel") == "admin" for p in d.tabelas["perfis"]):
                     return self._json(200, False)
@@ -341,6 +371,9 @@ class Manipulador(BaseHTTPRequestHandler):
 
     def do_PATCH(self):
         self._rota("PATCH")
+
+    def do_PUT(self):
+        self._rota("PUT")
 
 
 class ServidorFalso:

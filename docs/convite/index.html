@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Convite para estudar no Aprova</title>
+<meta name="description" content="Você foi convidado para um grupo de estudo no Aprova: conversa da turma, planos de estudo e ranking.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Convite para estudar junto no Aprova">
+<meta property="og:description" content="Entre no grupo com um clique: conversa da turma, planos de estudo e ranking.">
+<meta property="og:image" content="https://natanaelsantz.github.io/aprova/convite/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#2340A8">
+<link rel="icon" href="../favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F4F6FA; --sup: #FFFFFF; --sup2: #ECEFF6; --borda: #D9DEEA;
+    --texto: #141C33; --texto2: #586179; --tinta: #2340A8; --tinta-suave: #E4E9F8;
+    --ouro: #C98E12; --ok: #1D7F53; --sombra: 0 18px 50px rgba(20, 33, 61, .12); --sobre-tinta: #FFFFFF;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0E1220; --sup: #161B2B; --sup2: #1D2335; --borda: #2A3149;
+      --texto: #E5E8F1; --texto2: #98A1B7; --tinta: #93A8FF; --tinta-suave: #1F2848;
+      --ouro: #E2B04A; --ok: #5CC28F; --sombra: 0 18px 50px rgba(0, 0, 0, .35); --sobre-tinta: #0E1220;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--texto);
+    font-family: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 16px; line-height: 1.5;
+  }
+  .faixa { background: linear-gradient(160deg, #2340A8 0%, #14213D 100%); color: #fff; padding: 28px 16px 120px; }
+  .topo { max-width: 920px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .topo img { width: 44px; height: 44px; border-radius: 10px; }
+  .marca { font-family: Fraunces, Georgia, serif; font-weight: 700; font-size: 28px; letter-spacing: -.01em; }
+  .marca small { display: block; font-family: "Atkinson Hyperlegible", sans-serif; font-weight: 400; font-size: 13px; opacity: .8; margin-top: -4px; }
+  main { max-width: 920px; margin: -92px auto 40px; padding: 0 16px; }
+  .cartao { background: var(--sup); border: 1px solid var(--borda); border-radius: 20px; box-shadow: var(--sombra); padding: 32px; }
+  .selo { display: inline-flex; align-items: center; gap: 6px; background: var(--tinta-suave); color: var(--tinta); font-weight: 700; font-size: 13px; padding: 5px 12px; border-radius: 999px; }
+  h1 { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: clamp(28px, 5vw, 40px); line-height: 1.15; margin: 14px 0 6px; letter-spacing: -.01em; }
+  .sub { color: var(--texto2); margin: 0 0 22px; }
+  .grade { display: grid; grid-template-columns: 1.2fr 1fr; gap: 28px; align-items: start; }
+  @media (max-width: 760px) { .grade { grid-template-columns: 1fr; } .cartao { padding: 22px; } }
+  .botoes { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 14px; }
+  .bt { appearance: none; border: 0; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        font: 700 16px/1 "Atkinson Hyperlegible", sans-serif; padding: 15px 20px; border-radius: 12px; }
+  .bt-principal { background: var(--tinta); color: var(--sobre-tinta); }
+  .bt-contorno { background: transparent; color: var(--tinta); border: 1.5px solid var(--borda); }
+  .bt:focus-visible { outline: 3px solid var(--ouro); outline-offset: 2px; }
+  .nota { font-size: 14px; color: var(--texto2); }
+  .aviso { display: none; background: var(--tinta-suave); border-radius: 12px; padding: 14px 16px; margin-top: 12px; font-size: 15px; }
+  .aviso.mostrar { display: block; }
+  .passos { list-style: none; padding: 0; margin: 0; counter-reset: p; }
+  .passos li { counter-increment: p; display: grid; grid-template-columns: 34px 1fr; gap: 12px; padding: 10px 0; border-top: 1px solid var(--borda); }
+  .passos li:first-child { border-top: 0; }
+  .passos li::before { content: counter(p); width: 30px; height: 30px; border-radius: 50%; background: var(--sup2); color: var(--tinta);
+                       font-weight: 700; display: grid; place-items: center; }
+  .lado { background: var(--sup2); border-radius: 16px; padding: 20px; }
+  .lado h2 { font-family: Fraunces, Georgia, serif; font-size: 20px; margin: 0 0 8px; font-weight: 600; }
+  .item { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0; font-size: 15px; }
+  .item svg { flex: none; margin-top: 2px; }
+  .codigo { font-family: ui-monospace, Consolas, monospace; background: var(--sup2); padding: 2px 8px; border-radius: 6px; font-size: 14px; }
+  .carregando { color: var(--texto2); }
+  .celular { display: none; }
+  body.no-celular .celular { display: block; }
+  body.no-celular .so-pc { display: none; }
+  footer { text-align: center; color: var(--texto2); font-size: 13px; padding: 0 16px 32px; }
+  footer a { color: var(--tinta); }
+</style>
+</head>
+<body>
+<div class="faixa">
+  <div class="topo">
+    <img src="../icon.png" alt="">
+    <div class="marca">Aprova<small>estudo para concursos</small></div>
+  </div>
+</div>
+
+<main>
+  <div class="cartao">
+    <div class="grade">
+      <section>
+        <span class="selo">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
+          Convite para estudar junto
+        </span>
+        <h1 id="titulo" class="carregando">Abrindo o convite…</h1>
+        <p id="sub" class="sub">&nbsp;</p>
+
+        <div class="so-pc">
+          <div class="botoes">
+            <a id="abrir" class="bt bt-principal" href="#">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+              Entrar no grupo
+            </a>
+            <a id="baixar" class="bt bt-contorno" href="https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+              Baixar o Aprova
+            </a>
+          </div>
+          <p class="nota">Já tem o Aprova? “Entrar no grupo” abre o app e você entra com um clique, sem digitar código nem fazer cadastro.</p>
+          <div id="nao-abriu" class="aviso">
+            <strong>O Aprova não abriu?</strong> Então ele ainda não está neste computador. Baixe, siga os 3 passos ao lado e o convite aparece sozinho quando o app abrir.
+          </div>
+        </div>
+
+        <div class="celular">
+          <div class="aviso mostrar" style="margin: 0 0 14px">
+            O Aprova é um app para <strong>computador com Windows</strong>. Abra este mesmo link no computador para entrar no grupo.
+          </div>
+          <div class="botoes">
+            <button id="copiar" class="bt bt-principal" type="button">Copiar o link</button>
+            <a id="mandar" class="bt bt-contorno" href="#">Mandar para mim no WhatsApp</a>
+          </div>
+          <p class="nota" id="copiado" aria-live="polite"></p>
+        </div>
+
+        <p class="nota" id="linha-codigo" hidden>Código do grupo: <span class="codigo" id="codigo"></span></p>
+      </section>
+
+      <aside class="lado">
+        <h2 class="so-pc">Primeira vez? 3 passos</h2>
+        <h2 class="celular">No grupo você tem</h2>
+        <ol class="passos so-pc">
+          <li><span>Clique em <strong>Baixar o Aprova</strong> e extraia o .zip numa pasta (ex.: Documentos).</span></li>
+          <li><span>Dê dois cliques em <strong>Abrir Aprova.bat</strong>. Na primeira vez ele instala o que precisa (5 a 10 minutos).</span></li>
+          <li><span>O Aprova abre já com este convite: confirme o apelido e pronto, você está no grupo.</span></li>
+        </ol>
+        <div class="celular">
+          <div class="item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--tinta)" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Conversa da turma, dúvidas e materiais</div>
+          <div class="item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--tinta)" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Planos de estudo prontos para usar</div>
+          <div class="item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--tinta)" stroke-width="2" aria-hidden="true"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>Ranking só entre quem está no grupo</div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</main>
+
+<footer>Aprova · app gratuito de estudo para concursos públicos · <a href="../">sobre o app</a></footer>
+
+<script>
+(function () {
+  "use strict";
+  var SUPABASE = "https://vuzruogodlucwmxvnplu.supabase.co";
+  var CHAVE = "sb_publishable_EfGdaz_IACh1RmdGK1vp5Q_HvyBQf_u"; // chave pública (as regras de acesso ficam no servidor)
+
+  var busca = new URLSearchParams(location.search);
+  var hash = new URLSearchParams(location.hash.replace(/^#/, ""));
+  var codigo = (busca.get("g") || hash.get("g") || "").trim().toUpperCase();
+  var valido = /^[A-Z0-9][A-Z0-9-]{3,23}$/.test(codigo);
+  var link = location.origin + location.pathname + (valido ? "?g=" + codigo : "");
+  var celular = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (matchMedia("(pointer: coarse)").matches && innerWidth < 900);
+  if (celular) document.body.classList.add("no-celular");
+
+  var $ = function (id) { return document.getElementById(id); };
+  function copiar(texto) {
+    try {
+      if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(texto);
+    } catch (e) {}
+    var t = document.createElement("textarea");
+    t.value = texto; t.style.position = "fixed"; t.style.opacity = "0";
+    document.body.appendChild(t); t.select();
+    try { document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(t);
+    return Promise.resolve();
+  }
+
+  if (!valido) {
+    $("titulo").textContent = "Convite sem código";
+    $("titulo").classList.remove("carregando");
+    $("sub").textContent = "Peça para quem te convidou mandar o link de novo (no Aprova: Grupos → Convidar).";
+    $("abrir").style.display = "none";
+    return;
+  }
+
+  $("codigo").textContent = codigo;
+  $("linha-codigo").hidden = false;
+  $("mandar").href = "https://wa.me/?text=" + encodeURIComponent("Abrir no computador: convite do Aprova " + link);
+
+  fetch(SUPABASE + "/rest/v1/rpc/convite_info", {
+    method: "POST",
+    headers: { "apikey": CHAVE, "Content-Type": "application/json" },
+    body: JSON.stringify({ cod: codigo })
+  }).then(function (r) { return r.ok ? r.json() : []; }).then(function (linhas) {
+    var g = Array.isArray(linhas) ? linhas[0] : linhas;
+    $("titulo").classList.remove("carregando");
+    if (!g || !g.nome) {
+      $("titulo").textContent = "Convite não encontrado";
+      $("sub").textContent = "O grupo pode ter sido apagado. Peça um link novo para quem te convidou.";
+      $("abrir").style.display = "none";
+      return;
+    }
+    document.title = "Convite: " + g.nome + " · Aprova";
+    $("titulo").textContent = g.nome;
+    var n = Number(g.membros || 0);
+    $("sub").textContent = n ? n + (n === 1 ? " pessoa estuda" : " pessoas estudam") + " nesse grupo. Entre e estude junto!" : "Seja a primeira pessoa a entrar no grupo.";
+  }).catch(function () {
+    $("titulo").classList.remove("carregando");
+    $("titulo").textContent = "Grupo " + codigo;
+    $("sub").textContent = "Não deu para carregar os detalhes agora, mas o convite funciona.";
+  });
+
+  var saiu = false;
+  addEventListener("blur", function () { saiu = true; });
+  document.addEventListener("visibilitychange", function () { if (document.hidden) saiu = true; });
+
+  $("abrir").addEventListener("click", function (e) {
+    e.preventDefault();
+    saiu = false;
+    // o link fica copiado: se o app ainda não estiver instalado, ele encontra o convite ao abrir
+    copiar(link).then(function () {}, function () {});
+    location.href = "aprova://grupo/" + codigo;
+    setTimeout(function () { if (!saiu) $("nao-abriu").classList.add("mostrar"); }, 1800);
+  });
+  $("baixar").addEventListener("click", function () { copiar(link); });
+  $("copiar").addEventListener("click", function () {
+    copiar(link).then(function () { $("copiado").textContent = "Link copiado. Abra no computador para entrar no grupo."; });
+  });
+})();
+</script>
+</body>
+</html>

@@ -3,6 +3,7 @@
 Uso:
     python main.py                 abre o app no computador
     python main.py --web           abre no navegador (e libera o acesso pelo celular)
+    python main.py aprova://grupo/CODIGO   abre (ou leva ao app já aberto) um convite de grupo
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ sys.path.insert(0, str(RAIZ))
 
 import flet as ft  # noqa: E402
 
-from aprova import config  # noqa: E402
+from aprova import config, convite  # noqa: E402
 from aprova.ui.app import App  # noqa: E402
 
 
@@ -60,8 +61,16 @@ def run():
     p.add_argument("--web", action="store_true", help="servir pelo navegador (computador e celular na mesma rede)")
     p.add_argument("--porta", type=int, default=8550)
     p.add_argument("--sem-navegador", action="store_true", help="no modo web, não abre o navegador do computador")
+    p.add_argument("link", nargs="?", default="", help="convite de grupo (aprova://grupo/CODIGO ou o link da página)")
     args = p.parse_args()
     config.garantir_pastas()
+    codigo = convite.extrair_codigo(args.link)
+    if codigo:
+        convite.guardar_pendente(codigo, "link")
+        if not args.web and convite.outro_app_aberto():
+            # o Aprova já está aberto: ele pega o convite e vem para a frente
+            _fechar_abertura()
+            return
     assets = str(config.ASSETS_DIR)
     if args.web:
         from aprova import rede
@@ -72,7 +81,10 @@ def run():
         print(f"No celular (mesmo Wi-Fi): {rede.endereco_celular(args.porta)}\n")
         ft.run(principal(True), view=ft.AppView.WEB_BROWSER, host="0.0.0.0", port=args.porta, assets_dir=assets)
     else:
-        ft.run(principal(False), view=ft.AppView.FLET_APP_HIDDEN, assets_dir=assets)
+        try:
+            ft.run(principal(False), view=ft.AppView.FLET_APP_HIDDEN, assets_dir=assets)
+        finally:
+            convite.parar_vivo()
 
 
 if __name__ == "__main__":
