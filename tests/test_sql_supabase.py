@@ -32,9 +32,7 @@ create function auth.uid() returns uuid language sql stable as $f$
 $f$;
 grant usage on schema auth to anon, authenticated;
 grant usage on schema public to anon, authenticated;
-alter default privileges in schema public grant all on tables to anon, authenticated;
-alter default privileges in schema public grant all on sequences to anon, authenticated;
-alter default privileges in schema public grant execute on functions to anon, authenticated;
+-- sem "expor tabelas novas": o ranking.sql precisa dar o acesso sozinho
 """
 
 A, B, C, D = (f"00000000-0000-0000-0000-00000000000{x}" for x in "abcd")

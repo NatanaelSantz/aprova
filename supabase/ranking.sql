@@ -297,6 +297,12 @@ join public.perfis p on p.id = r.autor;
 
 grant select on public.forum_feed, public.forum_respostas_v to authenticated;
 
+-- ---------------------------------------------------------------- acesso pela API
+-- Vale mesmo se o projeto foi criado sem "expor tabelas novas". Quem decide o que cada um vê são as regras acima.
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on public.perfis, public.estatisticas, public.grupos, public.membros, public.comunicados,
+    public.forum_posts, public.forum_respostas, public.forum_uteis to authenticated;
+
 -- ---------------------------------------------------------------- apagar a própria conta (LGPD)
 create or replace function public.apagar_minha_conta() returns void
 language sql security definer set search_path = public as $$
