@@ -1,0 +1,10 @@
+# ambiente e caches
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# configuração do servidor do ranking (cada instalação tem a sua)
+ranking.json
+# sistemas
+.DS_Store
+Thumbs.db

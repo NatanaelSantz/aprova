@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="fundo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2E50C6"/>
+      <stop offset="1" stop-color="#1A2D83"/>
+    </linearGradient>
+    <linearGradient id="nota" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#44C98C"/>
+      <stop offset="1" stop-color="#1C8A58"/>
+    </linearGradient>
+    <linearGradient id="paginaE" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E9EEFC"/>
+    </linearGradient>
+    <linearGradient id="paginaD" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#DCE4FA"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="114" fill="url(#fundo)"/>
+
+  <!-- nota de real saindo de dentro do livro -->
+  <g transform="rotate(-13 256 196)">
+    <rect x="118" y="96" width="276" height="150" rx="18" fill="url(#nota)" stroke="#C4F3DA" stroke-width="7"/>
+    <rect x="137" y="114" width="238" height="114" rx="11" fill="none" stroke="#C4F3DA" stroke-width="3.5" opacity="0.75"/>
+    <circle cx="330" cy="171" r="33" fill="none" stroke="#E8FFF3" stroke-width="6"/>
+    <circle cx="330" cy="171" r="15" fill="#E8FFF3" opacity="0.9"/>
+    <text x="206" y="196" font-family="Helvetica, Arial, sans-serif" font-weight="bold" font-size="66" fill="#FFFFFF" text-anchor="middle">R$</text>
+  </g>
+
+  <!-- sombra da capa -->
+  <path d="M74 238 L74 414 C 146 398 212 404 256 440 C 300 404 366 398 438 414 L 438 238 Z" fill="#0E1B57" opacity="0.45"/>
+
+  <!-- páginas -->
+  <path d="M256 250 C 212 218 148 210 90 222 L 90 398 C 148 386 212 394 256 426 Z" fill="url(#paginaE)"/>
+  <path d="M256 250 C 300 218 364 210 422 222 L 422 398 C 364 386 300 394 256 426 Z" fill="url(#paginaD)"/>
+
+  <!-- linhas de texto -->
+  <g stroke="#B9C6EE" stroke-width="7" stroke-linecap="round" fill="none">
+    <path d="M118 258 C 160 252 200 256 230 268"/>
+    <path d="M118 290 C 160 284 200 288 230 300"/>
+    <path d="M118 322 C 160 316 200 320 230 332"/>
+    <path d="M118 354 C 150 349 180 352 206 360"/>
+    <path d="M282 268 C 312 256 352 252 394 258"/>
+    <path d="M282 300 C 312 288 352 284 394 290"/>
+    <path d="M282 332 C 312 320 352 316 394 322"/>
+  </g>
+
+  <!-- lombada -->
+  <path d="M256 250 L 256 426" stroke="#8EA2E3" stroke-width="5"/>
+</svg>

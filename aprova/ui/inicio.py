@@ -1,0 +1,318 @@
+"""Tela inicial: progresso, onde focar e prazos dos concursos acompanhados."""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+
+import flet as ft
+
+from ..pci import concurso_de_dict
+from . import comp
+from .tema import FONTE_TITULO
+
+DIAS = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"]
+MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
+
+
+class TelaInicio:
+    def __init__(self, app):
+        self.app = app
+
+    def build(self) -> ft.Control:
+        app, c = self.app, self.app.c
+        agora = datetime.now()
+        saudacao = "Bom dia" if agora.hour < 12 else "Boa tarde" if agora.hour < 18 else "Boa noite"
+        nome = (app.aj["nome"] or "").strip()
+        hoje = date.today()
+        cabecalho = ft.Column(
+            [
+                comp.apagado(f"{DIAS[hoje.weekday()]}, {hoje.day} de {MESES[hoje.month - 1]}", c, 14),
+                comp.titulo(f"{saudacao}{', ' + nome if nome else ''}.", c, 36 if app.largo else 30),
+            ],
+            spacing=2,
+        )
+        from . import metas
+
+        est = app.db.estatisticas()
+        numeros = self._numeros(est)
+        avisos = self._avisos()
+        foco = self._onde_focar()
+        prazos = self._prazos()
+        continuar = self._continuar()
+        alarmes = self._alarmes_hoje()
+        r = metas.resumo(app)
+        motivacao = ft.Column(
+            [metas.indicadores(app, r), metas.horas_por_dia(app, r)] + ([x] if (x := metas.proximo_estudo(app)) else []),
+            spacing=14,
+        )
+        cronometro = app.botao_estudo()
+        cabecalho = (
+            ft.Row([cabecalho, ft.Container(expand=True), cronometro], vertical_alignment=ft.CrossAxisAlignment.END)
+            if app.largo
+            else ft.Column([cabecalho, cronometro], spacing=12)
+        )
+        if app.largo:
+            corpo = ft.ResponsiveRow(
+                [
+                    ft.Column([foco], col={"md": 12, "lg": 7}, spacing=28, horizontal_alignment=ft.CrossAxisAlignment.STRETCH),
+                    ft.Column([continuar, alarmes, prazos], col={"md": 12, "lg": 5}, spacing=28, horizontal_alignment=ft.CrossAxisAlignment.STRETCH),
+                ],
+                spacing=36,
+                run_spacing=28,
+                vertical_alignment=ft.CrossAxisAlignment.START,
+            )
+        else:
+            corpo = ft.Column([continuar, alarmes, foco, prazos], spacing=28, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)
+        return ft.Column(
+            [cabecalho, avisos, motivacao, numeros, corpo, ft.Container(height=30)],
+            spacing=26,
+            scroll=ft.ScrollMode.AUTO,
+            expand=True,
+        )
+
+    def _alarmes_hoje(self) -> ft.Control:
+        """Alarmes de estudo de hoje, com atalho para criar."""
+        app, c = self.app, self.app.c
+        from .app import DESTINOS_LEMBRETE
+
+        hoje = date.today()
+        itens = [
+            l for l in app.db.lembretes()
+            if l["ativo"] and (l["data"] == hoje.isoformat() or (not l["data"] and str(hoje.weekday()) in str(l["dias"]).split(",")))
+        ]
+        if not itens:
+            return ft.Container(
+                ft.Row(
+                    [
+                        ft.Icon(ft.Icons.ALARM_ADD, color=c["tinta"]),
+                        ft.Column(
+                            [comp.texto("Alarmes de estudo", c, 15, peso=ft.FontWeight.W_700), comp.apagado("Marque um horário e o Aprova leva você ao conteúdo na hora.", c, 13)],
+                            spacing=2,
+                            expand=True,
+                        ),
+                        comp.botao_texto("Criar", lambda e: app.ir("painel", aba="lembretes")),
+                    ],
+                    spacing=12,
+                ),
+                bgcolor=c["sup"],
+                border=ft.Border.all(1, c["borda"]),
+                border_radius=14,
+                padding=16,
+            )
+        agora = datetime.now().strftime("%H:%M")
+        linhas = []
+        for l in itens[:4]:
+            feito = str(l["ultimo"])[:10] == hoje.isoformat()
+            linhas.append(
+                ft.Row(
+                    [
+                        ft.Text(l["hora"], size=16, weight=ft.FontWeight.W_700, color=c["texto2"] if feito or l["hora"] < agora else c["texto"], width=56),
+                        ft.Icon(DESTINOS_LEMBRETE.get(l["alvo_tipo"], ("", ft.Icons.ALARM))[1], size=18, color=c["tinta"]),
+                        ft.Text(l["titulo"], size=14.5, color=c["texto"], expand=True, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                        ft.IconButton(ft.Icons.PLAY_ARROW_ROUNDED, tooltip="Estudar agora", icon_size=20,
+                                      on_click=lambda e, l=l: app.page.run_task(app.abrir_destino, l["alvo_tipo"], l["alvo"], l["titulo"])),
+                    ],
+                    spacing=8,
+                )
+            )
+        return ft.Container(
+            ft.Column(
+                [ft.Row([comp.subtitulo("Alarmes de hoje", c, 18), ft.Container(expand=True), comp.botao_texto("Ver todos", lambda e: app.ir("painel", aba="lembretes"))])] + linhas,
+                spacing=6,
+            ),
+            bgcolor=c["sup"],
+            border=ft.Border.all(1, c["borda"]),
+            border_radius=14,
+            padding=16,
+        )
+
+    # ------------------------------------------------------------------
+
+    def _numeros(self, est: dict) -> ft.Control:
+        c = self.app.c
+        taxa = est["taxa"]
+        itens = [
+            (str(est["respondidas"]), "questões resolvidas"),
+            (f"{taxa * 100:.0f}%" if taxa is not None else "—", "de acerto"),
+            (str(self.app.db.revisao_resumo()["pendentes"]), "para revisar hoje"),
+            (str(est["provas"]), "provas na sua biblioteca"),
+        ]
+        blocos = []
+        for i, (valor, rotulo) in enumerate(itens):
+            blocos.append(
+                ft.Container(
+                    ft.Column(
+                        [
+                            ft.Text(valor, size=34, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["tinta"] if i == 1 else c["texto"]),
+                            comp.apagado(rotulo, c, 13.5),
+                        ],
+                        spacing=0,
+                    ),
+                    padding=ft.Padding.only(left=0 if (i == 0 if self.app.largo else i % 2 == 0) else 22, right=22),
+                    border=ft.Border.only(left=ft.BorderSide(1, c["borda"])) if (i if self.app.largo else i % 2) else None,
+                    col={"xs": 6, "md": 3},
+                )
+            )
+        if self.app.largo:
+            return ft.Row(blocos, spacing=0, wrap=True)
+        return ft.ResponsiveRow(blocos, run_spacing=14, spacing=0)
+
+    def _avisos(self) -> ft.Control:
+        app, c = self.app, self.app.c
+        novos = app.db.avisos_novos()
+        if not novos:
+            return ft.Container()
+
+        def ver(av):
+            def _f(e):
+                app.db.marcar_aviso_visto(av["chave"])
+                app.telas.pop("inicio", None)
+                app.ir("provas", termo=av["termo"], rotulo=av["nome"])
+
+            return _f
+
+        linhas = [
+            ft.Row(
+                [
+                    ft.Icon(ft.Icons.MARK_EMAIL_UNREAD_OUTLINED, color=c["ok"]),
+                    ft.Column(
+                        [
+                            comp.texto(av["nome"], c, 15, peso=ft.FontWeight.W_600, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                            comp.apagado("1 prova encontrada" if av['qtd'] == 1 else f"{av['qtd']} provas encontradas", c, 13),
+                        ],
+                        spacing=0,
+                        expand=True,
+                    ),
+                    comp.botao("Ver provas", ver(av), ft.Icons.DESCRIPTION_OUTLINED),
+                ],
+                spacing=12,
+            )
+            for av in novos[:4]
+        ]
+        return ft.Container(
+            ft.Column([comp.subtitulo("Saiu a prova", c, 20), *linhas], spacing=10),
+            bgcolor=c["ok_suave"],
+            border_radius=14,
+            padding=20,
+        )
+
+    def _onde_focar(self) -> ft.Control:
+        app, c = self.app, self.app.c
+        itens = app.db.prioridades(6)
+        filhos: list[ft.Control] = [
+            comp.subtitulo("Onde focar", c, 22),
+            comp.apagado(
+                "Disciplinas que mais caem nas provas da sua biblioteca, pesadas pelo quanto você ainda erra.",
+                c,
+                14,
+            ),
+        ]
+        if not itens:
+            filhos.append(comp.aviso("Importe uma prova ou faça o simulado de demonstração para ver onde focar.", c))
+        maximo = max((i["prioridade"] for i in itens), default=1) or 1
+        for i in itens:
+            taxa = i["taxa"]
+            cor = c["erro"] if taxa is not None and taxa < 0.5 else c["tinta"]
+            linha_baixo: list[ft.Control] = []
+            if taxa is not None:
+                linha_baixo.append(
+                    comp.texto(f"você acerta {taxa * 100:.0f}%", c, 13, cor=c["erro"] if taxa < 0.5 else c["ok"], peso=ft.FontWeight.W_600)
+                )
+            filhos.append(
+                ft.Column(
+                    [
+                        ft.Row(
+                            [
+                                comp.texto(i["disciplina"], c, 15.5, peso=ft.FontWeight.W_600),
+                                ft.Container(expand=True),
+                                comp.apagado(f"{i['peso'] * 100:.0f}% da prova", c, 13),
+                            ],
+                        ),
+                        comp.barra(i["prioridade"] / maximo, c, cor=cor, altura=9),
+                        *linha_baixo,
+                    ],
+                    spacing=6,
+                )
+            )
+        return comp.bloco(ft.Column(filhos, spacing=14), c, padding=24)
+
+    def _continuar(self) -> ft.Control:
+        app, c = self.app, self.app.c
+        provas = [p for p in app.db.provas() if not str(p["origem_url"]).startswith(("aprova://revisao", "aprova://simulado/treino"))]
+        tentativas = app.db.tentativas(limite=1)
+        alvo = None
+        if tentativas:
+            alvo = next((p for p in provas if p["id"] == tentativas[0]["prova_id"]), None)
+        if alvo is None:
+            alvo = next((p for p in provas if p["origem_url"] != "aprova://demo"), None) or (provas[0] if provas else None)
+        if alvo is None:
+            return ft.Container()
+        from .estudar import abrir_prova
+
+        texto_apoio = f"{alvo['n_questoes']} questões"
+        if alvo.get("melhor") is not None:
+            texto_apoio += f", melhor resultado {alvo['melhor'] * 100:.0f}%"
+        return ft.Container(
+            content=ft.Column(
+                [
+                    comp.apagado("Continue de onde parou", c, 13.5),
+                    ft.Text(alvo["titulo"], size=21, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["texto"]),
+                    comp.apagado(texto_apoio, c, 14),
+                    ft.Row(
+                        [
+                            comp.botao("Fazer simulado", lambda e: abrir_prova(app, alvo["id"], "simulado"), ft.Icons.TIMER_OUTLINED),
+                            comp.botao_contorno("Modo estudo", lambda e: abrir_prova(app, alvo["id"], "estudo"), ft.Icons.LIGHTBULB_OUTLINE),
+                        ],
+                        wrap=True,
+                        spacing=10,
+                        run_spacing=10,
+                    ),
+                ],
+                spacing=8,
+            ),
+            bgcolor=c["tinta_suave"],
+            border_radius=14,
+            padding=24,
+        )
+
+    def _prazos(self) -> ft.Control:
+        app, c = self.app, self.app.c
+        favs = [concurso_de_dict(d) for d in app.db.favoritos()]
+        favs = [f for f in favs if f.dias_restantes is None or f.dias_restantes >= -3]
+        favs.sort(key=lambda x: (x.dias_restantes is None, x.dias_restantes if x.dias_restantes is not None else 0))
+        filhos: list[ft.Control] = [comp.subtitulo("Prazos que você acompanha", c, 22)]
+        if not favs:
+            filhos.append(
+                comp.apagado("Toque na estrela de um concurso para acompanhar o prazo de inscrição aqui.", c, 14)
+            )
+            filhos.append(comp.botao_contorno("Ver concursos abertos", lambda e: app.ir("concursos"), ft.Icons.CAMPAIGN_OUTLINED))
+        for f in favs[:6]:
+            filhos.append(
+                ft.Container(
+                    ft.Row(
+                        [
+                            comp.bloco_data(f.prazo_fim, c, f.dias_restantes, f.prazo_inicio if f.inscricoes_futuras else None),
+                            ft.Column(
+                                [
+                                    comp.texto(f.nome, c, 15, peso=ft.FontWeight.W_600, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
+                                    comp.apagado(f.cargos or f.vagas, c, 13, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                                ],
+                                spacing=2,
+                                expand=True,
+                            ),
+                            ft.IconButton(
+                                ft.Icons.TRAVEL_EXPLORE,
+                                tooltip="Procurar a prova deste concurso",
+                                icon_color=c["tinta"],
+                                on_click=lambda e, nome=f.nome: app.ir("provas", termo=nome.split(" - ")[0].strip(), rotulo=nome),
+                            ),
+                        ],
+                        spacing=12,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    ),
+                    padding=ft.Padding.symmetric(vertical=8),
+                    border=ft.Border.only(top=ft.BorderSide(1, c["borda"])),
+                    on_click=lambda e, u=f.url: app.ir("concursos", abrir=u),
+                )
+            )
+        return comp.bloco(ft.Column(filhos, spacing=10), c, padding=24)
