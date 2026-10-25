@@ -149,7 +149,7 @@ O ranking e as contas precisam de um servidor na internet. Usamos o **Supabase**
 1. Crie uma conta em [supabase.com](https://supabase.com) e um projeto novo no plano **Free**.
 2. No projeto, abra **SQL Editor**, cole todo o arquivo `supabase/ranking.sql` (está na pasta do app) e clique em **Run**.
 3. Opcional: em **Authentication**, nas opções do login por e-mail, desligue **Confirm email** para as pessoas entrarem sem precisar confirmar o e-mail. Se deixar ligado, cada pessoa confirma pelo e-mail antes do primeiro acesso.
-4. Em **Project Settings → API Keys**, copie a **Project URL** e a chave pública (**anon public** ou **publishable**).
+4. No botão **Connect** do projeto (ou em **Settings → API Keys**), copie a **Project URL** e a chave pública (**publishable** ou **anon**).
 5. No Aprova: na tela de entrada, **Ligar as contas online** (ou **Ajustes → Ranking → Servidor do ranking**), cole as duas e salve.
 6. Crie a sua conta primeiro: a primeira conta vira **administrador**.
 

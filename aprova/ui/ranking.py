@@ -535,7 +535,7 @@ def dialogo_servidor(app, ao_salvar) -> None:
     c = app.c
     atual = rk.carregar_config()
     url = ft.TextField(label="Project URL", value=atual.get("url", ""), hint_text="https://xxxx.supabase.co", dense=True, border_radius=10)
-    chave = ft.TextField(label="Chave anon public", value=atual.get("chave", ""), dense=True, border_radius=10, password=True, can_reveal_password=True)
+    chave = ft.TextField(label="Chave publishable (ou anon)", value=atual.get("chave", ""), dense=True, border_radius=10, password=True, can_reveal_password=True)
     msg = ft.Container()
 
     def salvar(e):
@@ -556,7 +556,7 @@ def dialogo_servidor(app, ao_salvar) -> None:
                 [
                     comp.apagado(
                         "1. Crie um projeto grátis em supabase.com.  2. Em SQL Editor, rode o arquivo supabase/ranking.sql da pasta do app.  "
-                        "3. Em Project Settings → API, copie a Project URL e a chave anon public e cole aqui.",
+                        "3. No botão Connect do projeto (ou em Settings → API Keys), copie a Project URL e a chave publishable (ou anon) e cole aqui.",
                         c,
                         13,
                     ),
