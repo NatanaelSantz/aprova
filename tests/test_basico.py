@@ -452,3 +452,61 @@ def test_ranking_config_e_apelido(tmp_path):
         except ranking.ErroRanking:
             pass
     assert ranking.validar_apelido("  João   da Silva ") == "João da Silva"
+
+
+def test_contas_admin_e_aluno(tmp_path):
+    sys.path.insert(0, str(Path(__file__).parent))
+    from servidor_falso import CHAVE, ServidorFalso
+
+    from aprova import config, ranking
+
+    srv = ServidorFalso().iniciar()
+    try:
+        cfg = {"url": srv.url, "chave": CHAVE}
+        semana = ranking.inicio_semana().isoformat()
+        srv.semear([("Camila", "Dataprev", {"segundos": 50000, "questoes": 400, "acertos": 300, "dias": 6, "sequencia": 10})], semana)
+        # o primeiro cadastro vira administrador
+        adm = ranking.Ranking(config.Ajustes(tmp_path / "adm.json"), cfg)
+        adm.criar_conta("adm@exemplo.com", "segredo1", "Natan", "Dataprev")
+        assert adm.eh_admin and adm.papel == "admin"
+        # o segundo é aluno e não consegue se promover
+        aluno = ranking.Ranking(config.Ajustes(tmp_path / "aluno.json"), cfg)
+        aluno.criar_conta("aluno@exemplo.com", "segredo1", "Joana")
+        assert not aluno.eh_admin
+        aluno._pedir("PATCH", f"/rest/v1/perfis?id=eq.{aluno.usuario_id}", json={"papel": "admin"})
+        assert aluno.atualizar_perfil()["papel"] == "aluno"
+        with pytest.raises(ranking.ErroRanking):
+            aluno.usuarios()
+        # admin vê todos e a visão geral
+        us = adm.usuarios()
+        assert {u["apelido"] for u in us} == {"Natan", "Joana", "Camila"}
+        vg = adm.visao_geral(us)
+        assert vg["usuarios"] == 3 and vg["ativos"] == 1 and vg["admins"] == 1
+        # bloquear tira do ranking
+        camila = next(u for u in us if u["apelido"] == "Camila")
+        adm.bloquear(camila["id"], True)
+        assert "Camila" not in [l["apelido"] for l in aluno.ranking("horas")]
+        adm.bloquear(camila["id"], False)
+        assert "Camila" in [l["apelido"] for l in aluno.ranking("horas")]
+        # promover aluno
+        adm.definir_papel(aluno.usuario_id, "admin")
+        assert aluno.atualizar_perfil()["papel"] == "admin" and aluno.eh_admin
+        adm.definir_papel(aluno.usuario_id, "aluno")
+        with pytest.raises(ranking.ErroRanking):
+            adm.definir_papel(adm.usuario_id, "aluno")  # não tira o próprio acesso
+        # comunicados: admin escreve, aluno lê só os ativos
+        adm.criar_comunicado("Simulado no sábado", "Simulado da Dataprev às 9h.")
+        assert [c["titulo"] for c in aluno.comunicados()] == ["Simulado no sábado"]
+        cid = adm.comunicados(todos=True)[0]["id"]
+        adm.ativar_comunicado(cid, False)
+        assert aluno.comunicados() == [] and len(adm.comunicados(todos=True)) == 1
+        with pytest.raises(ranking.ErroRanking):
+            aluno.atualizar_perfil()
+            aluno.criar_comunicado("Oi", "teste")
+        # grupos: admin vê e apaga
+        cod = aluno.criar_grupo("Amigos do TI")
+        assert next(g for g in adm.todos_grupos() if g["codigo"] == cod)["membros"] == 1
+        adm.apagar_grupo(cod)
+        assert all(g["codigo"] != cod for g in adm.todos_grupos())
+    finally:
+        srv.parar()

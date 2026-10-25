@@ -1,4 +1,4 @@
-"""Ranking entre estudantes, usando um projeto Supabase (grátis) como servidor.
+"""Contas do Aprova (aluno e administrador) e ranking entre estudantes, num projeto Supabase (grátis).
 
 - O endereço e a chave pública do projeto ficam em `ranking.json`, na pasta do app
   (vão junto no .zip para os testadores). A chave "anon" é pública por natureza:
@@ -158,6 +158,18 @@ class Ranking:
     def usuario_id(self) -> str:
         return self.aj.get("ranking_usuario", "") or ""
 
+    @property
+    def papel(self) -> str:
+        return self.aj.get("ranking_papel", "") or "aluno"
+
+    @property
+    def eh_admin(self) -> bool:
+        return self.logado and self.papel == "admin"
+
+    @property
+    def email(self) -> str:
+        return self.aj.get("ranking_email", "") or ""
+
     def recarregar_config(self) -> None:
         self.cfg = carregar_config()
 
@@ -225,7 +237,7 @@ class Ranking:
     def _limpar(self) -> None:
         self._token = ""
         self._expira = 0
-        for k in ("ranking_refresh", "ranking_usuario", "ranking_apelido", "ranking_email"):
+        for k in ("ranking_refresh", "ranking_usuario", "ranking_apelido", "ranking_email", "ranking_papel"):
             self.aj.set(k, "")
 
     # ---- conta
@@ -241,6 +253,7 @@ class Ranking:
             return "confirmar"
         self._guardar_sessao(dados)
         self.salvar_perfil(apelido, concurso)
+        self._depois_de_entrar()
         return "ok"
 
     def entrar(self, email: str, senha: str) -> dict | None:
@@ -253,6 +266,23 @@ class Ranking:
             self.aj.set("ranking_apelido_pendente", "")
         if perfil:
             self.aj.set("ranking_apelido", perfil["apelido"])
+            perfil = self._depois_de_entrar() or perfil
+        return perfil
+
+    def _depois_de_entrar(self) -> dict | None:
+        """O primeiro usuário do servidor vira administrador; depois atualiza o papel guardado."""
+        try:
+            self._pedir("POST", "/rest/v1/rpc/virar_primeiro_admin", json={})
+        except ErroRanking:
+            pass
+        return self.atualizar_perfil()
+
+    def atualizar_perfil(self) -> dict | None:
+        """Relê apelido e papel no servidor (ex.: o admin mudou o seu papel)."""
+        perfil = self.perfil()
+        if perfil:
+            self.aj.set("ranking_apelido", perfil.get("apelido", ""))
+            self.aj.set("ranking_papel", perfil.get("papel") or "aluno")
         return perfil
 
     def recuperar_senha(self, email: str) -> None:
@@ -271,7 +301,7 @@ class Ranking:
         self._limpar()
 
     def perfil(self) -> dict | None:
-        resp = self._pedir("GET", f"/rest/v1/perfis?id=eq.{self.usuario_id}&select=id,apelido,concurso")
+        resp = self._pedir("GET", f"/rest/v1/perfis?id=eq.{self.usuario_id}&select=id,apelido,concurso,papel,bloqueado")
         linhas = resp.json()
         return linhas[0] if linhas else None
 
@@ -353,6 +383,107 @@ class Ranking:
 
     def sair_grupo(self, codigo: str) -> None:
         self._pedir("DELETE", f"/rest/v1/membros?codigo=eq.{codigo}&usuario_id=eq.{self.usuario_id}")
+
+
+    # ---- comunicados (todos leem; admin escreve)
+
+    def comunicados(self, todos: bool = False) -> list[dict]:
+        filtro = "" if todos else "ativo=eq.true&"
+        return self._pedir("GET", f"/rest/v1/comunicados?{filtro}select=id,titulo,texto,ativo,criado_em&order=criado_em.desc&limit=20").json()
+
+    # ---- administração (o servidor confere se você é admin)
+
+    def _exigir_admin(self) -> None:
+        if not self.eh_admin:
+            raise ErroRanking("Só administradores podem fazer isso.")
+
+    def usuarios(self, semana: date | None = None) -> list[dict]:
+        """Todos os perfis com os números da semana (para a área do admin)."""
+        self._exigir_admin()
+        semana = (semana or inicio_semana()).isoformat()
+        perfis = self._pedir("GET", "/rest/v1/perfis?select=id,apelido,concurso,papel,bloqueado,criado_em&order=criado_em.desc&limit=1000").json()
+        nums = {
+            e["usuario_id"]: e
+            for e in self._pedir("GET", f"/rest/v1/estatisticas?semana=eq.{semana}&select=usuario_id,segundos,questoes,acertos,dias,sequencia,atualizado_em").json()
+        }
+        for p in perfis:
+            e = nums.get(p["id"], {})
+            p.update(
+                segundos=e.get("segundos", 0),
+                questoes=e.get("questoes", 0),
+                acertos=e.get("acertos", 0),
+                dias=e.get("dias", 0),
+                sequencia=e.get("sequencia", 0),
+                atualizado_em=e.get("atualizado_em"),
+                voce=p["id"] == self.usuario_id,
+            )
+        return perfis
+
+    def visao_geral(self, usuarios: list[dict] | None = None) -> dict:
+        usuarios = usuarios if usuarios is not None else self.usuarios()
+        semana = inicio_semana().isoformat()
+        ativos = [u for u in usuarios if u["segundos"] or u["questoes"]]
+        questoes = sum(u["questoes"] for u in usuarios)
+        acertos = sum(u["acertos"] for u in usuarios)
+        concursos: dict[str, int] = {}
+        for u in usuarios:
+            nome = (u.get("concurso") or "").strip()
+            if nome:
+                concursos[nome] = concursos.get(nome, 0) + 1
+        return {
+            "usuarios": len(usuarios),
+            "novos": sum(1 for u in usuarios if str(u.get("criado_em") or "")[:10] >= semana),
+            "ativos": len(ativos),
+            "segundos": sum(u["segundos"] for u in usuarios),
+            "questoes": questoes,
+            "taxa": acertos / questoes if questoes else None,
+            "admins": sum(1 for u in usuarios if u.get("papel") == "admin"),
+            "bloqueados": sum(1 for u in usuarios if u.get("bloqueado")),
+            "concursos": sorted(concursos.items(), key=lambda x: -x[1])[:6],
+        }
+
+    def definir_papel(self, usuario_id: str, papel: str) -> None:
+        self._exigir_admin()
+        if papel not in ("aluno", "admin"):
+            raise ErroRanking("Papel inválido.")
+        if usuario_id == self.usuario_id and papel != "admin":
+            raise ErroRanking("Você não pode tirar o seu próprio acesso de administrador.")
+        self._pedir("PATCH", f"/rest/v1/perfis?id=eq.{usuario_id}", json={"papel": papel}, cabecalhos={"Prefer": "return=minimal"})
+
+    def bloquear(self, usuario_id: str, bloqueado: bool) -> None:
+        self._exigir_admin()
+        if usuario_id == self.usuario_id:
+            raise ErroRanking("Você não pode bloquear a si mesmo.")
+        self._pedir("PATCH", f"/rest/v1/perfis?id=eq.{usuario_id}", json={"bloqueado": bool(bloqueado)}, cabecalhos={"Prefer": "return=minimal"})
+
+    def criar_comunicado(self, titulo: str, texto: str) -> None:
+        self._exigir_admin()
+        titulo, texto = titulo.strip(), texto.strip()
+        if not 3 <= len(titulo) <= 80 or not 1 <= len(texto) <= 1000:
+            raise ErroRanking("Título de 3 a 80 letras e texto de até 1000.")
+        self._pedir("POST", "/rest/v1/comunicados", json={"titulo": titulo, "texto": texto, "criado_por": self.usuario_id}, cabecalhos={"Prefer": "return=minimal"})
+
+    def ativar_comunicado(self, comunicado_id: int, ativo: bool) -> None:
+        self._exigir_admin()
+        self._pedir("PATCH", f"/rest/v1/comunicados?id=eq.{comunicado_id}", json={"ativo": bool(ativo)}, cabecalhos={"Prefer": "return=minimal"})
+
+    def apagar_comunicado(self, comunicado_id: int) -> None:
+        self._exigir_admin()
+        self._pedir("DELETE", f"/rest/v1/comunicados?id=eq.{comunicado_id}")
+
+    def todos_grupos(self) -> list[dict]:
+        self._exigir_admin()
+        grupos = self._pedir("GET", "/rest/v1/grupos?select=codigo,nome,criado_em&order=criado_em.desc&limit=500").json()
+        membros = self._pedir("GET", "/rest/v1/membros?select=codigo&limit=10000").json()
+        cont: dict[str, int] = {}
+        for m in membros:
+            cont[m["codigo"]] = cont.get(m["codigo"], 0) + 1
+        for g in grupos:
+            g["membros"] = cont.get(g["codigo"], 0)
+        return grupos
+
+    def apagar_grupo(self, codigo: str) -> None:
+        self._pedir("DELETE", f"/rest/v1/grupos?codigo=eq.{codigo}")
 
 
 def analise_norm(texto: str) -> str:
