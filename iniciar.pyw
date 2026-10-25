@@ -177,8 +177,8 @@ def abrir_app() -> None:
         except Exception:  # noqa: BLE001
             _erro_ao_abrir(traceback.format_exc())
         return
-    # ainda no Python do sistema: abre pelo Python do ambiente, sem console
-    subprocess.Popen([str(PYW_VENV), str(RAIZ / "iniciar.pyw")], cwd=str(RAIZ), creationflags=SEM_JANELA)
+    # ainda no Python do sistema: abre pelo Python do ambiente, sem console (repassa o convite, se houver)
+    subprocess.Popen([str(PYW_VENV), str(RAIZ / "iniciar.pyw")] + sys.argv[1:], cwd=str(RAIZ), creationflags=SEM_JANELA)
 
 
 # --------------------------------------------------------------------------- instalação

@@ -14,8 +14,9 @@ QUEBRAS = {"um": 0, "dois": 960}
 class TelaLogin:
     def __init__(self, app):
         self.app = app
-        self.modo = "entrar"  # entrar | criar
+        self.modo = "convite" if app.convite else "entrar"  # entrar | criar | convite
         self.msg = ft.Container()
+        self._apelido_sugerido = rk.sugerir_apelido()
 
     @property
     def r(self) -> rk.Ranking:
@@ -72,6 +73,28 @@ class TelaLogin:
         def item(icone, texto):
             return ft.Row([ft.Icon(icone, color=branco, size=22), ft.Text(texto, size=15, color=branco, expand=True)], spacing=12)
 
+        conv = self.app.convite
+        if conv:
+            n = conv.get("membros") or 0
+            return ft.Column(
+                [
+                    ft.Row(
+                        [ft.Image(src="icon.png", width=56, height=56), ft.Text("Aprova", size=40, font_family=FONTE_TITULO, weight=ft.FontWeight.W_700, color=branco)],
+                        spacing=14,
+                    ),
+                    ft.Container(height=24),
+                    ft.Text("Você foi convidado para estudar junto", size=17, color=suave),
+                    ft.Text(conv["nome"], size=34, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=branco),
+                    ft.Text(f"{n} pessoa{'s' if n != 1 else ''} no grupo" if n else "Seja a primeira pessoa do grupo", size=15, color=suave),
+                    ft.Container(height=16),
+                    item(ft.Icons.FORUM_OUTLINED, "Conversa da turma, dúvidas e materiais"),
+                    item(ft.Icons.EVENT_NOTE_OUTLINED, "Planos de estudo prontos para usar"),
+                    item(ft.Icons.LEADERBOARD_OUTLINED, "Ranking só entre quem está no grupo"),
+                ],
+                spacing=12,
+                alignment=ft.MainAxisAlignment.CENTER,
+            )
+
         return ft.Column(
             [
                 ft.Row(
@@ -95,6 +118,8 @@ class TelaLogin:
         app, c = self.app, self.app.c
         if not self.r.configurado:
             return self._cartao_sem_servidor()
+        if self.modo == "convite" and app.convite and not (self.r.logado and not self.r.apelido):
+            return self._cartao_convite()
         criar = self.modo == "criar"
         apelido = ft.TextField(label="Apelido (aparece no ranking)", hint_text="Ex.: Natan_TI", max_length=24, border_radius=10, visible=criar)
         concurso = ft.TextField(label="Concurso que você estuda (opcional)", hint_text="Ex.: Dataprev 2026", border_radius=10, visible=criar)
@@ -197,6 +222,83 @@ class TelaLogin:
                         style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10), padding=ft.Padding.symmetric(vertical=14)),
                     ),
                     comp.apagado("Sem conta, seus estudos ficam só neste computador e você não aparece no ranking. Dá para entrar depois.", c, 12.5),
+                ]
+                + ([comp.botao_texto(f"Voltar ao convite do grupo {app.convite['nome']}", lambda e: self._voltar_convite(), ft.Icons.ARROW_BACK)] if app.convite else []),
+                spacing=14,
+                horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+            ),
+            width=440,
+            bgcolor=c["sup"],
+            border=ft.Border.all(1, c["borda"]),
+            border_radius=18,
+            padding=ft.Padding.symmetric(horizontal=28, vertical=28),
+        )
+
+    def _voltar_convite(self):
+        self.modo = "convite"
+        self.msg.content = None
+        self._redesenhar()
+
+    def _cartao_convite(self) -> ft.Control:
+        """Convite aberto e sem conta: a pessoa só confirma o apelido e já entra no grupo."""
+        app, c = self.app, self.app.c
+        conv = app.convite
+        apelido = ft.TextField(label="Seu apelido no grupo", value=self._apelido_sugerido, border_radius=10)
+
+        async def entrar_rapido(e=None):
+            botao.disabled = True
+            self.msg.content = comp.carregando(f"Entrando no grupo {conv['nome']}…", c)
+            app.page.update()
+            try:
+                await app.em_segundo_plano(self.r.entrar_rapido, apelido.value or self._apelido_sugerido)
+            except rk.ErroRanking as ex:
+                botao.disabled = False
+                self.msg.content = comp.aviso(str(ex), c, "erro")
+                app.page.update()
+                return
+            self.msg.content = None
+            await app.depois_do_login()
+
+        def com_email(modo: str):
+            self.modo = modo
+            self.msg.content = None
+            self._redesenhar()
+
+        def agora_nao(e):
+            app.convite = None
+            com_email("entrar")
+
+        apelido.on_submit = entrar_rapido
+        botao = ft.FilledButton(
+            "Entrar no grupo",
+            icon=ft.Icons.GROUP_ADD,
+            on_click=entrar_rapido,
+            style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10), padding=ft.Padding.symmetric(vertical=18)),
+        )
+        n = conv.get("membros") or 0
+        return ft.Container(
+            ft.Column(
+                [
+                    ft.Row([comp.pilula("Convite", c["tinta_suave"], c["tinta"], ft.Icons.MAIL_OUTLINE)]),
+                    ft.Text(f"Entrar no grupo {conv['nome']}", size=26, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["texto"]),
+                    comp.apagado(
+                        (f"{n} pessoa{'s' if n != 1 else ''} já estuda{'m' if n != 1 else ''} nesse grupo. " if n else "")
+                        + "Não precisa de e-mail nem senha: confira o apelido e toque em Entrar.",
+                        c,
+                        14,
+                    ),
+                    apelido,
+                    self.msg,
+                    botao,
+                    comp.apagado("Sua conta fica neste computador. Depois, se quiser, coloque e-mail e senha em Minha conta para entrar de outro lugar.", c, 12.5),
+                    ft.Row([ft.Container(comp.divisor(c), expand=True), comp.apagado("já tem conta?", c, 12.5), ft.Container(comp.divisor(c), expand=True)], spacing=10),
+                    ft.OutlinedButton(
+                        "Entrar com e-mail e senha",
+                        icon=ft.Icons.LOGIN,
+                        on_click=lambda e: com_email("entrar"),
+                        style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10), padding=ft.Padding.symmetric(vertical=14)),
+                    ),
+                    comp.botao_texto("Agora não", agora_nao),
                 ],
                 spacing=14,
                 horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
@@ -291,6 +393,40 @@ def dialogo_conta(app) -> None:
     concurso = ft.TextField(label="Concurso", dense=True, border_radius=10)
     msg = ft.Container()
     papel = "Administrador" if r.eh_admin else "Aluno"
+    novo_email = ft.TextField(label="E-mail", dense=True, border_radius=10, keyboard_type=ft.KeyboardType.EMAIL, value=r.aj.get("ranking_email_pendente", "") or None)
+    nova_senha = ft.TextField(label="Senha (mínimo 6)", dense=True, border_radius=10, password=True, can_reveal_password=True)
+    msg_proteger = ft.Container()
+
+    async def proteger(e):
+        try:
+            if r.aj.get("ranking_email_pendente", ""):
+                res = await app.em_segundo_plano(r.criar_senha, nova_senha.value or "")
+            else:
+                res = await app.em_segundo_plano(r.proteger_conta, novo_email.value or "", nova_senha.value or "")
+        except rk.ErroRanking as ex:
+            msg_proteger.content = comp.aviso(str(ex), c, "erro")
+            app.page.update()
+            return
+        if res == "ok":
+            app.page.pop_dialog()
+            app.msg("Conta protegida! Agora você entra com e-mail e senha em qualquer computador.")
+            app.montar()
+        else:
+            msg_proteger.content = comp.aviso("Mandamos um e-mail de confirmação. Confirme e volte aqui para criar a senha.", c, "ok")
+            app.page.update()
+
+    bloco_proteger = (
+        [
+            comp.aviso("Conta rápida: ela vale só neste computador. Coloque e-mail e senha para não perder e entrar de outro lugar.", c, "alerta"),
+            novo_email,
+            nova_senha,
+            msg_proteger,
+            comp.botao("Proteger minha conta", proteger, ft.Icons.SHIELD_OUTLINED),
+            comp.divisor(c),
+        ]
+        if r.eh_anonimo
+        else []
+    )
 
     async def carregar_perfil():
         try:
@@ -347,6 +483,7 @@ def dialogo_conta(app) -> None:
                 [
                     comp.pilula(papel, c["tinta_suave"], c["tinta"], ft.Icons.ADMIN_PANEL_SETTINGS_OUTLINED if r.eh_admin else ft.Icons.SCHOOL_OUTLINED),
                     comp.apagado(f"E-mail: {r.email or '—'} (não aparece para ninguém)", c, 13),
+                    *bloco_proteger,
                     apelido,
                     concurso,
                     msg,
@@ -359,6 +496,7 @@ def dialogo_conta(app) -> None:
                 tight=True,
                 spacing=12,
                 width=min(460, (app.page.width or 500) - 40),
+                scroll=ft.ScrollMode.AUTO,
             ),
             actions=[ft.TextButton("Fechar", on_click=lambda e: app.page.pop_dialog()), comp.botao("Salvar", salvar, ft.Icons.CHECK)],
         )

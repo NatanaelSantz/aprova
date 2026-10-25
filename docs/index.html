@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aprova · estudo para concursos</title>
+<meta name="description" content="App gratuito para estudar para concursos públicos: provas reais, simulados, revisão espaçada, metas, grupos de estudo e ranking.">
+<meta property="og:title" content="Aprova · estudo para concursos">
+<meta property="og:description" content="Provas reais, simulados, revisão no dia certo, metas, grupos de estudo e ranking. Grátis.">
+<meta property="og:image" content="https://natanaelsantz.github.io/aprova/convite/og.png">
+<meta name="theme-color" content="#2340A8">
+<link rel="icon" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #F4F6FA; --sup: #FFFFFF; --borda: #D9DEEA; --texto: #141C33; --texto2: #586179; --tinta: #2340A8; --sobre-tinta: #FFFFFF; --sup2: #ECEFF6; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #0E1220; --sup: #161B2B; --borda: #2A3149; --texto: #E5E8F1; --texto2: #98A1B7; --tinta: #93A8FF; --sobre-tinta: #0E1220; --sup2: #1D2335; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--texto); font-family: "Atkinson Hyperlegible", system-ui, sans-serif; line-height: 1.55; }
+  header { background: linear-gradient(160deg, #2340A8, #14213D); color: #fff; padding: 56px 16px 64px; }
+  .caixa { max-width: 920px; margin: 0 auto; }
+  .marca { display: flex; align-items: center; gap: 12px; font-family: Fraunces, Georgia, serif; font-weight: 700; font-size: 30px; }
+  .marca img { width: 48px; height: 48px; border-radius: 10px; }
+  h1 { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: clamp(30px, 5vw, 46px); line-height: 1.12; margin: 28px 0 12px; max-width: 700px; }
+  header p { color: #D8DFF7; font-size: 18px; max-width: 640px; margin: 0 0 26px; }
+  .bt { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 700; padding: 15px 22px; border-radius: 12px; background: #fff; color: #2340A8; }
+  .nota { font-size: 14px; color: #D8DFF7; margin-top: 12px; }
+  main { padding: 40px 16px; }
+  .grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .cartao { background: var(--sup); border: 1px solid var(--borda); border-radius: 16px; padding: 22px; }
+  .cartao h2 { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 20px; margin: 0 0 6px; }
+  .cartao p { margin: 0; color: var(--texto2); font-size: 15px; }
+  .passos { margin-top: 32px; background: var(--sup2); border-radius: 16px; padding: 22px; }
+  .passos h2 { font-family: Fraunces, Georgia, serif; font-weight: 600; margin: 0 0 8px; }
+  ol { margin: 0; padding-left: 20px; }
+  li { margin: 6px 0; }
+  footer { text-align: center; color: var(--texto2); font-size: 13px; padding: 0 16px 32px; }
+  a { color: var(--tinta); }
+</style>
+</head>
+<body>
+<header>
+  <div class="caixa">
+    <div class="marca"><img src="icon.png" alt="">Aprova</div>
+    <h1>Estude para o seu concurso com método, sozinho ou com a sua turma.</h1>
+    <p>Provas reais com gabarito, simulados, revisão no dia certo, metas da semana, grupos de estudo e ranking. Grátis.</p>
+    <a class="bt" href="https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip">Baixar para Windows</a>
+    <div class="nota">Recebeu um convite de grupo? Abra o link que te mandaram: ele leva direto para o grupo.</div>
+  </div>
+</header>
+<main>
+  <div class="caixa">
+    <div class="grade">
+      <div class="cartao"><h2>Provas reais</h2><p>Busca nas bancas e importa as provas com o gabarito oficial, prontas para resolver.</p></div>
+      <div class="cartao"><h2>Onde focar</h2><p>Mostra onde você está bem e onde precisa melhorar, por disciplina.</p></div>
+      <div class="cartao"><h2>Metas e revisão</h2><p>Meta de horas da semana, cronômetro e revisão espaçada do que você erra.</p></div>
+      <div class="cartao"><h2>Grupos de estudo</h2><p>Conversa da turma, dúvidas, materiais, planos de estudo e ranking do grupo.</p></div>
+    </div>
+    <div class="passos">
+      <h2>Como instalar</h2>
+      <ol>
+        <li>Baixe o .zip e extraia numa pasta (ex.: Documentos).</li>
+        <li>Dê dois cliques em <strong>Abrir Aprova.bat</strong>. Na primeira vez ele instala o que precisa (5 a 10 minutos).</li>
+        <li>Depois, abra pelo atalho <strong>Aprova</strong> na área de trabalho.</li>
+      </ol>
+    </div>
+  </div>
+</main>
+<footer>Aprova · <a href="https://github.com/NatanaelSantz/aprova">código no GitHub</a></footer>
+</body>
+</html>

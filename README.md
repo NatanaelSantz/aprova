@@ -1,4 +1,6 @@
-# Aprova — estudo para concursos públicos (v1.7)
+# Aprova — estudo para concursos públicos (v1.8)
+
+Site e download: https://natanaelsantz.github.io/aprova/
 
 App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolver as provas no próprio app e ver onde focar os estudos.
 
@@ -37,7 +39,8 @@ App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolv
   - *Livros*: indicações por disciplina, das mais fracas para as mais fortes, com material oficial gratuito (leis no Planalto).
 - **Contas e login**: cada pessoa entra com e-mail e senha e tem seus estudos separados. Há dois tipos de conta: **aluno** e **administrador** (veja abaixo). Quem não quiser conta usa o app normalmente com “Usar sem conta”.
 - **Tela que se ajusta ao aparelho**: no celular, menu embaixo; em tela média, menu lateral compacto; em tela grande, menu lateral completo e o conteúdo centralizado.
-- **Grupos de estudo (fórum)**: cada grupo tem a sua conversa, onde a turma combina simulados, tira dúvidas, troca materiais e compartilha **planos de estudo**. Só quem tem o código entra e só quem está no grupo vê as mensagens. Fica no menu **Grupos**.
+- **Grupos de estudo (fórum)**: cada grupo tem a sua conversa, onde a turma combina simulados, tira dúvidas, troca materiais e compartilha **planos de estudo**. Só quem tem o convite entra e só quem está no grupo vê as mensagens. Fica no menu **Grupos**.
+- **Convite por link**: em **Grupos → Convidar**, mande o link do grupo pelo WhatsApp, Telegram ou e-mail, ou salve uma imagem com QR code para os Stories do Instagram e o TikTok. Quem abre o link entra no grupo com um clique, sem digitar código nem preencher cadastro.
 - **Ranking**: crie uma conta com apelido e compare horas, questões, acerto e sequência da semana com outras pessoas, no geral ou em grupos com código (a turma do concurso, os amigos). Fica em Painel → Ranking.
 - **Revisão espaçada** (Estudar → Revisão): o que você erra ou marca com a bandeira volta no dia certo (1, 3, 7, 15 e 30 dias) até ficar dominado.
 - **Dúvidas**: no painel de Ajuda de cada questão, escreva sua dúvida; o Aprova pesquisa na internet para responder (com a chave do Claude, a resposta vem explicada). Todas ficam guardadas em Estudar → Dúvidas.
@@ -132,13 +135,32 @@ Sem o servidor configurado, a tela de entrada mostra **Começar a estudar** (o a
 
 No menu **Grupos**:
 
-- **Entrar com código** (quem criou o grupo te passa) ou **Criar grupo**. Quem cria vira **moderador** do grupo.
+- **Criar grupo** (quem cria vira **moderador**) e **Convidar**: o botão abre o link do grupo para mandar pelo WhatsApp, Telegram, e-mail, Instagram ou TikTok (veja abaixo). Também dá para **Entrar com código**.
 - **Conversa**: escreva para a turma e escolha o tipo: *Conversa*, *Dúvida* ou *Material* (links viram o botão “Abrir link”). Cada mensagem tem **Útil** e **Responder**.
 - **Planos de estudo**: em **Compartilhar um plano**, coloque as horas por semana de cada disciplina, os dias de estudo e como usar. Quem gostar toca em **Usar este plano**: a meta semanal e os dias passam a ser os do plano, e a tela **Início** mostra quanto você já estudou de cada disciplina na semana.
 - **Ranking** do grupo (horas da semana) e **Membros**.
 - **Moderação**: quem criou o grupo (e o administrador) **fixa** recados no topo e **apaga** mensagens. Cada pessoa apaga as próprias. Conta bloqueada pelo admin não escreve.
 - Mensagens novas aparecem num aviso na tela **Início** (“Novidades nos seus grupos”).
 - O administrador vê o fórum de qualquer grupo em **Admin → Grupos → Ver fórum**, para moderar.
+
+### Convite por link
+
+Em **Grupos → Convidar**:
+
+- **WhatsApp**, **Telegram** e **E-mail** abrem a mensagem pronta com o link.
+- **Instagram** e **TikTok** não deixam compartilhar direto do computador. O Aprova salva na pasta Downloads uma **imagem 1080×1920 com QR code** para os Stories e o TikTok, e copia o link para você colar no adesivo de link, na bio ou no direct.
+- **Copiar link** e **Copiar mensagem pronta** servem para qualquer outro lugar.
+
+O link é assim: `https://natanaelsantz.github.io/aprova/convite/?g=CODIGO`. Quem abre:
+
+1. Vê o nome do grupo e quantas pessoas estudam nele.
+2. Clica em **Entrar no grupo**. Se já tem o Aprova, o app abre sozinho (endereço `aprova://`, registrado no Windows quando o Aprova abre pela primeira vez).
+3. Se tem conta, já entra no grupo. Se não tem, só confere o apelido sugerido e toca em **Entrar no grupo** (conta rápida, sem e-mail e senha).
+4. Se ainda não tem o Aprova: baixa pela própria página. O link fica copiado e, quando o app abre, ele encontra o convite e oferece entrar no grupo.
+
+No celular, a página explica que o Aprova é para computador e oferece copiar o link ou mandar para si mesmo no WhatsApp.
+
+A **conta rápida** fica só naquele computador. Para entrar de outro lugar, a pessoa coloca e-mail e senha em **Minha conta → Proteger minha conta**.
 
 No celular, a barra de baixo mostra Início, Concursos, Provas, Estudar, Grupos e Painel; **Ajustes** (e **Administração**, para o admin) ficam no menu do seu avatar, na tela Início.
 
@@ -148,14 +170,14 @@ O ranking e as contas precisam de um servidor na internet. Usamos o **Supabase**
 
 1. Crie uma conta em [supabase.com](https://supabase.com) e um projeto novo no plano **Free**.
 2. No projeto, abra **SQL Editor**, cole todo o arquivo `supabase/ranking.sql` (está na pasta do app) e clique em **Run**.
-3. Opcional: em **Authentication**, nas opções do login por e-mail, desligue **Confirm email** para as pessoas entrarem sem precisar confirmar o e-mail. Se deixar ligado, cada pessoa confirma pelo e-mail antes do primeiro acesso.
+3. Em **Authentication → Sign In / Providers**: desligue **Confirm email** (as pessoas entram sem confirmar o e-mail) e ligue **Allow anonymous sign-ins** e **Allow manual linking** (conta rápida dos convites e "Proteger minha conta").
 4. No botão **Connect** do projeto (ou em **Settings → API Keys**), copie a **Project URL** e a chave pública (**publishable** ou **anon**).
 5. No Aprova: na tela de entrada, **Ligar as contas online** (ou **Ajustes → Ranking → Servidor do ranking**), cole as duas e salve.
 6. Crie a sua conta primeiro: a primeira conta vira **administrador**.
 
 Se você já tinha rodado o `ranking.sql` de uma versão anterior, rode o arquivo novo de novo: ele acrescenta o que falta (papéis, comunicados, fórum dos grupos) sem apagar nada.
 
-O passo 5 cria o arquivo `ranking.json` na pasta do app, que vai junto no .zip para os testadores.
+O passo 5 cria o arquivo `ranking.json` na pasta do app. O servidor oficial do Aprova vem em `aprova/servidor.json` (endereço e chave pública), então quem baixa o app já entra nele; o `ranking.json`, quando existe, vale mais.
 
 Nunca coloque no app a chave **service_role** / **secret** (o Aprova recusa).
 
@@ -204,7 +226,10 @@ supabase/         ranking.sql: tabelas, papéis e regras de acesso do servidor
   ia.py           recursos opcionais com a API do Claude
   db.py           banco SQLite local
   voz.py          leitura em voz alta
+  convite.py      link de convite, endereço aprova://, imagem com QR code para Stories
+  servidor.json   servidor padrão (endereço e chave pública do Supabase)
   ui/             telas (Flet); login.py = entrada e conta, admin.py = administrador, grupos.py = grupos e fórum
+docs/             site no GitHub Pages: página inicial e página do convite (docs/convite)
 iniciar.pyw       abre o app sem console; instala o que faltar com uma janela de progresso
 ferramentas/      ajudantes do instalador (achar e instalar o Python)
 tests/            testes com páginas e PDFs de exemplo
