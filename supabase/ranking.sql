@@ -1,4 +1,4 @@
--- Aprova: contas, papéis (admin/aluno) e ranking entre estudantes (Supabase)
+-- Aprova: contas, papéis (admin/aluno), ranking, grupos e fórum dos grupos (Supabase)
 -- Como usar: no painel do Supabase, abra "SQL Editor", cole este arquivo inteiro e clique em "Run".
 -- Pode rodar de novo sem problema (ele não apaga dados).
 
@@ -151,6 +151,151 @@ drop policy if exists "comunicados: admin muda" on public.comunicados;
 create policy "comunicados: admin muda" on public.comunicados for update to authenticated using (public.eh_admin()) with check (public.eh_admin());
 drop policy if exists "comunicados: admin apaga" on public.comunicados;
 create policy "comunicados: admin apaga" on public.comunicados for delete to authenticated using (public.eh_admin());
+
+-- ---------------------------------------------------------------- fórum dos grupos
+-- Só quem é do grupo lê e escreve. Quem criou o grupo (e o admin) modera: fixa e apaga mensagens.
+create or replace function public.eh_membro(cod text) returns boolean
+language sql stable security definer set search_path = public as $$
+    select exists (select 1 from public.membros where codigo = cod and usuario_id = auth.uid());
+$$;
+create or replace function public.modera_grupo(cod text) returns boolean
+language sql stable security definer set search_path = public as $$
+    select public.eh_admin() or exists (select 1 from public.grupos where codigo = cod and criado_por = auth.uid());
+$$;
+create or replace function public.pode_escrever(cod text) returns boolean
+language sql stable security definer set search_path = public as $$
+    select public.eh_membro(cod) and not exists (select 1 from public.perfis where id = auth.uid() and bloqueado);
+$$;
+grant execute on function public.eh_membro(text), public.modera_grupo(text), public.pode_escrever(text) to authenticated;
+
+create table if not exists public.forum_posts (
+    id bigint generated always as identity primary key,
+    codigo text not null references public.grupos (codigo) on delete cascade,
+    autor uuid not null default auth.uid() references public.perfis (id) on delete cascade,
+    tipo text not null default 'conversa' check (tipo in ('conversa', 'duvida', 'material', 'plano')),
+    titulo text not null default '' check (char_length(titulo) <= 120),
+    texto text not null default '' check (char_length(texto) <= 4000),
+    plano jsonb check (plano is null or (jsonb_typeof(plano) = 'object' and octet_length(plano::text) <= 4000)),
+    fixado boolean not null default false,
+    criado_em timestamptz not null default now(),
+    editado_em timestamptz,
+    check (char_length(titulo) + char_length(texto) > 0)
+);
+create index if not exists forum_posts_grupo on public.forum_posts (codigo, criado_em desc);
+alter table public.forum_posts enable row level security;
+
+-- só quem modera fixa; ninguém troca o grupo nem o autor; o texto só o autor muda
+create or replace function public.proteger_post() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+    if tg_op = 'INSERT' then
+        if not public.modera_grupo(new.codigo) then
+            new.fixado := false;
+        end if;
+        new.criado_em := now();
+        new.editado_em := null;
+        return new;
+    end if;
+    new.codigo := old.codigo;
+    new.autor := old.autor;
+    new.criado_em := old.criado_em;
+    if not public.modera_grupo(old.codigo) then
+        new.fixado := old.fixado;
+    end if;
+    if new.titulo is distinct from old.titulo or new.texto is distinct from old.texto or new.plano is distinct from old.plano or new.tipo is distinct from old.tipo then
+        if old.autor = auth.uid() then
+            new.editado_em := now();
+        else
+            new.titulo := old.titulo;
+            new.texto := old.texto;
+            new.plano := old.plano;
+            new.tipo := old.tipo;
+        end if;
+    end if;
+    return new;
+end $$;
+drop trigger if exists proteger_post on public.forum_posts;
+create trigger proteger_post before insert or update on public.forum_posts
+    for each row execute function public.proteger_post();
+
+drop policy if exists "forum: membros leem" on public.forum_posts;
+create policy "forum: membros leem" on public.forum_posts for select to authenticated using (public.eh_membro(codigo) or public.eh_admin());
+drop policy if exists "forum: membros escrevem" on public.forum_posts;
+create policy "forum: membros escrevem" on public.forum_posts for insert to authenticated with check (autor = auth.uid() and public.pode_escrever(codigo));
+drop policy if exists "forum: autor ou moderador muda" on public.forum_posts;
+create policy "forum: autor ou moderador muda" on public.forum_posts for update to authenticated
+    using ((autor = auth.uid() and public.pode_escrever(codigo)) or public.modera_grupo(codigo))
+    with check ((autor = auth.uid() and public.pode_escrever(codigo)) or public.modera_grupo(codigo));
+drop policy if exists "forum: autor ou moderador apaga" on public.forum_posts;
+create policy "forum: autor ou moderador apaga" on public.forum_posts for delete to authenticated using (autor = auth.uid() or public.modera_grupo(codigo));
+
+create table if not exists public.forum_respostas (
+    id bigint generated always as identity primary key,
+    post_id bigint not null references public.forum_posts (id) on delete cascade,
+    codigo text not null default '',
+    autor uuid not null default auth.uid() references public.perfis (id) on delete cascade,
+    texto text not null check (char_length(texto) between 1 and 2000),
+    criado_em timestamptz not null default now()
+);
+create index if not exists forum_respostas_post on public.forum_respostas (post_id, criado_em);
+alter table public.forum_respostas enable row level security;
+
+create table if not exists public.forum_uteis (
+    post_id bigint not null references public.forum_posts (id) on delete cascade,
+    usuario_id uuid not null default auth.uid() references public.perfis (id) on delete cascade,
+    codigo text not null default '',
+    primary key (post_id, usuario_id)
+);
+alter table public.forum_uteis enable row level security;
+
+-- respostas e "útil" herdam o grupo da mensagem (ninguém escolhe o grupo à mão)
+create or replace function public.grupo_do_post() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+    select codigo into new.codigo from public.forum_posts where id = new.post_id;
+    if new.codigo is null then
+        raise exception 'mensagem não encontrada';
+    end if;
+    if tg_table_name = 'forum_respostas' then
+        new.criado_em := now();
+    end if;
+    return new;
+end $$;
+drop trigger if exists grupo_do_post on public.forum_respostas;
+create trigger grupo_do_post before insert or update on public.forum_respostas
+    for each row execute function public.grupo_do_post();
+drop trigger if exists grupo_do_post on public.forum_uteis;
+create trigger grupo_do_post before insert or update on public.forum_uteis
+    for each row execute function public.grupo_do_post();
+
+drop policy if exists "respostas: membros leem" on public.forum_respostas;
+create policy "respostas: membros leem" on public.forum_respostas for select to authenticated using (public.eh_membro(codigo) or public.eh_admin());
+drop policy if exists "respostas: membros escrevem" on public.forum_respostas;
+create policy "respostas: membros escrevem" on public.forum_respostas for insert to authenticated with check (autor = auth.uid() and public.pode_escrever(codigo));
+drop policy if exists "respostas: autor ou moderador apaga" on public.forum_respostas;
+create policy "respostas: autor ou moderador apaga" on public.forum_respostas for delete to authenticated using (autor = auth.uid() or public.modera_grupo(codigo));
+
+drop policy if exists "uteis: membros leem" on public.forum_uteis;
+create policy "uteis: membros leem" on public.forum_uteis for select to authenticated using (public.eh_membro(codigo) or public.eh_admin());
+drop policy if exists "uteis: marca" on public.forum_uteis;
+create policy "uteis: marca" on public.forum_uteis for insert to authenticated with check (usuario_id = auth.uid() and public.pode_escrever(codigo));
+drop policy if exists "uteis: desmarca" on public.forum_uteis;
+create policy "uteis: desmarca" on public.forum_uteis for delete to authenticated using (usuario_id = auth.uid());
+
+-- o que o app lê: mensagens com apelido e contagens
+create or replace view public.forum_feed with (security_invoker = true) as
+select f.id, f.codigo, f.autor, p.apelido, f.tipo, f.titulo, f.texto, f.plano, f.fixado, f.criado_em, f.editado_em,
+       (select count(*) from public.forum_respostas r where r.post_id = f.id) as respostas,
+       (select count(*) from public.forum_uteis u where u.post_id = f.id) as uteis
+from public.forum_posts f
+join public.perfis p on p.id = f.autor;
+
+create or replace view public.forum_respostas_v with (security_invoker = true) as
+select r.id, r.post_id, r.codigo, r.autor, p.apelido, r.texto, r.criado_em
+from public.forum_respostas r
+join public.perfis p on p.id = r.autor;
+
+grant select on public.forum_feed, public.forum_respostas_v to authenticated;
 
 -- ---------------------------------------------------------------- apagar a própria conta (LGPD)
 create or replace function public.apagar_minha_conta() returns void

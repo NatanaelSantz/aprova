@@ -41,8 +41,12 @@ class TelaInicio:
         continuar = self._continuar()
         alarmes = self._alarmes_hoje()
         r = metas.resumo(app)
+        from .grupos import cartao_plano_ativo
+
         motivacao = ft.Column(
-            [metas.indicadores(app, r), metas.horas_por_dia(app, r)] + ([x] if (x := metas.proximo_estudo(app)) else []),
+            [metas.indicadores(app, r), metas.horas_por_dia(app, r)]
+            + ([x] if (x := cartao_plano_ativo(app)) else [])
+            + ([x] if (x := metas.proximo_estudo(app)) else []),
             spacing=14,
         )
         cronometro = app.botao_estudo()
@@ -56,7 +60,8 @@ class TelaInicio:
                 [ft.Row([cabecalho, ft.Container(expand=True), app.menu_conta(compacto=True)], vertical_alignment=ft.CrossAxisAlignment.START), cronometro],
                 spacing=12,
             )
-        self.caixa_comunicados = ft.Column(self._cartoes_comunicados(app.comunicados_cache()), spacing=10)
+        topo = self._cartoes_topo()
+        self.caixa_comunicados = ft.Column(topo, spacing=10, visible=bool(topo))
         if app.largo:
             corpo = ft.ResponsiveRow(
                 [
@@ -80,12 +85,46 @@ class TelaInicio:
         self.app.page.run_task(self._buscar_comunicados)
 
     async def _buscar_comunicados(self):
-        lista = await self.app.carregar_comunicados()
+        await self.app.carregar_comunicados()
+        await self.app.carregar_novidades()
         try:
-            self.caixa_comunicados.controls = self._cartoes_comunicados(lista)
+            self.caixa_comunicados.controls = self._cartoes_topo()
+            self.caixa_comunicados.visible = bool(self.caixa_comunicados.controls)
             self.caixa_comunicados.update()
         except Exception:  # noqa: BLE001 - saiu da tela
             pass
+
+    def _cartoes_topo(self) -> list[ft.Control]:
+        return self._cartoes_comunicados(self.app.comunicados_cache()) + self._cartoes_grupos()
+
+    def _cartoes_grupos(self) -> list[ft.Control]:
+        """Aviso de mensagens novas nos grupos desde a última visita."""
+        app, c = self.app, self.app.c
+        novas = {k: v for k, v in app.novidades_grupos().items() if v}
+        if not novas:
+            return []
+        itens = sorted(novas.items(), key=lambda x: -x[1])
+        partes = [f"{app.nomes_grupos.get(cod, cod)}: {n} mensage{'ns' if n != 1 else 'm'} nova{'s' if n != 1 else ''}" for cod, n in itens[:3]]
+        return [
+            ft.Container(
+                ft.Row(
+                    [
+                        ft.Icon(ft.Icons.FORUM_OUTLINED, color=c["tinta"], size=26),
+                        ft.Column(
+                            [ft.Text("Novidades nos seus grupos", size=16, weight=ft.FontWeight.W_700, color=c["texto"]), comp.apagado(" · ".join(partes), c, 14)],
+                            spacing=2,
+                            expand=True,
+                        ),
+                        comp.botao_contorno("Ver", lambda e, cod=itens[0][0]: app.ir("grupos", codigo=cod, aba="conversa"), ft.Icons.ARROW_FORWARD),
+                    ],
+                    spacing=12,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                bgcolor=c["tinta_suave"],
+                border_radius=14,
+                padding=ft.Padding.only(left=18, right=12, top=12, bottom=12),
+            )
+        ]
 
     def _cartoes_comunicados(self, lista: list) -> list[ft.Control]:
         c = self.app.c
@@ -99,7 +138,8 @@ class TelaInicio:
                 v = list(self.app.aj.get("comunicados_vistos", []) or [])
                 v.append(mid)
                 self.app.aj.set("comunicados_vistos", v[-50:])
-                self.caixa_comunicados.controls = self._cartoes_comunicados(self.app.comunicados_cache())
+                self.caixa_comunicados.controls = self._cartoes_topo()
+                self.caixa_comunicados.visible = bool(self.caixa_comunicados.controls)
                 self.caixa_comunicados.update()
 
             cartoes.append(
@@ -215,7 +255,7 @@ class TelaInicio:
         app, c = self.app, self.app.c
         novos = app.db.avisos_novos()
         if not novos:
-            return ft.Container()
+            return ft.Container(visible=False)
 
         def ver(av):
             def _f(e):

@@ -1,4 +1,4 @@
-# Aprova — estudo para concursos públicos (v1.6)
+# Aprova — estudo para concursos públicos (v1.7)
 
 App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolver as provas no próprio app e ver onde focar os estudos.
 
@@ -37,6 +37,7 @@ App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolv
   - *Livros*: indicações por disciplina, das mais fracas para as mais fortes, com material oficial gratuito (leis no Planalto).
 - **Contas e login**: cada pessoa entra com e-mail e senha e tem seus estudos separados. Há dois tipos de conta: **aluno** e **administrador** (veja abaixo). Quem não quiser conta usa o app normalmente com “Usar sem conta”.
 - **Tela que se ajusta ao aparelho**: no celular, menu embaixo; em tela média, menu lateral compacto; em tela grande, menu lateral completo e o conteúdo centralizado.
+- **Grupos de estudo (fórum)**: cada grupo tem a sua conversa, onde a turma combina simulados, tira dúvidas, troca materiais e compartilha **planos de estudo**. Só quem tem o código entra e só quem está no grupo vê as mensagens. Fica no menu **Grupos**.
 - **Ranking**: crie uma conta com apelido e compare horas, questões, acerto e sequência da semana com outras pessoas, no geral ou em grupos com código (a turma do concurso, os amigos). Fica em Painel → Ranking.
 - **Revisão espaçada** (Estudar → Revisão): o que você erra ou marca com a bandeira volta no dia certo (1, 3, 7, 15 e 30 dias) até ficar dominado.
 - **Dúvidas**: no painel de Ajuda de cada questão, escreva sua dúvida; o Aprova pesquisa na internet para responder (com a chave do Claude, a resposta vem explicada). Todas ficam guardadas em Estudar → Dúvidas.
@@ -127,6 +128,20 @@ As regras ficam no próprio servidor (`supabase/ranking.sql`): um aluno não con
 
 Sem o servidor configurado, a tela de entrada mostra **Começar a estudar** (o app funciona todo, só sem contas e ranking).
 
+## Grupos de estudo e fórum
+
+No menu **Grupos**:
+
+- **Entrar com código** (quem criou o grupo te passa) ou **Criar grupo**. Quem cria vira **moderador** do grupo.
+- **Conversa**: escreva para a turma e escolha o tipo: *Conversa*, *Dúvida* ou *Material* (links viram o botão “Abrir link”). Cada mensagem tem **Útil** e **Responder**.
+- **Planos de estudo**: em **Compartilhar um plano**, coloque as horas por semana de cada disciplina, os dias de estudo e como usar. Quem gostar toca em **Usar este plano**: a meta semanal e os dias passam a ser os do plano, e a tela **Início** mostra quanto você já estudou de cada disciplina na semana.
+- **Ranking** do grupo (horas da semana) e **Membros**.
+- **Moderação**: quem criou o grupo (e o administrador) **fixa** recados no topo e **apaga** mensagens. Cada pessoa apaga as próprias. Conta bloqueada pelo admin não escreve.
+- Mensagens novas aparecem num aviso na tela **Início** (“Novidades nos seus grupos”).
+- O administrador vê o fórum de qualquer grupo em **Admin → Grupos → Ver fórum**, para moderar.
+
+No celular, a barra de baixo mostra Início, Concursos, Provas, Estudar, Grupos e Painel; **Ajustes** (e **Administração**, para o admin) ficam no menu do seu avatar, na tela Início.
+
 ## Ranking (comparar com outras pessoas)
 
 O ranking e as contas precisam de um servidor na internet. Usamos o **Supabase**, que tem plano grátis. Quem cuida do app configura **uma vez** (uns 10 minutos):
@@ -138,7 +153,7 @@ O ranking e as contas precisam de um servidor na internet. Usamos o **Supabase**
 5. No Aprova: na tela de entrada, **Ligar as contas online** (ou **Ajustes → Ranking → Servidor do ranking**), cole as duas e salve.
 6. Crie a sua conta primeiro: a primeira conta vira **administrador**.
 
-Se você já tinha rodado o `ranking.sql` da versão 1.5, rode o arquivo novo de novo: ele acrescenta os papéis e os comunicados sem apagar nada.
+Se você já tinha rodado o `ranking.sql` de uma versão anterior, rode o arquivo novo de novo: ele acrescenta o que falta (papéis, comunicados, fórum dos grupos) sem apagar nada.
 
 O passo 5 cria o arquivo `ranking.json` na pasta do app, que vai junto no .zip para os testadores.
 
@@ -189,7 +204,7 @@ supabase/         ranking.sql: tabelas, papéis e regras de acesso do servidor
   ia.py           recursos opcionais com a API do Claude
   db.py           banco SQLite local
   voz.py          leitura em voz alta
-  ui/             telas (Flet); login.py = entrada e conta, admin.py = tela do administrador
+  ui/             telas (Flet); login.py = entrada e conta, admin.py = administrador, grupos.py = grupos e fórum
 iniciar.pyw       abre o app sem console; instala o que faltar com uma janela de progresso
 ferramentas/      ajudantes do instalador (achar e instalar o Python)
 tests/            testes com páginas e PDFs de exemplo
@@ -197,6 +212,8 @@ tests/            testes com páginas e PDFs de exemplo
 
 Rodar os testes: `python -m pytest -q tests`
 
-Testar contas sem internet: `python tests/servidor_falso.py 8788` sobe um servidor falso com 6 pessoas e o grupo `DATAPREV-7A2F`; aponte o app para `http://127.0.0.1:8788` com qualquer chave.
+Testar as regras do servidor num PostgreSQL de verdade (opcional): `APROVA_PG="host=... port=... user=postgres dbname=postgres" python -m pytest tests/test_sql_supabase.py` (o banco é recriado do zero; use um só para testes).
+
+Testar contas sem internet: `python tests/servidor_falso.py 8788` sobe um servidor falso com 6 pessoas e o grupo `DATAPREV-7A2F` (com conversa e um plano de estudo de exemplo); aponte o app para `http://127.0.0.1:8788` com qualquer chave.
 
 Versões: o projeto usa git, com uma etiqueta por versão (`git tag` lista; `git log --oneline` mostra o histórico).
