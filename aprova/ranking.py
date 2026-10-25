@@ -1,4 +1,4 @@
-"""Contas do Aprova (aluno e administrador) e ranking entre estudantes, num projeto Supabase (grátis).
+"""Contas do Aprova (aluno e administrador), ranking e fórum dos grupos, num projeto Supabase (grátis).
 
 - O endereço e a chave pública do projeto ficam em `ranking.json`, na pasta do app
   (vão junto no .zip para os testadores). A chave "anon" é pública por natureza:
@@ -15,8 +15,9 @@ import re
 import secrets
 import threading
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 import requests
 
@@ -357,7 +358,10 @@ class Ranking:
         if not cods:
             return []
         lista = ",".join(cods)
-        return self._pedir("GET", f"/rest/v1/grupos?codigo=in.({lista})&select=codigo,nome&order=nome").json()
+        grupos = self._pedir("GET", f"/rest/v1/grupos?codigo=in.({lista})&select=codigo,nome,criado_por&order=nome").json()
+        for g in grupos:
+            g["modero"] = self.eh_admin or g.get("criado_por") == self.usuario_id
+        return grupos
 
     def criar_grupo(self, nome: str) -> str:
         nome = nome.strip()
@@ -384,6 +388,121 @@ class Ranking:
     def sair_grupo(self, codigo: str) -> None:
         self._pedir("DELETE", f"/rest/v1/membros?codigo=eq.{codigo}&usuario_id=eq.{self.usuario_id}")
 
+    def membros_grupo(self, codigo: str) -> list[dict]:
+        """Quem está no grupo (apelido e concurso), com quem criou o grupo marcado."""
+        ids = [m["usuario_id"] for m in self._pedir("GET", f"/rest/v1/membros?codigo=eq.{codigo}&select=usuario_id&limit=1000").json()]
+        if not ids:
+            return []
+        grupo = self._pedir("GET", f"/rest/v1/grupos?codigo=eq.{codigo}&select=criado_por").json()
+        criador = grupo[0].get("criado_por") if grupo else None
+        perfis = self._pedir("GET", f"/rest/v1/perfis?id=in.({','.join(ids)})&select=id,apelido,concurso,bloqueado").json()
+        saida = [
+            {"usuario_id": p["id"], "apelido": p["apelido"], "concurso": p.get("concurso") or "", "criador": p["id"] == criador, "voce": p["id"] == self.usuario_id}
+            for p in perfis
+            if not p.get("bloqueado")
+        ]
+        return sorted(saida, key=lambda m: (not m["criador"], m["apelido"].lower()))
+
+    # ---- fórum dos grupos (o servidor só mostra para quem é do grupo)
+
+    def forum(self, codigo: str, tipo: str | None = None, limite: int = 60) -> list[dict]:
+        """Mensagens do grupo, fixadas primeiro. tipo='plano' traz só os planos; 'conversa', o resto."""
+        filtros = [
+            f"codigo=eq.{codigo}",
+            "select=id,codigo,autor,apelido,tipo,titulo,texto,plano,fixado,criado_em,editado_em,respostas,uteis",
+            "order=fixado.desc,criado_em.desc",
+            f"limit={limite}",
+        ]
+        if tipo == "plano":
+            filtros.append("tipo=eq.plano")
+        elif tipo == "conversa":
+            filtros.append("tipo=neq.plano")
+        posts = self._pedir("GET", "/rest/v1/forum_feed?" + "&".join(filtros)).json()
+        meus: set[int] = set()
+        if posts:
+            ids = ",".join(str(p["id"]) for p in posts)
+            meus = {u["post_id"] for u in self._pedir("GET", f"/rest/v1/forum_uteis?post_id=in.({ids})&usuario_id=eq.{self.usuario_id}&select=post_id").json()}
+        for p in posts:
+            if isinstance(p.get("plano"), str):
+                try:
+                    p["plano"] = json.loads(p["plano"])
+                except ValueError:
+                    p["plano"] = None
+            p["meu"] = p.get("autor") == self.usuario_id
+            p["util_meu"] = p["id"] in meus
+            p["respostas"] = int(p.get("respostas") or 0)
+            p["uteis"] = int(p.get("uteis") or 0)
+        return posts
+
+    def forum_publicar(self, codigo: str, texto: str, tipo: str = "conversa", titulo: str = "", plano: dict | None = None) -> None:
+        if tipo not in TIPOS_FORUM:
+            raise ErroRanking("Tipo de mensagem inválido.")
+        texto, titulo = (texto or "").strip(), re.sub(r"\s+", " ", (titulo or "").strip())
+        if len(texto) > 4000:
+            raise ErroRanking("A mensagem pode ter até 4000 letras.")
+        if len(titulo) > 120:
+            raise ErroRanking("O título pode ter até 120 letras.")
+        if tipo == "plano":
+            plano = validar_plano(plano or {})
+            if len(titulo) < 3:
+                raise ErroRanking("Dê um nome ao plano (ex.: Plano 12h para a Dataprev).")
+        else:
+            plano = None
+            if not texto:
+                raise ErroRanking("Escreva a mensagem.")
+        corpo = {"codigo": codigo, "autor": self.usuario_id, "tipo": tipo, "titulo": titulo, "texto": texto, "plano": plano}
+        self._pedir("POST", "/rest/v1/forum_posts", json=corpo, cabecalhos={"Prefer": "return=minimal"})
+
+    def forum_respostas(self, post_id: int) -> list[dict]:
+        linhas = self._pedir("GET", f"/rest/v1/forum_respostas_v?post_id=eq.{int(post_id)}&select=id,post_id,autor,apelido,texto,criado_em&order=criado_em.asc&limit=200").json()
+        for l in linhas:
+            l["meu"] = l.get("autor") == self.usuario_id
+        return linhas
+
+    def forum_responder(self, post_id: int, texto: str) -> None:
+        texto = (texto or "").strip()
+        if not 1 <= len(texto) <= 2000:
+            raise ErroRanking("A resposta deve ter de 1 a 2000 letras.")
+        self._pedir("POST", "/rest/v1/forum_respostas", json={"post_id": int(post_id), "autor": self.usuario_id, "texto": texto}, cabecalhos={"Prefer": "return=minimal"})
+
+    def forum_util(self, post_id: int, marcar: bool) -> None:
+        if marcar:
+            try:
+                self._pedir("POST", "/rest/v1/forum_uteis", json={"post_id": int(post_id), "usuario_id": self.usuario_id}, cabecalhos={"Prefer": "return=minimal"})
+            except ErroRanking as e:
+                if "já existe" not in str(e):
+                    raise
+        else:
+            self._pedir("DELETE", f"/rest/v1/forum_uteis?post_id=eq.{int(post_id)}&usuario_id=eq.{self.usuario_id}")
+
+    def forum_fixar(self, post_id: int, fixado: bool) -> None:
+        self._pedir("PATCH", f"/rest/v1/forum_posts?id=eq.{int(post_id)}", json={"fixado": bool(fixado)}, cabecalhos={"Prefer": "return=minimal"})
+
+    def forum_apagar(self, post_id: int) -> None:
+        self._pedir("DELETE", f"/rest/v1/forum_posts?id=eq.{int(post_id)}")
+
+    def forum_apagar_resposta(self, resposta_id: int) -> None:
+        self._pedir("DELETE", f"/rest/v1/forum_respostas?id=eq.{int(resposta_id)}")
+
+    def forum_novidades(self, codigos: list[str], vistos: dict[str, str]) -> dict[str, int]:
+        """Quantas mensagens de outras pessoas chegaram em cada grupo desde a última visita."""
+        if not codigos:
+            return {}
+        marcas = {c: _quando(vistos.get(c)) for c in codigos}
+        desde = min(marcas.values())
+        filtros = [
+            f"codigo=in.({','.join(codigos)})",
+            f"autor=neq.{self.usuario_id}",
+            f"criado_em=gt.{quote(desde.isoformat(), safe='')}",
+            "select=codigo,criado_em",
+            "order=criado_em.desc",
+            "limit=300",
+        ]
+        cont = {c: 0 for c in codigos}
+        for l in self._pedir("GET", "/rest/v1/forum_feed?" + "&".join(filtros)).json():
+            if l["codigo"] in cont and _quando(l["criado_em"]) > marcas[l["codigo"]]:
+                cont[l["codigo"]] += 1
+        return cont
 
     # ---- comunicados (todos leem; admin escreve)
 
@@ -484,6 +603,62 @@ class Ranking:
 
     def apagar_grupo(self, codigo: str) -> None:
         self._pedir("DELETE", f"/rest/v1/grupos?codigo=eq.{codigo}")
+
+
+TIPOS_FORUM = {
+    "conversa": ("Conversa", "FORUM_OUTLINED"),
+    "duvida": ("Dúvida", "HELP_OUTLINE"),
+    "material": ("Material", "LINK"),
+    "plano": ("Plano de estudo", "EVENT_NOTE_OUTLINED"),
+}
+DIAS_CURTOS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"]
+
+
+def _quando(iso: str | None) -> datetime:
+    """Data e hora do servidor (ISO) como datetime com fuso; vazio = bem antigo."""
+    if not iso:
+        return datetime(1970, 1, 1, tzinfo=timezone.utc)
+    try:
+        d = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    except ValueError:
+        return datetime(1970, 1, 1, tzinfo=timezone.utc)
+    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+
+
+def validar_plano(plano: dict) -> dict:
+    """Confere e arruma um plano de estudo: horas por disciplina na semana e dias de estudo."""
+    discs = []
+    for d in plano.get("disciplinas") or []:
+        nome = re.sub(r"\s+", " ", str(d.get("nome") or "")).strip()[:40]
+        bruto = str(d.get("horas") if d.get("horas") is not None else "").replace(",", ".").strip()
+        if not nome and not bruto:
+            continue
+        try:
+            horas = round(float(bruto or 0), 1)
+        except ValueError:
+            raise ErroRanking(f"Horas inválidas em {nome or 'uma disciplina'}.") from None
+        if not nome or horas <= 0:
+            continue
+        if horas > 40:
+            raise ErroRanking("No máximo 40 horas por disciplina na semana.")
+        if any(x["nome"].lower() == nome.lower() for x in discs):
+            raise ErroRanking(f"{nome} aparece duas vezes no plano.")
+        discs.append({"nome": nome, "horas": horas})
+    if not discs:
+        raise ErroRanking("Coloque pelo menos uma disciplina com as horas da semana.")
+    if len(discs) > 15:
+        raise ErroRanking("Use no máximo 15 disciplinas no plano.")
+    dias = sorted({int(x) for x in plano.get("dias") or [] if str(x).lstrip("-").isdigit() and 0 <= int(x) <= 6})
+    if not dias:
+        raise ErroRanking("Escolha os dias da semana do plano.")
+    meta = round(sum(d["horas"] for d in discs), 1)
+    if meta > 80:
+        raise ErroRanking("O plano passa de 80 horas por semana. Diminua as horas.")
+    try:
+        semanas = max(0, min(52, int(plano.get("semanas") or 0)))
+    except (TypeError, ValueError):
+        semanas = 0
+    return {"meta_horas": meta, "dias": dias, "disciplinas": discs, "semanas": semanas, "concurso": str(plano.get("concurso") or "").strip()[:60]}
 
 
 def analise_norm(texto: str) -> str:

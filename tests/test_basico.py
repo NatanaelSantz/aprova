@@ -536,3 +536,114 @@ def test_estudos_separados_por_conta(tmp_path, monkeypatch):
     assert visitante.estatisticas()["respondidas"] == 1
     assert falso.sessao.get("estudos_levados_para") == "conta-a"
     A._BANCOS.clear()
+
+
+def test_forum_do_grupo(tmp_path):
+    sys.path.insert(0, str(Path(__file__).parent))
+    from servidor_falso import CHAVE, ServidorFalso
+
+    from aprova import config, ranking
+
+    srv = ServidorFalso().iniciar()
+    try:
+        cfg = {"url": srv.url, "chave": CHAVE}
+        adm = ranking.Ranking(config.Ajustes(tmp_path / "adm.json"), cfg)
+        adm.criar_conta("adm@exemplo.com", "segredo1", "Natan")
+        dono = ranking.Ranking(config.Ajustes(tmp_path / "dono.json"), cfg)
+        dono.criar_conta("dono@exemplo.com", "segredo1", "Camila")
+        aluno = ranking.Ranking(config.Ajustes(tmp_path / "aluno.json"), cfg)
+        aluno.criar_conta("aluno@exemplo.com", "segredo1", "Joana")
+        fora = ranking.Ranking(config.Ajustes(tmp_path / "fora.json"), cfg)
+        fora.criar_conta("fora@exemplo.com", "segredo1", "Pedro")
+
+        cod = dono.criar_grupo("Turma Dataprev")
+        aluno.entrar_grupo(cod)
+        assert next(g for g in dono.meus_grupos() if g["codigo"] == cod)["modero"]
+        assert not next(g for g in aluno.meus_grupos() if g["codigo"] == cod)["modero"]
+        assert [m["apelido"] for m in aluno.membros_grupo(cod)] == ["Camila", "Joana"]  # quem criou vem primeiro
+
+        # conversa: só membros leem e escrevem
+        aluno.forum_publicar(cod, "Alguém topa simulado no sábado?")
+        with pytest.raises(ranking.ErroRanking):
+            fora.forum_publicar(cod, "posso entrar?")
+        assert fora.forum(cod) == []
+        assert len(adm.forum(cod)) == 1  # admin modera todos os grupos
+        post = dono.forum(cod)[0]
+        assert post["apelido"] == "Joana" and not post["meu"] and post["tipo"] == "conversa"
+
+        # plano de estudo
+        with pytest.raises(ranking.ErroRanking):
+            dono.forum_publicar(cod, "", "plano", "Plano", {"disciplinas": [], "dias": [0]})
+        dono.forum_publicar(
+            cod, "Sábado é simulado.", "plano", "Plano 10h",
+            {"disciplinas": [{"nome": "Língua Portuguesa", "horas": "4"}, {"nome": "Informática", "horas": 6}], "dias": [0, 2, 4]},
+        )
+        planos = aluno.forum(cod, tipo="plano")
+        assert len(planos) == 1 and planos[0]["plano"]["meta_horas"] == 10 and planos[0]["plano"]["dias"] == [0, 2, 4]
+        assert [p["tipo"] for p in aluno.forum(cod, tipo="conversa")] == ["conversa"]
+
+        # respostas e "útil"
+        aluno.forum_responder(planos[0]["id"], "Vou seguir!")
+        aluno.forum_util(planos[0]["id"], True)
+        aluno.forum_util(planos[0]["id"], True)  # marcar duas vezes não dá erro
+        p = aluno.forum(cod, tipo="plano")[0]
+        assert p["respostas"] == 1 and p["uteis"] == 1 and p["util_meu"]
+        assert aluno.forum_respostas(p["id"])[0]["apelido"] == "Joana"
+        aluno.forum_util(p["id"], False)
+        assert not aluno.forum(cod, tipo="plano")[0]["util_meu"]
+
+        # moderação: aluno não fixa nem apaga a mensagem dos outros; quem criou o grupo pode
+        aluno.forum_fixar(p["id"], True)
+        aluno.forum_apagar(p["id"])
+        p = dono.forum(cod, tipo="plano")[0]
+        assert not p["fixado"]
+        conversa = dono.forum(cod, tipo="conversa")[0]
+        dono.forum_fixar(conversa["id"], True)
+        assert dono.forum(cod)[0]["id"] == conversa["id"] and dono.forum(cod)[0]["fixado"]  # fixada vem primeiro
+
+        # novidades: conta as mensagens dos outros desde a última visita
+        novas = aluno.forum_novidades([cod], {})
+        assert novas == {cod: 1}  # o plano da Camila (a conversa é da própria Joana)
+        visto = aluno.forum(cod)[0]["criado_em"]
+        assert aluno.forum_novidades([cod], {cod: max(x["criado_em"] for x in aluno.forum(cod))}) == {cod: 0}
+        assert visto
+
+        # bloqueado não escreve; apagar o grupo leva o fórum junto
+        adm.bloquear(aluno.usuario_id, True)
+        with pytest.raises(ranking.ErroRanking):
+            aluno.forum_publicar(cod, "spam")
+        dono.forum_apagar(p["id"])
+        assert dono.forum(cod, tipo="plano") == []
+        dono.apagar_grupo(cod)
+        assert srv.dados.tabelas["forum_posts"] == []
+    finally:
+        srv.parar()
+
+
+def test_plano_em_uso_e_progresso(tmp_path):
+    from datetime import datetime, timedelta, timezone
+
+    from aprova import config, ranking
+    from aprova.db import Banco
+    from aprova.ui import grupos
+
+    falso = type("F", (), {})()
+    falso.aj = config.Ajustes(tmp_path / "aj.json")
+    falso.db = Banco(tmp_path / "a.db")
+    falso.msg = lambda texto: None
+    post = {"id": 7, "titulo": "Plano 10h", "apelido": "Camila", "plano": ranking.validar_plano(
+        {"disciplinas": [{"nome": "Língua Portuguesa", "horas": 4}, {"nome": "Informática", "horas": 6}], "dias": [0, 2, 4]})}
+    grupos.usar_plano(falso, post, {"codigo": "TURMA-1", "nome": "Turma"})
+    assert falso.aj["meta_horas_semana"] == 10 and falso.aj["dias_planejados"] == "0,2,4"
+    # o tempo da disciplina entra mesmo com acento/maiúscula diferente
+    falso.db.somar_tempo(2 * 3600, "app", "lingua portuguesa")
+    prog = {p["nome"]: p for p in grupos.progresso_plano(falso, falso.aj["plano_ativo"])}
+    assert prog["Língua Portuguesa"]["fracao"] == 0.5 and prog["Informática"]["feito_s"] == 0
+    grupos.parar_plano(falso)
+    assert not falso.aj["plano_ativo"]
+    # textos de tempo do fórum
+    agora = datetime.now(timezone.utc)
+    assert grupos.quando_texto(agora.isoformat()) == "agora"
+    assert grupos.quando_texto((agora - timedelta(hours=3)).isoformat()) == "há 3 h"
+    assert grupos.quando_texto((agora - timedelta(days=1, hours=1)).isoformat()) == "ontem"
+    assert grupos.dias_texto([4, 0, 2]) == "seg, qua e sex"

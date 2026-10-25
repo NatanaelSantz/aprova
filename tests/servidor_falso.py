@@ -11,6 +11,7 @@ import re
 import sys
 import threading
 import uuid
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qsl, unquote, urlsplit
 
@@ -20,7 +21,10 @@ CHAVE = "chave-anon-de-teste-1234567890"
 class Dados:
     def __init__(self):
         self.usuarios: dict[str, dict] = {}  # id -> {email, senha}
-        self.tabelas: dict[str, list[dict]] = {"perfis": [], "estatisticas": [], "grupos": [], "membros": [], "comunicados": []}
+        self.tabelas: dict[str, list[dict]] = {
+            "perfis": [], "estatisticas": [], "grupos": [], "membros": [], "comunicados": [],
+            "forum_posts": [], "forum_respostas": [], "forum_uteis": [],
+        }
         self._seq = 0
         self.lock = threading.Lock()
 
@@ -42,6 +46,54 @@ class Dados:
         rs = self.ranking_semana()
         return [{"codigo": m["codigo"], **r} for m in self.tabelas["membros"] for r in rs if r["usuario_id"] == m["usuario_id"]]
 
+    # ---- fórum: as mesmas regras do ranking.sql
+    def eh_membro(self, uid: str, cod: str) -> bool:
+        return any(m["codigo"] == cod and m["usuario_id"] == uid for m in self.tabelas["membros"])
+
+    def modera(self, uid: str, cod: str) -> bool:
+        return self.eh_admin(uid) or any(g["codigo"] == cod and g.get("criado_por") == uid for g in self.tabelas["grupos"])
+
+    def pode_escrever(self, uid: str, cod: str) -> bool:
+        bloqueado = any(p["id"] == uid and p.get("bloqueado") for p in self.tabelas["perfis"])
+        return self.eh_membro(uid, cod) and not bloqueado
+
+    def ve(self, uid: str, cod: str) -> bool:
+        return self.eh_membro(uid, cod) or self.eh_admin(uid)
+
+    def apelido(self, uid: str) -> str:
+        return next((p["apelido"] for p in self.tabelas["perfis"] if p["id"] == uid), "?")
+
+    def forum_feed(self, uid: str) -> list[dict]:
+        saida = []
+        for f in self.tabelas["forum_posts"]:
+            if not self.ve(uid, f["codigo"]):
+                continue
+            n_resp = sum(1 for r in self.tabelas["forum_respostas"] if r["post_id"] == f["id"])
+            n_util = sum(1 for u in self.tabelas["forum_uteis"] if u["post_id"] == f["id"])
+            saida.append({**f, "apelido": self.apelido(f["autor"]), "respostas": n_resp, "uteis": n_util})
+        return saida
+
+    def forum_respostas_v(self, uid: str) -> list[dict]:
+        return [{**r, "apelido": self.apelido(r["autor"])} for r in self.tabelas["forum_respostas"] if self.ve(uid, r["codigo"])]
+
+    def post(self, pid) -> dict | None:
+        return next((f for f in self.tabelas["forum_posts"] if str(f["id"]) == str(pid)), None)
+
+
+def agora_iso(minutos_atras: float = 0) -> str:
+    return (datetime.now(timezone.utc) - timedelta(minutes=minutos_atras)).isoformat()
+
+
+def _comparavel(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        try:
+            d = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+            return (d if d.tzinfo else d.replace(tzinfo=timezone.utc)).timestamp()
+        except ValueError:
+            return str(v)
+
 
 def _filtrar(linhas: list[dict], filtros: list[tuple[str, str]]) -> list[dict]:
     out = linhas
@@ -52,8 +104,11 @@ def _filtrar(linhas: list[dict], filtros: list[tuple[str, str]]) -> list[dict]:
         elif op == "in":
             vals = val.strip("()").split(",")
             out = [l for l in out if str(l.get(col)) in vals]
-        elif op == "gte":
-            out = [l for l in out if l.get(col) is not None and float(l[col]) >= float(val)]
+        elif op == "neq":
+            out = [l for l in out if str(l.get(col)) != val]
+        elif op in ("gte", "gt"):
+            alvo = _comparavel(val)
+            out = [l for l in out if l.get(col) is not None and (_comparavel(l[col]) >= alvo if op == "gte" else _comparavel(l[col]) > alvo)]
     return out
 
 
@@ -128,7 +183,7 @@ class Manipulador(BaseHTTPRequestHandler):
             if caminho == "/rest/v1/rpc/apagar_minha_conta":
                 d.usuarios.pop(uid, None)
                 for t in d.tabelas:
-                    d.tabelas[t] = [l for l in d.tabelas[t] if l.get("id") != uid and l.get("usuario_id") != uid]
+                    d.tabelas[t] = [l for l in d.tabelas[t] if l.get("id") != uid and l.get("usuario_id") != uid and l.get("autor") != uid]
                 return self._json(204)
             m = re.match(r"/rest/v1/(\w+)$", caminho)
             if not m:
@@ -142,6 +197,12 @@ class Manipulador(BaseHTTPRequestHandler):
                     linhas = d.ranking_grupo()
                 elif tabela == "comunicados" and not d.eh_admin(uid):
                     linhas = [c for c in d.tabelas[tabela] if c["ativo"]]
+                elif tabela == "forum_feed":
+                    linhas = d.forum_feed(uid)
+                elif tabela == "forum_respostas_v":
+                    linhas = d.forum_respostas_v(uid)
+                elif tabela in ("forum_posts", "forum_respostas", "forum_uteis"):
+                    linhas = [l for l in d.tabelas[tabela] if d.ve(uid, l["codigo"])]
                 else:
                     linhas = d.tabelas[tabela]
                 linhas = _filtrar(linhas, filtros)
@@ -157,6 +218,11 @@ class Manipulador(BaseHTTPRequestHandler):
                 novas = corpo if isinstance(corpo, list) else [corpo]
                 chave = [c for c in dict(query).get("on_conflict", "").split(",") if c]
                 for n in novas:
+                    if tabela.startswith("forum_"):
+                        erro = self._forum_inserir(tabela, dict(n), uid)
+                        if erro:
+                            return self._json(*erro)
+                        continue
                     if tabela == "comunicados":
                         if not d.eh_admin(uid):
                             return self._json(403, {"code": "42501", "message": "new row violates row-level security policy"})
@@ -198,6 +264,18 @@ class Manipulador(BaseHTTPRequestHandler):
                         l.update(mudanca)
                     elif tabela == "comunicados" and admin:
                         l.update(corpo)
+                    elif tabela == "forum_posts":
+                        moderador, autor = d.modera(uid, l["codigo"]), l["autor"] == uid and d.pode_escrever(uid, l["codigo"])
+                        if not (moderador or autor):
+                            continue
+                        mudanca = {k: v for k, v in corpo.items() if k in ("fixado", "titulo", "texto", "plano", "tipo")}
+                        if not moderador:
+                            mudanca.pop("fixado", None)
+                        if not autor:
+                            mudanca = {k: v for k, v in mudanca.items() if k == "fixado"}
+                        elif set(mudanca) - {"fixado"}:
+                            mudanca["editado_em"] = agora_iso()
+                        l.update(mudanca)
                 return self._json(204)
             if metodo == "DELETE":
                 alvo = _filtrar(d.tabelas[tabela], filtros)
@@ -206,7 +284,15 @@ class Manipulador(BaseHTTPRequestHandler):
                     apagar = [g for g in alvo if admin or g.get("criado_por") == uid]
                     cods = {g["codigo"] for g in apagar}
                     d.tabelas["grupos"] = [g for g in d.tabelas["grupos"] if g not in apagar]
-                    d.tabelas["membros"] = [m for m in d.tabelas["membros"] if m["codigo"] not in cods]
+                    for t in ("membros", "forum_posts", "forum_respostas", "forum_uteis"):
+                        d.tabelas[t] = [m for m in d.tabelas[t] if m["codigo"] not in cods]
+                elif tabela in ("forum_posts", "forum_respostas"):
+                    apagar = [l for l in alvo if l["autor"] == uid or d.modera(uid, l["codigo"])]
+                    d.tabelas[tabela] = [l for l in d.tabelas[tabela] if l not in apagar]
+                    if tabela == "forum_posts":
+                        ids = {l["id"] for l in apagar}
+                        for t in ("forum_respostas", "forum_uteis"):
+                            d.tabelas[t] = [l for l in d.tabelas[t] if l["post_id"] not in ids]
                 elif tabela == "comunicados":
                     if admin:
                         d.tabelas["comunicados"] = [c for c in d.tabelas["comunicados"] if c not in alvo]
@@ -214,6 +300,35 @@ class Manipulador(BaseHTTPRequestHandler):
                     d.tabelas[tabela] = [l for l in d.tabelas[tabela] if l not in alvo or l.get("usuario_id") != uid]
                 return self._json(204)
         return self._json(405, {"message": "método não suportado"})
+
+    def _forum_inserir(self, tabela: str, n: dict, uid: str):
+        """Insere no fórum com as regras do ranking.sql. Devolve (código, corpo) se recusar."""
+        d = self.dados
+        negado = (403, {"code": "42501", "message": "new row violates row-level security policy"})
+        if tabela == "forum_posts":
+            if n.get("autor") != uid or not d.pode_escrever(uid, n.get("codigo", "")):
+                return negado
+            d._seq += 1
+            linha = {"id": d._seq, "tipo": "conversa", "titulo": "", "texto": "", "plano": None, "editado_em": None, **n}
+            linha["fixado"] = bool(n.get("fixado")) and d.modera(uid, n["codigo"])
+            linha["criado_em"] = agora_iso()
+            d.tabelas["forum_posts"].append(linha)
+            return None
+        post = d.post(n.get("post_id"))
+        if post is None:
+            return (400, {"code": "P0001", "message": "mensagem não encontrada"})
+        n["codigo"] = post["codigo"]
+        dono = n.get("autor") if tabela == "forum_respostas" else n.get("usuario_id")
+        if dono != uid or not d.pode_escrever(uid, post["codigo"]):
+            return negado
+        if tabela == "forum_respostas":
+            d._seq += 1
+            d.tabelas["forum_respostas"].append({"id": d._seq, **n, "criado_em": agora_iso()})
+            return None
+        if any(u["post_id"] == n["post_id"] and u["usuario_id"] == uid for u in d.tabelas["forum_uteis"]):
+            return (409, {"code": "23505", "message": 'duplicate key value violates unique constraint "forum_uteis_pkey"'})
+        d.tabelas["forum_uteis"].append(n)
+        return None
 
     def do_GET(self):
         self._rota("GET")
@@ -254,7 +369,50 @@ class ServidorFalso:
             if grupo:
                 self.dados.tabelas["membros"].append({"codigo": grupo[0], "usuario_id": uid})
         if grupo and not any(g["codigo"] == grupo[0] for g in self.dados.tabelas["grupos"]):
-            self.dados.tabelas["grupos"].append({"codigo": grupo[0], "nome": grupo[1], "criado_por": None})
+            criador = self.dados.tabelas["perfis"][-len(pessoas)]["id"] if pessoas else None
+            self.dados.tabelas["grupos"].append({"codigo": grupo[0], "nome": grupo[1], "criado_por": criador})
+
+    def uid_de(self, apelido: str) -> str:
+        return next(p["id"] for p in self.dados.tabelas["perfis"] if p["apelido"] == apelido)
+
+    def semear_forum(self, codigo: str):
+        """Conversa de exemplo num grupo (para testar e tirar capturas de tela)."""
+        d = self.dados
+
+        def post(apelido, minutos, tipo, texto, titulo="", plano=None, fixado=False):
+            d._seq += 1
+            d.tabelas["forum_posts"].append({
+                "id": d._seq, "codigo": codigo, "autor": self.uid_de(apelido), "tipo": tipo, "titulo": titulo, "texto": texto,
+                "plano": plano, "fixado": fixado, "criado_em": agora_iso(minutos), "editado_em": None,
+            })
+            return d._seq
+
+        def resposta(pid, apelido, minutos, texto):
+            d._seq += 1
+            d.tabelas["forum_respostas"].append({"id": d._seq, "post_id": pid, "codigo": codigo, "autor": self.uid_de(apelido), "texto": texto, "criado_em": agora_iso(minutos)})
+
+        def util(pid, *apelidos):
+            for a in apelidos:
+                d.tabelas["forum_uteis"].append({"post_id": pid, "usuario_id": self.uid_de(a), "codigo": codigo})
+
+        boas = post("Camila R.", 60 * 24 * 3, "conversa", "Bem-vindos à turma! Aqui a gente combina simulados, tira dúvidas e compartilha planos. Toda segunda eu posto o plano da semana.", "Regras da turma", fixado=True)
+        util(boas, "Joao_TI", "Lia")
+        plano = post(
+            "Camila R.", 60 * 20, "plano",
+            "Foco nas disciplinas que mais caem na FGV. Sábado é dia de simulado completo; domingo, só revisão leve.",
+            "Plano 14h: reta final Dataprev",
+            {"meta_horas": 14, "dias": [0, 1, 2, 3, 5], "semanas": 6, "concurso": "Dataprev 2026",
+             "disciplinas": [{"nome": "Conhecimentos Específicos", "horas": 5}, {"nome": "Língua Portuguesa", "horas": 3},
+                             {"nome": "Raciocínio Lógico", "horas": 2.5}, {"nome": "Segurança da Informação", "horas": 2}, {"nome": "Língua Inglesa", "horas": 1.5}]},
+        )
+        util(plano, "Joao_TI", "Lia", "Pedro M")
+        resposta(plano, "Lia", 60 * 18, "Vou seguir esse! Só troquei o sábado pela quinta.")
+        duvida = post("Joao_TI", 95, "duvida", "Na questão 32 da prova de 2024, por que a resposta é a C e não a D? O texto fala em \"exceto\", me confundi.", "Questão 32 de Português (2024)")
+        resposta(duvida, "Camila R.", 80, "Pegadinha clássica: o \"exceto\" inverte. A D está correta segundo o texto, então ela NÃO é a resposta.")
+        resposta(duvida, "Joao_TI", 70, "Ahh, agora fez sentido. Valeu!")
+        util(duvida, "Lia")
+        post("Lia", 25, "material", "Resumo de LGPD em uma página que ajudou muito: https://www.gov.br/anpd", "Resumo de LGPD")
+        post("Pedro M", 8, "conversa", "Alguém topa simulado completo no sábado às 9h? Cada um faz em casa e depois a gente compara aqui.")
 
 
 if __name__ == "__main__":
@@ -274,5 +432,6 @@ if __name__ == "__main__":
         semana,
         grupo=("DATAPREV-7A2F", "Turma Dataprev"),
     )
+    srv.semear_forum("DATAPREV-7A2F")
     print("servidor falso em", srv.url, "chave:", CHAVE, flush=True)
     srv.httpd.serve_forever()

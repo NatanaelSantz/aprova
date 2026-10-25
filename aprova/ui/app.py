@@ -27,10 +27,12 @@ DESTINOS = [
     ("concursos", "Concursos", ft.Icons.CAMPAIGN_OUTLINED, ft.Icons.CAMPAIGN_ROUNDED),
     ("provas", "Provas", ft.Icons.DESCRIPTION_OUTLINED, ft.Icons.DESCRIPTION_ROUNDED),
     ("estudar", "Estudar", ft.Icons.EDIT_NOTE_OUTLINED, ft.Icons.EDIT_NOTE_ROUNDED),
+    ("grupos", "Grupos", ft.Icons.FORUM_OUTLINED, ft.Icons.FORUM_ROUNDED),
     ("painel", "Painel", ft.Icons.INSIGHTS_OUTLINED, ft.Icons.INSIGHTS_ROUNDED),
     ("ajustes", "Ajustes", ft.Icons.TUNE_OUTLINED, ft.Icons.TUNE_ROUNDED),
 ]
 DESTINO_ADMIN = ("admin", "Admin", ft.Icons.ADMIN_PANEL_SETTINGS_OUTLINED, ft.Icons.ADMIN_PANEL_SETTINGS)
+FORA_DA_BARRA = ("ajustes", "admin")  # no celular: ficam no menu do avatar e abrem com botão Voltar
 
 INATIVO_S = 8 * 60  # sem tocar no app por mais que isso, o tempo para de contar
 TIQUE_S = 30
@@ -102,6 +104,8 @@ class App:
         self.conteudo = ft.Container(expand=True)
         self._moldura: ft.Container | None = None
         self._comunicados: tuple[float, list] = (0.0, [])
+        self._novidades: tuple[float, dict] = (0.0, {})
+        self.nomes_grupos: dict[str, str] = {}
         self._pausa_task = None
         self._ultima_atividade = time.time()
         self._rotulos_crono: list[ft.Text] = []
@@ -110,6 +114,7 @@ class App:
 
         self.ranking = Ranking(self.sessao)
         self._ultima_sync = 0.0
+        self._antes_extra = "inicio"
 
     # ------------------------------------------------------------ utilidades
 
@@ -131,6 +136,10 @@ class App:
 
     def destinos(self) -> list[tuple]:
         return DESTINOS[:-1] + [DESTINO_ADMIN, DESTINOS[-1]] if self.ranking.eh_admin else list(DESTINOS)
+
+    def destinos_barra(self) -> list[tuple]:
+        """Itens da barra de baixo no celular (Ajustes e Admin vão para o menu do avatar)."""
+        return [d for d in self.destinos() if d[0] not in FORA_DA_BARRA]
 
     # ------------------------------------------------------------ contas e dados de cada pessoa
 
@@ -290,6 +299,11 @@ class App:
             ]
         else:
             itens = [ft.PopupMenuItem(content="Entrar ou criar conta", icon=ft.Icons.LOGIN, on_click=lambda e: self.mostrar_login())]
+        if self.modo_nav == "inferior":
+            extras = [ft.PopupMenuItem(content="Ajustes", icon=ft.Icons.TUNE_OUTLINED, on_click=lambda e: self.ir("ajustes"))]
+            if self.ranking.eh_admin:
+                extras.insert(0, ft.PopupMenuItem(content="Administração", icon=ft.Icons.ADMIN_PANEL_SETTINGS_OUTLINED, on_click=lambda e: self.ir("admin")))
+            itens = extras + [ft.PopupMenuItem()] + itens
         return ft.PopupMenuButton(content=rosto, items=itens, tooltip=f"{nome} · {papel}")
 
     def comunicados_cache(self) -> list:
@@ -306,6 +320,29 @@ class App:
             lista = self._comunicados[1]
         self._comunicados = (time.time(), lista)
         return lista
+
+    def novidades_grupos(self) -> dict:
+        """Mensagens novas por grupo (desde a última visita), da última consulta."""
+        return self._novidades[1]
+
+    def zerar_novidades(self, codigo: str) -> None:
+        if self._novidades[1].get(codigo):
+            self._novidades[1][codigo] = 0
+
+    async def carregar_novidades(self, forcar: bool = False) -> dict:
+        if not (self.ranking.configurado and self.ranking.logado):
+            return {}
+        if not forcar and time.time() - self._novidades[0] < 300:
+            return self._novidades[1]
+        try:
+            grupos = await self.em_segundo_plano(self.ranking.meus_grupos)
+            vistos = self.aj.get("forum_vistos", {}) or {}
+            novas = await self.em_segundo_plano(self.ranking.forum_novidades, [g["codigo"] for g in grupos], vistos)
+            self.nomes_grupos = {g["codigo"]: g["nome"] for g in grupos}
+            self._novidades = (time.time(), {k: v for k, v in novas.items() if v})
+        except Exception:  # noqa: BLE001
+            pass
+        return self._novidades[1]
 
     @property
     def tem_voz(self) -> bool:
@@ -447,6 +484,41 @@ class App:
                 email, _, senha = arg.partition(":")
                 await self.em_segundo_plano(self.ranking.entrar, email, senha)
                 self.page.run_task(self.depois_do_login)
+            elif nome == "grupos":
+                aba, _, cod = arg.partition("|")
+                self.ir("grupos", aba=aba or "conversa", **({"codigo": cod} if cod else {}))
+                t = self._tela("grupos")
+                t.aba = aba or "conversa"
+                self.recarregar_tela_sem_perder(t)
+            elif nome == "respostas":
+                t = self._tela("grupos")
+                for _ in range(30):
+                    lista = t.posts.get((t.codigo, "conversa"))
+                    if lista:
+                        break
+                    await asyncio.sleep(0.5)
+                alvo = next((p for p in (lista or []) if p.get("respostas")), None)
+                if alvo:
+                    t._alternar_respostas(alvo)
+            elif nome == "plano_novo":
+                from .grupos import dialogo_plano
+
+                t = self._tela("grupos")
+                if t.grupo:
+                    dialogo_plano(self, t.grupo, t._depois_de_publicar_plano)
+            elif nome == "plano_usar":
+                from .grupos import usar_plano
+
+                t = self._tela("grupos")
+                for _ in range(30):
+                    lista = t.posts.get((t.codigo, "planos"))
+                    if lista:
+                        break
+                    await asyncio.sleep(0.5)
+                if lista and t.grupo:
+                    usar_plano(self, lista[0], t.grupo)
+            elif nome == "ir":
+                self.ir(arg)
             elif nome == "cronometro":
                 self.iniciar_cronometro(arg)
             elif nome == "parar":
@@ -534,17 +606,31 @@ class App:
                 ft.Row([self._trilho(destinos), self._moldura], spacing=0, expand=True, vertical_alignment=ft.CrossAxisAlignment.STRETCH)
             )
         else:
-            p.navigation_bar = ft.NavigationBar(
-                selected_index=chaves.index(self.secao),
-                bgcolor=c["sup"],
-                indicator_color=c["tinta_suave"],
-                destinations=[ft.NavigationBarDestination(icon=d[2], selected_icon=d[3], label=d[1]) for d in destinos],
-                label_behavior=ft.NavigationBarLabelBehavior.ONLY_SHOW_SELECTED if (p.width or 0) < 460 else ft.NavigationBarLabelBehavior.ALWAYS_SHOW,
-                on_change=lambda e: self.ir(destinos[e.control.selected_index][0]),
-            )
+            barra = self.destinos_barra()
             self._moldura = ft.Container(self.conteudo, expand=True, padding=self._margens())
-            p.controls.append(ft.SafeArea(self._moldura, expand=True))
+            if self.secao in FORA_DA_BARRA:
+                # Ajustes / Admin no celular: tela cheia com Voltar (sem a barra de baixo)
+                voltar = ft.Container(
+                    ft.TextButton("Voltar", icon=ft.Icons.ARROW_BACK, on_click=lambda e: self._voltar_celular()),
+                    padding=ft.Padding.only(left=4, top=4),
+                )
+                p.controls.append(ft.SafeArea(ft.Column([voltar, self._moldura], spacing=0, expand=True), expand=True))
+            else:
+                p.navigation_bar = ft.NavigationBar(
+                    selected_index=[d[0] for d in barra].index(self.secao),
+                    bgcolor=c["sup"],
+                    indicator_color=c["tinta_suave"],
+                    destinations=[ft.NavigationBarDestination(icon=d[2], selected_icon=d[3], label=d[1]) for d in barra],
+                    label_behavior=ft.NavigationBarLabelBehavior.ONLY_SHOW_SELECTED if (p.width or 0) < 460 else ft.NavigationBarLabelBehavior.ALWAYS_SHOW,
+                    on_change=lambda e: self.ir(barra[e.control.selected_index][0]),
+                )
+                p.controls.append(ft.SafeArea(self._moldura, expand=True))
         self.ir(self.secao, reconstruir_layout=False)
+
+    def _voltar_celular(self) -> None:
+        destino = self._antes_extra if self._antes_extra not in FORA_DA_BARRA else "inicio"
+        self.secao = destino
+        self.montar()
 
     def _margens(self) -> ft.Padding:
         """Margens por tamanho; em telas muito largas o conteúdo fica centralizado (linhas não ficam longas demais)."""
@@ -688,6 +774,7 @@ class App:
         from .estudar import TelaEstudar
         from .inicio import TelaInicio
         from .admin import TelaAdmin
+        from .grupos import TelaGrupos
         from .painel import TelaPainel
         from .provas import TelaProvas
 
@@ -696,6 +783,7 @@ class App:
             "concursos": TelaConcursos,
             "provas": TelaProvas,
             "estudar": TelaEstudar,
+            "grupos": TelaGrupos,
             "painel": TelaPainel,
             "ajustes": TelaAjustes,
             "admin": TelaAdmin,
@@ -710,6 +798,9 @@ class App:
         if chave not in {d[0] for d in self.destinos()}:
             chave = "inicio"
         mudou = chave != self.secao
+        extra_antes, extra_agora = self.secao in FORA_DA_BARRA, chave in FORA_DA_BARRA
+        if extra_agora and not extra_antes:
+            self._antes_extra = self.secao
         self.secao = chave
         if self.foco is not None:
             return
@@ -720,8 +811,11 @@ class App:
             # redesenha a barra lateral para marcar a seção
             self.montar()
             return
+        if self._modo_nav == "inferior" and extra_antes != extra_agora:
+            self.montar()  # entra ou sai de Ajustes/Admin: mostra ou esconde a barra de baixo
+            return
         if self._modo_nav == "inferior" and self.page.navigation_bar is not None:
-            self.page.navigation_bar.selected_index = [d[0] for d in self.destinos()].index(chave)
+            self.page.navigation_bar.selected_index = [d[0] for d in self.destinos_barra()].index(chave)
         elif self._modo_nav == "trilho" and mudou and reconstruir_layout:
             self.montar()
             return

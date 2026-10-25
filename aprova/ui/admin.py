@@ -290,7 +290,7 @@ class TelaAdmin:
         app, c = self.app, self.app.c
         grupos = self.grupos or []
         if not grupos:
-            return comp.vazio(ft.Icons.GROUPS_OUTLINED, "Nenhum grupo ainda", "Os alunos criam grupos em Painel → Ranking → Grupos.", c)
+            return comp.vazio(ft.Icons.GROUPS_OUTLINED, "Nenhum grupo ainda", "Os alunos criam grupos na tela Grupos.", c)
         linhas = []
         for g in grupos:
             linhas.append(
@@ -304,6 +304,7 @@ class TelaAdmin:
                                 spacing=2,
                                 expand=True,
                             ),
+                            ft.IconButton(ft.Icons.FORUM_OUTLINED, tooltip="Ver o fórum do grupo (você pode fixar e apagar mensagens)", on_click=lambda e, g=g: app.ir("grupos", codigo=g["codigo"])),
                             ft.IconButton(ft.Icons.DELETE_OUTLINE, tooltip="Apagar grupo", on_click=lambda e, g=g: self._confirmar_apagar_grupo(g)),
                         ],
                         spacing=12,
@@ -331,7 +332,7 @@ class TelaAdmin:
         app.page.show_dialog(
             ft.AlertDialog(
                 title=ft.Text(f"Apagar o grupo {g['nome']}?"),
-                content=ft.Text("Os membros saem do grupo. As contas e os números de cada pessoa continuam.", size=14.5),
+                content=ft.Text("Os membros saem do grupo e o fórum dele é apagado. As contas e os números de cada pessoa continuam.", size=14.5),
                 actions=[ft.TextButton("Cancelar", on_click=lambda e: app.page.pop_dialog()), ft.FilledButton("Apagar", on_click=apagar)],
             )
         )

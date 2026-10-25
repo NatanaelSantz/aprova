@@ -40,6 +40,9 @@ PADROES = {
     "cronometro_atividade": "",
     "tempo_migrado": False,
     "metas_desde": "",  # dia em que as metas começaram a contar (dias antes não contam contra você)
+    "grupo_atual": "",  # último grupo aberto na tela Grupos
+    "forum_vistos": {},  # grupo -> data da última mensagem vista (para contar as novas)
+    "plano_ativo": {},  # plano de estudo de um grupo que a pessoa está usando
 }
 
 
