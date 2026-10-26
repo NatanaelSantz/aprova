@@ -21,7 +21,8 @@ from .tema import FONTE_TITULO
 
 LARGURA_TRILHO = 700  # abaixo disso: celular (barra embaixo)
 LARGURA_LATERAL = 1180
-ALTURA_BARRA = 40  # barra de título própria (computador)  # a partir disso: barra lateral completa; entre os dois: trilho só com ícones
+ALTURA_BARRA = 40  # barra de título própria (computador)
+TITULO_JANELA = "Aprova"  # a partir disso: barra lateral completa; entre os dois: trilho só com ícones
 
 DESTINOS = [
     ("inicio", "Início", ft.Icons.HOME_OUTLINED, ft.Icons.HOME_ROUNDED),
@@ -103,6 +104,7 @@ class App:
         self._largo: bool | None = None
         self._modo_nav: str | None = None
         self._baixa: bool | None = None
+        self._tema_pintado: str | None = None
         self.conteudo = ft.Container(expand=True)
         self._moldura: ft.Container | None = None
         self._comunicados: tuple[float, list] = (0.0, [])
@@ -390,7 +392,7 @@ class App:
 
     def iniciar(self) -> None:
         p = self.page
-        p.title = "Aprova · concursos públicos"
+        p.title = TITULO_JANELA
         p.fonts = tema.FONTES
         p.padding = 0
         p.spacing = 0
@@ -454,6 +456,20 @@ class App:
             p.run_task(atualizacao.vigiar, self)
         if os.environ.get("APROVA_DEMO"):
             p.run_task(self._roteiro_demo, os.environ["APROVA_DEMO"])
+
+    def pintar_barra_windows(self) -> None:
+        """Barra de título do Windows com as cores do tema (só pinta; não esconde nada)."""
+        if self.modo_web or self.barra_propria or self._tema_pintado == self.aj["tema"]:
+            return
+        esperar = 20.0 if self._tema_pintado is None else 3.0  # na abertura, espera a janela aparecer
+        self._tema_pintado = self.aj["tema"]
+        from .. import janela
+
+        c = self.c
+        try:
+            janela.pintar_barra(TITULO_JANELA, c["sup"], c["texto"], c["borda"], self.aj["tema"] == "escuro", esperar)
+        except Exception as e:  # noqa: BLE001
+            config.registrar(f"janela: não pintou a barra ({e!r})")
 
     async def _roteiro_demo(self, roteiro: str) -> None:
         """Passos automáticos usados nos testes de tela (APROVA_DEMO)."""
@@ -704,6 +720,7 @@ class App:
         self._largo = self.largo
         self._modo_nav = self.modo_nav
         self._baixa = self.baixa
+        self.pintar_barra_windows()
         c = self.c
         p.bgcolor = c["bg"]
         p.controls.clear()

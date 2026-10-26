@@ -960,3 +960,12 @@ def test_ferramenta_nova_versao(tmp_path, monkeypatch):
     assert nv.main(["x", "1.9.1", "Corrige o fórum"]) == 0
     assert '__version__ = "1.9.1"' in (tmp_path / "aprova" / "__init__.py").read_text()
     assert json.loads((tmp_path / "docs" / "versao.json").read_text(encoding="utf-8"))["notas"] == ["Corrige o fórum"]
+
+
+def test_barra_do_windows_so_pinta_no_windows():
+    from aprova import janela
+
+    assert janela.colorref("#2340A8") == 0xA84023  # COLORREF é 0x00BBGGRR
+    assert janela.colorref("FFFFFF") == 0xFFFFFF
+    if sys.platform != "win32":
+        assert janela.pintar_barra("Aprova", "#FFFFFF", "#141C33", "#E0E4ED", False) is False

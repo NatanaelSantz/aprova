@@ -1,10 +1,8 @@
 {
-  "versao": "1.9.3",
+  "versao": "1.9.4",
   "data": "26/10/2026",
   "notas": [
-    "O menu lateral cabe em notebooks com zoom de 125% ou 150%: Iniciar estudo e Leitura sempre à vista",
-    "A janela abre num tamanho que cabe na tela e depois vai para tela cheia",
-    "Leitura e os três temas numa linha só"
+    "Barra de cima com as cores do Aprova no Windows 11 (claro, sépia ou escuro), sem o texto repetido"
   ],
   "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
 }
