@@ -204,6 +204,8 @@ O link é assim: `https://natanaelsantz.github.io/aprova/convite/?g=CODIGO`. Que
 3. Se tem conta, já entra no grupo. Se não tem, só confere o apelido sugerido e toca em **Entrar no grupo** (conta rápida, sem e-mail e senha).
 4. Se ainda não tem o Aprova: baixa pela própria página. O link fica copiado e, quando o app abre, ele encontra o convite e oferece entrar no grupo.
 
+O grupo é fechado: ninguém encontra o grupo procurando, e só entra quem tem o link do convite. A conversa, as fotos e os arquivos aparecem só para quem é do grupo, então mande o link só para a sua turma.
+
 No celular, a página explica que o Aprova é para computador e oferece copiar o link ou mandar para si mesmo no WhatsApp.
 
 A **conta rápida** fica só naquele computador. Para entrar de outro lugar, a pessoa coloca e-mail e senha em **Minha conta → Proteger minha conta**.
