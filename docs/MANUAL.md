@@ -231,14 +231,20 @@ Como funciona:
 - Em **Minha conta** dá para mudar o apelido, sair ou **apagar a conta** e todos os dados do ranking.
 - Plano grátis do Supabase: 500 MB de banco e até 50 mil usuários por mês; o projeto pausa depois de 7 dias sem nenhum uso (reative no painel do Supabase).
 
-## Chave do Claude (opcional)
+## IA: sem chave (chat) ou com a chave do Claude
 
-Em **Ajustes → Explicações com IA**, cole uma chave da API do Claude (crie em [platform.claude.com](https://platform.claude.com)). Com ela:
+**Sem chave, de graça:** na ajuda de cada questão e no resultado do simulado, os botões **Perguntar ao Claude** e **Perguntar ao ChatGPT** abrem o chat no navegador com a pergunta já escrita (a questão, as alternativas e o que você marcou; no resultado, os seus erros com o pedido de um plano de 3 dias). Funciona com a conta grátis de cada um. A pergunta também vai para a área de transferência: se o chat abrir vazio, cole com Ctrl+V e envie. Durante o simulado, a pergunta não leva o gabarito (para não estragar o simulado).
 
-- a ajuda explica cada questão com fontes;
-- provas em PDF difíceis de ler são organizadas pela IA na importação.
+**Com a chave do Claude, a IA trabalha dentro do app:** explica cada questão com fontes, cria questões novas nos simulados (no lugar das que faltam ou que você já fez), dá a **análise do professor** no resultado e organiza provas em PDF difíceis de ler.
 
-O uso da API é cobrado pela Anthropic. O modelo padrão é o Haiku, o mais barato.
+Como conseguir a chave (também tem esse passo a passo no app, em **Ajustes → Explicações com IA → Passo a passo**):
+
+1. Entre em [platform.claude.com](https://platform.claude.com) (o Claude Console) e crie uma conta.
+2. Em **Billing**, coloque crédito com cartão. É pré-pago: você só gasta o que colocou. A assinatura do Claude Pro não inclui esse crédito; os planos Max e Team vêm com um crédito por mês.
+3. Em **API keys** ([platform.claude.com/settings/keys](https://platform.claude.com/settings/keys)), clique em **Create key**, dê o nome Aprova e copie a chave (começa com `sk-ant-` e aparece uma vez só).
+4. No Aprova, em **Ajustes → Explicações com IA**, cole a chave e clique em **Salvar**.
+
+A chave é como um cartão: quem tiver a chave gasta o seu crédito, então não mande no grupo nem mostre em print. Ela fica guardada só no seu computador. A chave do ChatGPT (OpenAI) não funciona no lugar da do Claude. O modelo padrão é o Haiku, o mais barato.
 
 ## Onde ficam seus dados
 

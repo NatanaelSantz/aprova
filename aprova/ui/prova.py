@@ -844,8 +844,21 @@ class TelaProva:
                         tooltip=f["url"],
                     )
                 )
+        # continuar a conversa no chat do Claude ou do ChatGPT (funciona sem chave, com a conta da pessoa)
+        from .. import chat_ia
+        from .chat import botoes_chat, dialogo_chave
+
+        sem_spoiler = modo == "dica" or (self.modo == "simulado" and not self.finalizada)
+        filhos.append(comp.apagado("Quer conversar sobre a questão? Abra no chat com a pergunta pronta:", c, 13))
+        filhos.append(
+            botoes_chat(
+                app,
+                lambda: chat_ia.pergunta_questao(q, "dica" if modo == "dica" else "explicacao", self.respostas.get(q["numero"]),
+                                                 mostrar_gabarito=not sem_spoiler, banca=self.prova.get("banca") or ""),
+            )
+        )
         if dados.get("via") == "busca" and not app.aj.chave_claude:
-            filhos.append(comp.apagado("Para uma explicação escrita por IA, adicione a chave do Claude em Ajustes.", c, 12.5))
+            filhos.append(comp.botao_texto("Explicação escrita por IA aqui no app: como ligar (passo a passo)", lambda e: dialogo_chave(app), ft.Icons.KEY_OUTLINED))
         if modo == "dica":
             revela = self.modo == "simulado" and not self.finalizada
             filhos.append(
@@ -1124,6 +1137,17 @@ class TelaProva:
         # ---- análise do professor com IA (quem tem a chave do Claude)
         analise = ft.Column(spacing=8)
 
+        from .. import chat_ia
+        from .chat import botoes_chat, menu_chat
+
+        def no_chat() -> list[ft.Control]:
+            if not erradas:
+                return []
+            return [
+                comp.apagado("Leve seus erros para uma IA: ela diz o que revisar e monta um plano de 3 dias (abre o chat com tudo pronto).", c, 13.5),
+                botoes_chat(app, lambda: chat_ia.pergunta_resultado(r, erradas, self.prova.get("titulo") or ""), "Pedir análise"),
+            ]
+
         def mostrar_analise():
             if getattr(self, "_analise", None):
                 analise.controls = [
@@ -1134,6 +1158,8 @@ class TelaProva:
                 analise.controls = [
                     comp.botao_contorno("Pedir a análise do professor (IA): assuntos para revisar e plano de 3 dias", pedir_analise, ft.Icons.AUTO_AWESOME)
                 ]
+            else:
+                analise.controls = no_chat()
 
         async def pedir_analise(e=None):
             from .. import ia
@@ -1184,8 +1210,17 @@ class TelaProva:
                     corpo_item.append(comp.apagado(f"Resposta certa ({e['certa']}): {e['texto_certa'][:220]}", c, 13.5))
                 if e["explicacao"]:
                     corpo_item.append(comp.apagado("Por quê: " + e["explicacao"][:300] + ("…" if len(e["explicacao"]) > 300 else ""), c, 13.5))
+                acoes_item: list[ft.Control] = []
                 if not self.cartao:
-                    corpo_item.append(comp.botao_texto("Ver a questão", lambda ev, n=e["numero"]: self._ir_para_questao(n), ft.Icons.ARROW_FORWARD))
+                    acoes_item.append(comp.botao_texto("Ver a questão", lambda ev, n=e["numero"]: self._ir_para_questao(n), ft.Icons.ARROW_FORWARD))
+                    q_orig = next((x for x in self.questoes if x["numero"] == e["numero"]), None)
+                    if q_orig:
+                        acoes_item.append(
+                            menu_chat(app, lambda q_=q_orig, sua=e["sua"]: chat_ia.pergunta_questao(q_, "explicacao", sua, banca=self.prova.get("banca") or ""),
+                                      "Entender com IA")
+                        )
+                if acoes_item:
+                    corpo_item.append(ft.Row(acoes_item, spacing=12, wrap=True, vertical_alignment=ft.CrossAxisAlignment.CENTER))
                 itens.append(
                     ft.Container(
                         ft.Column(corpo_item, spacing=6),

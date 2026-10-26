@@ -46,6 +46,9 @@ def abrir_montador(app, filtro: str = "", nome: str = "", banca: str = "") -> No
         disabled=not tem_ia,
         on_change=lambda e: (setattr(assuntos, "visible", bool(e.control.value)), recalcular()),
     )
+    from .chat import dialogo_chave
+
+    como_ligar = comp.botao_texto("Como ligar a IA (passo a passo)", lambda e: dialogo_chave(app), ft.Icons.KEY_OUTLINED, visible=not tem_ia)
     assuntos = ft.TextField(
         label="Assuntos do edital (a IA usa para criar as questões)",
         hint_text="Ex.: Desenvolvimento de Software: Java, Spring Boot, APIs REST, microsserviços, testes, DevOps…",
@@ -181,7 +184,7 @@ def abrir_montador(app, filtro: str = "", nome: str = "", banca: str = "") -> No
             assuntos,
             aviso_falta,
         ]
-        + ([] if tem_ia else [comp.apagado("A criação de questões por IA fica disponível quando você coloca a chave do Claude em Ajustes.", c, 13)]),
+        + ([] if tem_ia else [comp.apagado("A criação de questões por IA fica disponível quando você coloca a chave do Claude em Ajustes.", c, 13), como_ligar]),
         spacing=12,
         scroll=ft.ScrollMode.AUTO,
         width=largura,

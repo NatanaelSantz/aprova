@@ -1534,3 +1534,24 @@ def test_comentario_do_simulado(tmp_path):
     e1, e2 = erradas["Raciocínio Lógico"]
     assert (e1["sua"], e1["certa"], e1["texto_certa"], e1["explicacao"]) == ("B", "A", "x", "Silogismo.")
     assert e1["enunciado"] == "Se todo A é B..." and e2["sua"] is None
+
+
+def test_pergunta_pronta_para_o_chat_de_ia():
+    """Sem chave: a questão vai para o chat do Claude ou do ChatGPT já escrita (no link, se couber)."""
+    from urllib.parse import parse_qs, urlparse
+
+    from aprova import chat_ia
+
+    q = {"numero": 5, "disciplina": "Raciocínio Lógico", "enunciado": "Qual é a negação de  'Todo servidor é pontual'?",
+         "alternativas": {"A": "Nenhum servidor é pontual", "E": "Algum servidor não é pontual"}, "gabarito": "E"}
+    dica = chat_ia.pergunta_questao(q, "dica", "A", mostrar_gabarito=False, banca="FGV")
+    assert "Gabarito oficial" not in dica and "DICA" in dica and "Eu marquei A" in dica and "banca FGV" in dica
+    exp = chat_ia.pergunta_questao(q, "explicacao", "A")
+    assert "Gabarito oficial: E." in exp and "(E) Algum servidor não é pontual" in exp
+    for servico, base in (("claude", "https://claude.ai/new"), ("chatgpt", "https://chatgpt.com/")):
+        url = chat_ia.link(servico, exp)
+        assert url.startswith(base + "?q=") and parse_qs(urlparse(url).query)["q"][0] == exp
+        assert chat_ia.link(servico, "x" * 5000) == base  # longa demais: vai só pela área de transferência
+    res = chat_ia.pergunta_resultado({"acertos": 7, "total": 10, "por_disc": {"RL": [1, 3]}},
+                                     {"RL": [{"enunciado": "Negação de todo", "sua": "A", "certa": "E"}]}, "Simulado Dataprev")
+    assert "acertei 7 de 10 (70%)" in res and "marquei A, a certa era E" in res and "3 dias" in res

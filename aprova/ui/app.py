@@ -711,6 +711,10 @@ class App:
             tela._inicio = (w[50][0] + 1, (w[50][1] + w[50][3]) / 2)
             fim = w[min(62, len(w) - 1)]
             tela._pan_meio(type("E", (), {"local_position": ft.Offset((fim[2] - 1) * s, (fim[1] + fim[3]) / 2 * s)})())
+        elif nome == "guia_chave":
+            from .chat import dialogo_chave
+
+            dialogo_chave(self)
         elif nome == "figurinhas":
             from .anexos import dialogo_figurinhas_gifs
 

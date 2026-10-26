@@ -320,13 +320,18 @@ class TelaAjustes:
             width=340,
             dense=True,
         )
+        from .chat import dialogo_chave
+
         return self._secao(
             "Explicações com IA (opcional)",
-            "Sem chave, a ajuda já pesquisa na internet e mostra as fontes. Com uma chave da API do Claude, ela escreve a explicação de cada questão e consegue organizar provas em PDF difíceis de ler. O uso da API é cobrado pela Anthropic.",
+            "Sem chave, a ajuda já pesquisa na internet e mostra as fontes, e os botões Perguntar ao Claude e Perguntar ao ChatGPT "
+            "levam a questão para o chat no navegador (com a sua conta, grátis). Com a chave da API do Claude, a IA trabalha aqui "
+            "dentro: explica cada questão, cria questões novas nos simulados e analisa o seu resultado. O uso da chave é cobrado pela "
+            "Anthropic, com crédito pré-pago.",
             status,
+            comp.botao("Passo a passo: como conseguir a chave", lambda e: dialogo_chave(app), ft.Icons.KEY_OUTLINED),
             ft.Row([campo, comp.botao("Salvar", salvar)], spacing=10),
             modelo,
-            comp.botao_texto("Criar uma chave no Claude Console", url="https://platform.claude.com", icone=ft.Icons.OPEN_IN_NEW),
         )
 
     # ------------------------------------------------------------------ geral
