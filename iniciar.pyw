@@ -49,19 +49,69 @@ def _no_ambiente() -> bool:
         return False
 
 
+MARCA_REQUISITOS = VENV / ".requisitos"  # resumo do requirements.txt da última instalação
+
+
+def _resumo_requisitos() -> str:
+    import hashlib
+
+    try:
+        return hashlib.sha256(REQUISITOS.read_bytes()).hexdigest()
+    except OSError:
+        return ""
+
+
+def requisitos_mudaram() -> bool:
+    """Uma atualização trouxe bibliotecas novas? (instalação antiga, sem resumo: confere só os módulos)"""
+    try:
+        return MARCA_REQUISITOS.read_text(encoding="utf-8").strip() != _resumo_requisitos()
+    except OSError:
+        return False
+
+
+def marcar_requisitos() -> None:
+    try:
+        MARCA_REQUISITOS.write_text(_resumo_requisitos(), encoding="utf-8")
+    except OSError:
+        pass
+
+
 def ambiente_ok() -> bool:
     if DEMO:
         return False
     if not PY_VENV.exists():
         return False
+    if requisitos_mudaram():
+        return False
     if _no_ambiente():
         import importlib.util
 
-        return all(importlib.util.find_spec(m) is not None for m in MODULOS)
+        ok = all(importlib.util.find_spec(m) is not None for m in MODULOS)
+    else:
+        try:
+            ok = _rodar([str(PY_VENV), "-c", "import " + ", ".join(MODULOS)], timeout=60).returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            ok = False
+    if ok and not MARCA_REQUISITOS.exists():
+        marcar_requisitos()
+    return ok
+
+
+def aplicar_atualizacao() -> None:
+    """Se uma versão nova foi baixada pelo app, copia os arquivos dela antes de abrir."""
     try:
-        return _rodar([str(PY_VENV), "-c", "import " + ", ".join(MODULOS)], timeout=60).returncode == 0
-    except (OSError, subprocess.SubprocessError):
-        return False
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("aprova_atualizar", RAIZ / "aprova" / "atualizar.py")
+        if spec is None or spec.loader is None:
+            return
+        modulo = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(modulo)
+        versao = modulo.aplicar_pendente(RAIZ, DADOS)
+        if versao:
+            _anotar(f"\n=== Atualizado para a versão {versao} em {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    except Exception:  # noqa: BLE001
+        _anotar("Falha ao aplicar a atualização:\n" + traceback.format_exc())
 
 
 def _anotar(texto: str) -> None:
@@ -308,6 +358,7 @@ class Trabalho(threading.Thread):
             self.enviar(tipo="erro", texto=_erro_amigavel(texto), detalhe=texto)
             return
         _ = instalando
+        marcar_requisitos()
         self.enviar(tipo="etapa", etapa="bibliotecas", estado="feito")
         # 3) atalho
         self.enviar(tipo="etapa", etapa="atalho", estado="atual")
@@ -519,12 +570,14 @@ def instalar_sem_janela() -> None:
     if not PY_VENV.exists():
         subprocess.run([_python_cli(), "-m", "venv", str(VENV)])
     flags = 0x00000010 if WIN else 0  # CREATE_NEW_CONSOLE
-    subprocess.run([str(PY_VENV), "-m", "pip", "install", "-r", str(REQUISITOS)], creationflags=flags)
+    if subprocess.run([str(PY_VENV), "-m", "pip", "install", "-r", str(REQUISITOS)], creationflags=flags).returncode == 0:
+        marcar_requisitos()
     criar_atalho()
     abrir_app()
 
 
 def main() -> None:
+    aplicar_atualizacao()
     if ambiente_ok():
         if WIN and not atalho_atualizado():
             threading.Thread(target=criar_atalho, daemon=True).start()

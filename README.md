@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>Estude para o seu concurso com método, sozinho ou com a sua turma.</b><br>
-  Provas reais com gabarito, simulados, revisão no dia certo, metas da semana, grupos de estudo e ranking.<br>
+  Provas reais com gabarito, simulados, revisão no dia certo, metas da semana, PDFs marcados, grupos de estudo e ranking.<br>
   Grátis, em português e feito para quem estuda depois do trabalho.
 </p>
 
@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.8.0" src="https://img.shields.io/badge/vers%C3%A3o-1.8.0-2340A8">
+  <img alt="Versão 1.9.0" src="https://img.shields.io/badge/vers%C3%A3o-1.9.0-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -73,6 +73,16 @@
       Temas claro, sépia e escuro, fonte Atkinson Hyperlegible com tamanho ajustável, leitura em voz alta e lembrete de pausa 20-20-20.
     </td>
   </tr>
+  <tr>
+    <td valign="top">
+      <h3>🖍️ Marcar PDF</h3>
+      Lei seca, apostila, edital ou prova: <b>marca-texto em 4 cores</b>, sublinhado e notas. Salve um PDF novo com as marcações <b>editáveis</b> ou <b>fixas</b> (ninguém apaga nem muda). O arquivo original não é alterado.
+    </td>
+    <td valign="top">
+      <h3>🔄 Sempre atualizado</h3>
+      O Aprova avisa no Início quando sai uma versão nova e <b>atualiza com um toque</b>, sem baixar nada à mão. Estudos, contas e PDFs marcados continuam como estão.
+    </td>
+  </tr>
 </table>
 
 ## Telas
@@ -89,6 +99,14 @@
   <tr>
     <td><img src="docs/img/convidar.png" alt="Janela para convidar pelo WhatsApp, Instagram e TikTok"><br><sub><b>Convidar:</b> WhatsApp, Instagram, TikTok, Telegram e e-mail.</sub></td>
     <td><img src="docs/img/entrar-convite.png" alt="Entrada no grupo pelo convite, sem cadastro"><br><sub><b>Quem recebe o convite:</b> confere o apelido e já entra no grupo.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/img/marcador.png" alt="PDF com marca-texto, sublinhado e notas"><br><sub><b>Marcar PDF:</b> marca-texto, sublinhado e notas, com a lista ao lado.</sub></td>
+    <td><img src="docs/img/marcador-salvar.png" alt="Salvar o PDF marcado com marcações fixas"><br><sub><b>Salvar PDF:</b> marcações editáveis ou fixas, num PDF novo.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/img/atualizacao.png" alt="Janela de atualização do Aprova"><br><sub><b>Atualização:</b> o app avisa a versão nova e atualiza com um toque.</sub></td>
+    <td><img src="docs/img/pdfs.png" alt="Lista de PDFs marcados"><br><sub><b>Seus PDFs marcados:</b> continue de onde parou.</sub></td>
   </tr>
   <tr>
     <td><img src="docs/img/pagina-convite.png" alt="Página do convite aberta pelo link"><br><sub><b>Página do convite:</b> o link abre o app ou leva ao download.</sub></td>
@@ -112,6 +130,9 @@
 2. Dê dois cliques em **`Abrir Aprova.bat`**. Na primeira vez abre a janela *Preparando o Aprova*: se faltar o Python, ele é instalado, e depois vêm as bibliotecas do app (de 5 a 10 minutos, com internet).
 3. Pronto: o Aprova abre sozinho e cria o atalho **Aprova** na área de trabalho. Dali em diante, abra por ele.
 
+> [!NOTE]
+> **Atualizações:** da versão 1.9 em diante, o Aprova procura versão nova sozinho e mostra o aviso **Nova versão** no Início: é só tocar em **Atualizar** e depois em **Reiniciar agora**. Quem tem a 1.8 ou anterior precisa baixar o .zip uma última vez e extrair por cima da pasta antiga (os estudos ficam guardados à parte, na pasta `.aprova`).
+
 > [!TIP]
 > Recebeu um **convite de grupo**? Abra o link no computador e clique em **Entrar no grupo**. Se o Aprova ainda não estiver instalado, a página leva ao download e o convite aparece sozinho quando o app abrir.
 
@@ -132,7 +153,7 @@ No macOS e no Linux: `./iniciar.sh` (ou `./iniciar.sh --web` para abrir no naveg
 
 ## Privacidade
 
-- Seus estudos (provas, respostas, metas, tempo) ficam **no seu computador**, na pasta `.aprova` da sua pasta de usuário.
+- Seus estudos (provas, respostas, metas, tempo e PDFs marcados) ficam **no seu computador**, na pasta `.aprova` da sua pasta de usuário.
 - No servidor vão só o **apelido**, o concurso, os **números da semana** e o que você escreve nos grupos. O e-mail nunca aparece para ninguém e a senha não fica no computador.
 - As regras de acesso ficam no próprio servidor ([`supabase/ranking.sql`](supabase/ranking.sql)): só quem está no grupo lê as mensagens dele, e um aluno não consegue se promover, mesmo mexendo no app.
 - Em *Minha conta* dá para **apagar a conta** e todos os dados do servidor.
@@ -162,6 +183,19 @@ A página do convite e a página do app ficam em [`docs/`](docs) e são publicad
 </details>
 
 <details>
+<summary><b>Para quem mantém o app: mandar uma atualização para todo mundo</b></summary>
+
+<br>
+
+1. Faça as mudanças e rode os testes (`python -m pytest -q tests`).
+2. `python ferramentas/nova_versao.py 1.9.1 "O que mudou" "Outra novidade"`: muda o número da versão e escreve o [`docs/versao.json`](docs/versao.json), que é o que o app consulta.
+3. `git commit -am "Versão 1.9.1"` e `git push` na `main`.
+
+Em até 12 horas (ou na hora, em *Ajustes → Atualizações → Procurar atualização*), quem tem o Aprova 1.9 ou mais novo vê o aviso no Início. O app baixa o .zip da `main`, confere se a versão é mesmo mais nova e deixa tudo pronto; a troca dos arquivos acontece ao reabrir, pelo `iniciar.pyw`, que guarda uma cópia da versão anterior em `.aprova/atualizacao/anterior` e só reinstala bibliotecas se o `requirements.txt` mudou. O `ranking.json` e a pasta `.venv` nunca são trocados.
+
+</details>
+
+<details>
 <summary><b>Para desenvolver</b></summary>
 
 <br>
@@ -172,6 +206,8 @@ aprova/
   db.py           banco SQLite local de cada conta
   ranking.py      cliente do servidor (login, papéis, ranking, grupos, fórum, convites)
   convite.py      link de convite, endereço aprova://, imagem com QR code
+  marcador.py     marcar PDF: destaque, sublinhado, notas e salvar (editável ou fixo)
+  atualizar.py    atualização automática (versao.json, download e troca ao reabrir)
   fontes.py       busca central: sites das bancas, internet e PCI
   coleta.py       "Encher a biblioteca": provas de um concurso em lote
   pdfprova.py     texto, questões e gabarito dos PDFs
@@ -179,7 +215,8 @@ aprova/
   sessoes.py      revisão espaçada e "próximo estudo"
   ia.py           recursos opcionais com a API do Claude
 supabase/         ranking.sql: tabelas, papéis e regras de acesso do servidor
-docs/             site no GitHub Pages (página do app e do convite) e o guia completo
+docs/             site no GitHub Pages (página do app, do convite, versao.json) e o guia completo
+ferramentas/      nova_versao.py (publicar atualização), abertura e instalação do Python
 iniciar.pyw       abre o app sem console e instala o que faltar
 tests/            testes, servidor falso do Supabase e capturas de tela
 ```
@@ -200,7 +237,8 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
-| **1.8.0** | Convite por link (WhatsApp, Instagram, TikTok), página do convite, entrada sem cadastro |
+| **1.9.0** | Marcar PDF (marca-texto, sublinhado, notas, salvar editável ou fixo) e atualização automática |
+| 1.8.0 | Convite por link (WhatsApp, Instagram, TikTok), página do convite, entrada sem cadastro |
 | 1.7.0 | Grupos de estudo com fórum, planos de estudo compartilhados e moderação |
 | 1.6.0 | Tela de login, conta de aluno e de administrador, comunicados, layout em 3 tamanhos |
 | 1.5.1 | Base: provas, simulados, metas, revisão, painel e ranking |

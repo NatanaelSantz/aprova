@@ -30,7 +30,7 @@ def abrir_prova(app, prova_id: int, modo: str, numero: int | None = None) -> Non
 INTERNAS = ("aprova://revisao", "aprova://simulado/treino")
 
 
-async def escolher_pdfs(app) -> list[Path]:
+async def escolher_pdfs(app, titulo: str = "Escolha a prova e o gabarito (PDF)", varios: bool = True) -> list[Path]:
     """Abre o seletor de arquivos e devolve caminhos locais dos PDFs escolhidos."""
     picker = getattr(app, "_picker", None)
     if picker is None:
@@ -38,11 +38,11 @@ async def escolher_pdfs(app) -> list[Path]:
         app._picker = picker
     pasta = app.aj["pasta_downloads"] if Path(app.aj["pasta_downloads"]).exists() else None
     arquivos = await picker.pick_files(
-        dialog_title="Escolha a prova e o gabarito (PDF)",
+        dialog_title=titulo,
         initial_directory=pasta,
         file_type=ft.FilePickerFileType.CUSTOM,
         allowed_extensions=["pdf"],
-        allow_multiple=True,
+        allow_multiple=varios,
         with_data=app.modo_web,
     )
     caminhos: list[Path] = []
@@ -213,7 +213,7 @@ class TelaEstudar:
         self.aba = "biblioteca"
 
     def preparar(self, aba: str | None = None, **_):
-        if aba in ("biblioteca", "revisao", "duvidas"):
+        if aba in ("biblioteca", "revisao", "duvidas", "pdfs"):
             self.aba = aba
 
     def _abas(self) -> ft.Control:
@@ -224,6 +224,7 @@ class TelaEstudar:
                 ft.Segment(value="biblioteca", label=ft.Text("Biblioteca"), icon=ft.Icon(ft.Icons.LIBRARY_BOOKS_OUTLINED)),
                 ft.Segment(value="revisao", label=ft.Text(f"Revisão ({rev})" if rev else "Revisão"), icon=ft.Icon(ft.Icons.REPLAY)),
                 ft.Segment(value="duvidas", label=ft.Text("Dúvidas"), icon=ft.Icon(ft.Icons.QUESTION_ANSWER_OUTLINED)),
+                ft.Segment(value="pdfs", label=ft.Text("Marcar PDF"), icon=ft.Icon(ft.Icons.BORDER_COLOR_OUTLINED)),
             ],
             show_selected_icon=False,
             on_change=self._trocar_aba,
@@ -321,6 +322,8 @@ class TelaEstudar:
             corpo = [self._revisao()]
         elif self.aba == "duvidas":
             corpo = [self._duvidas()]
+        elif self.aba == "pdfs":
+            corpo = [self._pdfs()]
         else:
             corpo = [explicacao, comp.subtitulo("Suas provas", c, 21), comp.bloco(lista, c, padding=8), self._historico()]
         abas = self._abas() if app.largo else ft.Row([self._abas()], scroll=ft.ScrollMode.AUTO)
@@ -575,6 +578,7 @@ class TelaEstudar:
             items=[
                 ft.PopupMenuItem(content="Gabarito", icon=ft.Icons.EDIT_OUTLINED, on_click=lambda e, pr=p: dialogo_gabarito(app, pr, self._recarregar)),
                 ft.PopupMenuItem(content="Abrir PDF original", icon=ft.Icons.PICTURE_AS_PDF_OUTLINED, on_click=lambda e, pr=p: self._abrir_pdf(pr)),
+                ft.PopupMenuItem(content="Marcar e anotar o PDF", icon=ft.Icons.BORDER_COLOR_OUTLINED, on_click=lambda e, pr=p: self._marcar_prova(pr)),
                 ft.PopupMenuItem(content="Apagar da biblioteca", icon=ft.Icons.DELETE_OUTLINE, on_click=lambda e, pr=p: self._apagar(pr)),
             ],
         )
@@ -646,6 +650,101 @@ class TelaEstudar:
         import webbrowser
 
         webbrowser.open(Path(p["pdf_prova"]).as_uri())
+
+    # ------------------------------------------------------------------ marcar PDF
+
+    def _marcar_prova(self, p: dict):
+        from .marcador import abrir_marcador
+
+        if not p.get("pdf_prova") or not Path(p["pdf_prova"]).exists():
+            comp.mensagem(self.app.page, "Esta prova não tem o PDF guardado.")
+            return
+        abrir_marcador(self.app, Path(p["pdf_prova"]), titulo=p["titulo"])
+
+    async def _marcar_novo(self, e=None):
+        from .marcador import abrir_marcador, escolher_pdf
+
+        pdf = await escolher_pdf(self.app)
+        if pdf:
+            abrir_marcador(self.app, pdf)
+
+    def _pdfs(self) -> ft.Control:
+        from .. import marcador
+        from .marcador import abrir_marcador, dialogo_salvar, quando
+
+        app, c = self.app, self.app.c
+        explicacao = ft.Row(
+            [
+                ft.Container(ft.Icon(ft.Icons.BORDER_COLOR_OUTLINED, color=c["tinta"], size=26), bgcolor=c["tinta_suave"], border_radius=12, padding=12),
+                ft.Column(
+                    [
+                        comp.texto("Marque e anote qualquer PDF", c, 16, peso=ft.FontWeight.W_700),
+                        comp.apagado("Lei seca, apostila, edital ou prova: marca-texto em 4 cores, sublinhado e notas. Depois salve um PDF com as marcações, editáveis ou fixas. O arquivo original não muda.", c, 13.5),
+                    ],
+                    spacing=3,
+                    expand=True,
+                ),
+            ],
+            spacing=14,
+            vertical_alignment=ft.CrossAxisAlignment.START,
+        )
+        botao = comp.botao("Abrir um PDF para marcar", self._marcar_novo, ft.Icons.FILE_OPEN_OUTLINED)
+        topo = ft.Column([explicacao, botao], spacing=14) if not app.largo else ft.Row([ft.Container(explicacao, expand=True), botao], spacing=20, vertical_alignment=ft.CrossAxisAlignment.CENTER)
+        recentes = marcador.recentes(app.pasta_conta)
+        if not recentes:
+            return ft.Column([comp.bloco(topo, c), comp.vazio(ft.Icons.PICTURE_AS_PDF_OUTLINED, "Nenhum PDF marcado ainda", "Os PDFs que você marcar ficam aqui para continuar depois, com todas as marcações.", c)], spacing=16)
+
+        def esquecer(item):
+            def confirmar(e):
+                app.page.pop_dialog()
+                marcador.esquecer(item["id"], app.pasta_conta)
+                self._recarregar()
+
+            app.page.show_dialog(
+                ft.AlertDialog(
+                    title=ft.Text("Tirar da lista?"),
+                    content=ft.Text(f"As marcações de “{item['titulo']}” guardadas no Aprova serão apagadas. O PDF original e os PDFs que você já salvou continuam onde estão."),
+                    actions=[ft.TextButton("Cancelar", on_click=lambda e: app.page.pop_dialog()), ft.TextButton("Tirar da lista", on_click=confirmar)],
+                )
+            )
+
+        def salvar(item):
+            try:
+                doc = marcador.DocumentoMarcado(Path(item["copia"]))
+            except Exception:  # noqa: BLE001
+                comp.mensagem(app.page, "Não consegui abrir esse PDF.")
+                return
+            dialogo_salvar(app, doc, depois=doc.fechar)
+
+        linhas = ft.Column(spacing=0)
+        for i, item in enumerate(recentes):
+            n = item.get("marcacoes", 0)
+            info = ft.Column(
+                [
+                    ft.Text(item["titulo"], size=16.5, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["texto"], max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
+                    comp.apagado(f"{item.get('paginas', 0)} páginas · {n} marcaç{'ão' if n == 1 else 'ões'} · aberto {quando(item.get('aberto_em', 0))}", c, 13),
+                ],
+                spacing=3,
+                expand=True,
+            )
+            menu = ft.PopupMenuButton(
+                icon=ft.Icons.MORE_VERT,
+                tooltip="Mais opções",
+                items=[
+                    ft.PopupMenuItem(content="Salvar PDF marcado", icon=ft.Icons.SAVE_ALT, on_click=lambda e, it=item: salvar(it)),
+                    ft.PopupMenuItem(content="Tirar da lista", icon=ft.Icons.DELETE_OUTLINE, on_click=lambda e, it=item: esquecer(it)),
+                ],
+            )
+            acoes = ft.Row([comp.botao_contorno("Continuar", lambda e, it=item: abrir_marcador(app, Path(it["copia"])), ft.Icons.EDIT_OUTLINED), menu], spacing=6, tight=True)
+            linha = ft.Row([ft.Icon(ft.Icons.PICTURE_AS_PDF_OUTLINED, color=c["erro"]), info, acoes], spacing=14, vertical_alignment=ft.CrossAxisAlignment.CENTER) if app.largo else ft.Column([ft.Row([ft.Icon(ft.Icons.PICTURE_AS_PDF_OUTLINED, color=c["erro"]), info], spacing=12), acoes], spacing=8)
+            linhas.controls.append(
+                ft.Container(
+                    linha,
+                    padding=ft.Padding.symmetric(horizontal=14, vertical=12),
+                    border=None if i == len(recentes) - 1 else ft.Border.only(bottom=ft.BorderSide(1, c["borda"])),
+                )
+            )
+        return ft.Column([comp.bloco(topo, c), comp.subtitulo("Seus PDFs marcados", c, 21), comp.bloco(linhas, c, padding=8)], spacing=16)
 
     def _apagar(self, p: dict):
         app = self.app

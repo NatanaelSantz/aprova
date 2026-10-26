@@ -37,7 +37,12 @@ class TelaAjustes:
         ]
         if not app.modo_web:
             secoes.append(self._voz())
-        secoes += [self._celular(), self._ranking(), self._claude(), self._geral(), ft.Container(height=30)]
+        secoes += [self._celular(), self._ranking(), self._claude()]
+        if not app.modo_web:
+            from .atualizacao import secao_ajustes
+
+            secoes.append(secao_ajustes(app, self))
+        secoes += [self._geral(), ft.Container(height=30)]
         return ft.Column(secoes, spacing=22, scroll=ft.ScrollMode.AUTO, expand=True)
 
     def _secao(self, titulo: str, descricao: str, *filhos: ft.Control) -> ft.Control:

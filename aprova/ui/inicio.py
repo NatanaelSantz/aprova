@@ -95,7 +95,9 @@ class TelaInicio:
             pass
 
     def _cartoes_topo(self) -> list[ft.Control]:
-        return self._cartoes_comunicados(self.app.comunicados_cache()) + self._cartoes_grupos()
+        from .atualizacao import cartao_inicio
+
+        return cartao_inicio(self.app) + self._cartoes_comunicados(self.app.comunicados_cache()) + self._cartoes_grupos()
 
     def _cartoes_grupos(self) -> list[ft.Control]:
         """Aviso de mensagens novas nos grupos desde a última visita."""

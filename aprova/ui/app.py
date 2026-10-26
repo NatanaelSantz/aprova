@@ -116,6 +116,8 @@ class App:
         self._ultima_sync = 0.0
         self._antes_extra = "inicio"
         self.convite: dict | None = None  # convite de grupo esperando a pessoa entrar
+        self.atualizacao: dict | None = None  # versão nova disponível (versao.json do site)
+        self.atualizacao_pronta: str | None = None  # versão já baixada, entra ao reiniciar
         self._ultimo_texto_area = ""
 
     # ------------------------------------------------------------ utilidades
@@ -154,6 +156,11 @@ class App:
             self.telas.clear()
 
     @property
+    def pasta_conta(self) -> Path:
+        """Pasta de dados de quem está usando (visitante ou a conta)."""
+        return pasta_dados(self.conta_id)
+
+    @property
     def nome_exibicao(self) -> str:
         if self.ranking.logado and self.ranking.apelido:
             return self.ranking.apelido
@@ -182,7 +189,11 @@ class App:
     def _tem_estudos_de_visitante(self) -> bool:
         try:
             b = banco_em(pasta_dados(None) / "aprova.db")
-            return b.estatisticas()["respondidas"] > 0 or any(p["origem_url"] != "aprova://demo" for p in b.provas())
+            if b.estatisticas()["respondidas"] > 0 or any(p["origem_url"] != "aprova://demo" for p in b.provas()):
+                return True
+            from .. import marcador
+
+            return bool(marcador.recentes(pasta_dados(None)))
         except Exception:  # noqa: BLE001
             return False
 
@@ -201,6 +212,12 @@ class App:
         aj_origem = pasta_dados(None) / "ajustes.json"
         if aj_origem.exists():
             shutil.copy2(aj_origem, destino / "ajustes.json")
+        try:
+            from .. import marcador
+
+            marcador.copiar_para(pasta_dados(None), destino)
+        except OSError as e:
+            config.registrar(f"marcador: não levou os PDFs marcados ({e})")
         self.sessao.set("estudos_levados_para", conta_id)
 
     async def _perguntar(self, titulo: str, texto: str, sim: str, nao: str) -> bool:
@@ -422,167 +439,235 @@ class App:
                 pass
         if not self.modo_web and not config.FIXTURES_DIR:
             p.run_task(self._verificar_provas_novas)
+        from . import atualizacao
+
+        atualizacao.ver_pronta(self)
+        if atualizacao.disponivel(self):
+            p.run_task(atualizacao.vigiar, self)
         if os.environ.get("APROVA_DEMO"):
             p.run_task(self._roteiro_demo, os.environ["APROVA_DEMO"])
 
     async def _roteiro_demo(self, roteiro: str) -> None:
         """Passos automáticos usados nos testes de tela (APROVA_DEMO)."""
+        await asyncio.sleep(1.5)
+        for passo in roteiro.split(","):
+            try:
+                await self._passo_demo(passo)
+            except Exception:  # noqa: BLE001
+                import traceback
+
+                traceback.print_exc()
+            await asyncio.sleep(0.6)
+
+    async def _passo_demo(self, passo: str) -> None:
         from .concursos import abrir_edital
         from .estudar import abrir_prova
         from .provas import baixar_prova
 
-        await asyncio.sleep(1.5)
-        for passo in roteiro.split(","):
-            nome, _, arg = passo.partition(":")
-            tela = self.foco
-            if nome == "prova":
-                demo = next(p for p in self.db.provas() if p["origem_url"] == "aprova://demo")
-                abrir_prova(self, demo["id"], arg or "estudo")
-            elif nome == "importada":
-                prova = next(p for p in self.db.provas() if p["origem_url"] != "aprova://demo")
-                abrir_prova(self, prova["id"], arg or "estudo")
-            elif nome == "responder" and tela:
-                tela.responder(arg)
-            elif nome == "proxima" and tela:
-                tela.ir_para(tela.idx + int(arg or 1))
-            elif nome == "marcar" and tela:
-                tela._marcar()
-            elif nome == "ajuda" and tela:
-                tela.abrir_ajuda(arg or "dica")
-            elif nome == "finalizar" and tela:
-                tela._confirmou = True
-                await tela.finalizar()
-            elif nome == "revisar" and tela:
-                tela._revisar(True)
-            elif nome == "edital":
-                t = self._tela("concursos")
-                await asyncio.sleep(1)
-                lista = t.abertos.get(t.regiao) or []
+        nome, _, arg = passo.partition(":")
+        tela = self.foco
+        if nome == "prova":
+            demo = next(p for p in self.db.provas() if p["origem_url"] == "aprova://demo")
+            abrir_prova(self, demo["id"], arg or "estudo")
+        elif nome == "importada":
+            prova = next(p for p in self.db.provas() if p["origem_url"] != "aprova://demo")
+            abrir_prova(self, prova["id"], arg or "estudo")
+        elif nome == "responder" and tela:
+            tela.responder(arg)
+        elif nome == "proxima" and tela:
+            tela.ir_para(tela.idx + int(arg or 1))
+        elif nome == "marcar" and tela:
+            tela._marcar()
+        elif nome == "ajuda" and tela:
+            tela.abrir_ajuda(arg or "dica")
+        elif nome == "finalizar" and tela:
+            tela._confirmou = True
+            await tela.finalizar()
+        elif nome == "revisar" and tela:
+            tela._revisar(True)
+        elif nome == "edital":
+            t = self._tela("concursos")
+            await asyncio.sleep(1)
+            lista = t.abertos.get(t.regiao) or []
+            if lista:
+                await abrir_edital(self, lista[0])
+        elif nome == "baixar":
+            t = self._tela("provas")
+            await asyncio.sleep(1)
+            if t.itens:
+                await baixar_prova(self, t.itens[0])
+        elif nome == "buscar":
+            self.ir("provas", termo=arg)
+        elif nome == "aba":
+            t = self._tela("concursos")
+            t._trocar_aba(type("E", (), {"control": type("C", (), {"selected": [arg]})()})())
+        elif nome == "caderno":
+            from .. import fontes as _f
+            from .provas import importar_achado
+
+            t = self._tela("provas")
+            for _ in range(40):
+                if t.resultado is not None and not t.carregando:
+                    break
+                await asyncio.sleep(0.5)
+            grupos = _f.agrupar_por_cargo(t.resultado.oficiais)
+            cargo, _, cad = arg.partition("|")
+            g = next(g for g in grupos if cargo.lower() in g["cargo"].lower())
+            a = next(x for x in g["cadernos"] if x.caderno == (cad or "1"))
+            await importar_achado(self, a, g["gabarito"], t.resultado.termo)
+        elif nome == "provas_do_orgao":
+            self.ir("provas", url="https://www.pciconcursos.com.br/provas/tj-sp", rotulo="TJSP - Tribunal de Justiça")
+        elif nome == "painel":
+            self.ir("painel", aba=arg or "desempenho")
+            self.telas["painel"].aba = arg or "desempenho"
+            self.recarregar_tela_sem_perder(self.telas["painel"])
+        elif nome == "estudar":
+            t = self._tela("estudar")
+            t.aba = arg or "biblioteca"
+            self.ir("estudar")
+            self.recarregar_tela_sem_perder(t)
+        elif nome == "alarme":
+            lem = next((l for l in self.db.lembretes() if not arg or str(l["id"]) == arg), None)
+            if lem:
+                await self.disparar_lembrete(lem)
+        elif nome == "entrar":
+            email, _, senha = arg.partition(":")
+            await self.em_segundo_plano(self.ranking.entrar, email, senha)
+            self.page.run_task(self.depois_do_login)
+        elif nome == "grupos":
+            aba, _, cod = arg.partition("|")
+            self.ir("grupos", aba=aba or "conversa", **({"codigo": cod} if cod else {}))
+            t = self._tela("grupos")
+            t.aba = aba or "conversa"
+            self.recarregar_tela_sem_perder(t)
+        elif nome == "respostas":
+            t = self._tela("grupos")
+            for _ in range(30):
+                lista = t.posts.get((t.codigo, "conversa"))
                 if lista:
-                    await abrir_edital(self, lista[0])
-            elif nome == "baixar":
-                t = self._tela("provas")
-                await asyncio.sleep(1)
-                if t.itens:
-                    await baixar_prova(self, t.itens[0])
-            elif nome == "buscar":
-                self.ir("provas", termo=arg)
-            elif nome == "aba":
-                t = self._tela("concursos")
-                t._trocar_aba(type("E", (), {"control": type("C", (), {"selected": [arg]})()})())
-            elif nome == "caderno":
-                from .. import fontes as _f
-                from .provas import importar_achado
+                    break
+                await asyncio.sleep(0.5)
+            alvo = next((p for p in (lista or []) if p.get("respostas")), None)
+            if alvo:
+                t._alternar_respostas(alvo)
+        elif nome == "plano_novo":
+            from .grupos import dialogo_plano
 
-                t = self._tela("provas")
-                for _ in range(40):
-                    if t.resultado is not None and not t.carregando:
-                        break
-                    await asyncio.sleep(0.5)
-                grupos = _f.agrupar_por_cargo(t.resultado.oficiais)
-                cargo, _, cad = arg.partition("|")
-                g = next(g for g in grupos if cargo.lower() in g["cargo"].lower())
-                a = next(x for x in g["cadernos"] if x.caderno == (cad or "1"))
-                await importar_achado(self, a, g["gabarito"], t.resultado.termo)
-            elif nome == "provas_do_orgao":
-                self.ir("provas", url="https://www.pciconcursos.com.br/provas/tj-sp", rotulo="TJSP - Tribunal de Justiça")
-            elif nome == "painel":
-                self.ir("painel", aba=arg or "desempenho")
-                self.telas["painel"].aba = arg or "desempenho"
-                self.recarregar_tela_sem_perder(self.telas["painel"])
-            elif nome == "estudar":
-                t = self._tela("estudar")
-                t.aba = arg or "biblioteca"
-                self.ir("estudar")
-                self.recarregar_tela_sem_perder(t)
-            elif nome == "alarme":
-                lem = next((l for l in self.db.lembretes() if not arg or str(l["id"]) == arg), None)
-                if lem:
-                    await self.disparar_lembrete(lem)
-            elif nome == "entrar":
-                email, _, senha = arg.partition(":")
-                await self.em_segundo_plano(self.ranking.entrar, email, senha)
-                self.page.run_task(self.depois_do_login)
-            elif nome == "grupos":
-                aba, _, cod = arg.partition("|")
-                self.ir("grupos", aba=aba or "conversa", **({"codigo": cod} if cod else {}))
-                t = self._tela("grupos")
-                t.aba = aba or "conversa"
-                self.recarregar_tela_sem_perder(t)
-            elif nome == "respostas":
-                t = self._tela("grupos")
-                for _ in range(30):
-                    lista = t.posts.get((t.codigo, "conversa"))
-                    if lista:
-                        break
-                    await asyncio.sleep(0.5)
-                alvo = next((p for p in (lista or []) if p.get("respostas")), None)
-                if alvo:
-                    t._alternar_respostas(alvo)
-            elif nome == "plano_novo":
-                from .grupos import dialogo_plano
+            t = self._tela("grupos")
+            if t.grupo:
+                dialogo_plano(self, t.grupo, t._depois_de_publicar_plano)
+        elif nome == "plano_usar":
+            from .grupos import usar_plano
 
-                t = self._tela("grupos")
+            t = self._tela("grupos")
+            for _ in range(30):
+                lista = t.posts.get((t.codigo, "planos"))
+                if lista:
+                    break
+                await asyncio.sleep(0.5)
+            if lista and t.grupo:
+                usar_plano(self, lista[0], t.grupo)
+        elif nome == "ir":
+            self.ir(arg)
+        elif nome == "convite":
+            await self.processar_convite(arg, "link")
+        elif nome == "rapido":
+            await self.em_segundo_plano(self.ranking.entrar_rapido, arg)
+            await self.depois_do_login()
+        elif nome == "convidar":
+            from .grupos import dialogo_convidar
+
+            t = self._tela("grupos")
+            for _ in range(30):
                 if t.grupo:
-                    dialogo_plano(self, t.grupo, t._depois_de_publicar_plano)
-            elif nome == "plano_usar":
-                from .grupos import usar_plano
+                    break
+                await asyncio.sleep(0.5)
+            if t.grupo:
+                dialogo_convidar(self, t.grupo)
+        elif nome == "cronometro":
+            self.iniciar_cronometro(arg)
+        elif nome == "parar":
+            self.dialogo_parar()
+        elif nome == "checar_alarmes":
+            await self._checar_lembretes()
+        elif nome == "encher":
+            from .coleta import abrir_coleta
 
-                t = self._tela("grupos")
-                for _ in range(30):
-                    lista = t.posts.get((t.codigo, "planos"))
-                    if lista:
-                        break
-                    await asyncio.sleep(0.5)
-                if lista and t.grupo:
-                    usar_plano(self, lista[0], t.grupo)
-            elif nome == "ir":
-                self.ir(arg)
-            elif nome == "convite":
-                await self.processar_convite(arg, "link")
-            elif nome == "rapido":
-                await self.em_segundo_plano(self.ranking.entrar_rapido, arg)
-                await self.depois_do_login()
-            elif nome == "convidar":
-                from .grupos import dialogo_convidar
+            abrir_coleta(self, arg)
+        elif nome == "encher_ok":
+            # clica em "Baixar e importar" na janela aberta
+            for _ in range(40):
+                dlg = next((d for d in reversed(self.page._dialogs.controls) if isinstance(d, ft.AlertDialog)), None) if hasattr(self.page, "_dialogs") else None
+                bt = next((a for a in (dlg.actions if dlg else []) if isinstance(a, ft.FilledButton)), None)
+                if bt and bt.on_click:
+                    await bt.on_click(None)
+                    break
+                await asyncio.sleep(0.5)
+        elif nome == "encher_biblioteca":
+            self._tela("estudar")._encher()
+        elif nome == "montar":
+            from .montar import abrir_montador
 
-                t = self._tela("grupos")
-                for _ in range(30):
-                    if t.grupo:
-                        break
-                    await asyncio.sleep(0.5)
-                if t.grupo:
-                    dialogo_convidar(self, t.grupo)
-            elif nome == "cronometro":
-                self.iniciar_cronometro(arg)
-            elif nome == "parar":
-                self.dialogo_parar()
-            elif nome == "checar_alarmes":
-                await self._checar_lembretes()
-            elif nome == "encher":
-                from .coleta import abrir_coleta
+            abrir_montador(self, filtro=arg)
+        elif nome == "pausa":
+            self.page.run_task(self.mostrar_pausa)
+        elif nome == "espera":
+            await asyncio.sleep(float(arg or 1))
+        elif nome == "marcador":
+            from .marcador import abrir_marcador
 
-                abrir_coleta(self, arg)
-            elif nome == "encher_ok":
-                # clica em "Baixar e importar" na janela aberta
-                for _ in range(40):
-                    dlg = next((d for d in reversed(self.page._dialogs.controls) if isinstance(d, ft.AlertDialog)), None) if hasattr(self.page, "_dialogs") else None
-                    bt = next((a for a in (dlg.actions if dlg else []) if isinstance(a, ft.FilledButton)), None)
-                    if bt and bt.on_click:
-                        await bt.on_click(None)
-                        break
-                    await asyncio.sleep(0.5)
-            elif nome == "encher_biblioteca":
-                self._tela("estudar")._encher()
-            elif nome == "montar":
-                from .montar import abrir_montador
+            abrir_marcador(self, Path(arg))
+        elif nome == "marcas" and tela is not None and hasattr(tela, "doc"):
+            # algumas marcações de exemplo na página atual (para as capturas de tela)
+            w = tela.doc.palavras(tela.pagina)
+            if len(w) > 40:
+                def ponto(i, fim=False):
+                    return ((w[i][2] - 1) if fim else (w[i][0] + 1), (w[i][1] + w[i][3]) / 2)
 
-                abrir_montador(self, filtro=arg)
-            elif nome == "pausa":
-                self.page.run_task(self.mostrar_pausa)
-            elif nome == "espera":
-                await asyncio.sleep(float(arg or 1))
-            await asyncio.sleep(0.6)
+                tela.doc.marcar(tela.pagina, ponto(14), ponto(16, True), "destaque", "amarelo", nota="Cai muito em prova: decorar os princípios (LIMPE).")
+                tela.doc.marcar(tela.pagina, ponto(24), ponto(31, True), "sublinhado", "azul")
+                tela.doc.marcar(tela.pagina, ponto(36), ponto(min(44, len(w) - 1), True), "destaque", "verde")
+                tela.doc.nota(tela.pagina, (tela.doc.tamanho(tela.pagina)[0] - 46, w[30][1] - 4), "Revisar este artigo antes do simulado.")
+                tela._mudou = True
+                tela._atualizar()
+        elif nome == "selecao" and tela is not None and hasattr(tela, "doc"):
+            # mostra a seleção ao vivo (como no meio de um arraste)
+            w = tela.doc.palavras(tela.pagina)
+            s = tela._escala
+            tela._inicio = (w[50][0] + 1, (w[50][1] + w[50][3]) / 2)
+            fim = w[min(62, len(w) - 1)]
+            tela._pan_meio(type("E", (), {"local_position": ft.Offset((fim[2] - 1) * s, (fim[1] + fim[3]) / 2 * s)})())
+        elif nome == "atualizacao":
+            # finge que o site anunciou uma versão nova (capturas de tela)
+            from . import atualizacao
+
+            self.atualizacao = {"versao": arg or "1.9.1", "data": "25/10/2026", "notas": ["Marcar PDF: marca-texto, sublinhado e notas", "Atualização automática dentro do app", "Correções nos grupos"], "zip": os.environ.get("APROVA_DEMO_ZIP", "https://exemplo.invalid/main.zip")}
+            if self.foco is None:
+                self.recarregar_tela()
+        elif nome == "dialogo_atualizacao" and self.atualizacao:
+            from . import atualizacao
+
+            atualizacao.dialogo_atualizar(self, self.atualizacao)
+        elif nome == "clicar_atualizar":
+            dlg = next((d for d in reversed(self.page._dialogs.controls) if isinstance(d, ft.AlertDialog)), None) if hasattr(self.page, "_dialogs") else None
+            bt = next((b for b in (dlg.actions if dlg else []) if isinstance(b, ft.FilledButton)), None)
+            if bt and bt.on_click:
+                self.page.run_task(bt.on_click, None)
+        elif nome == "atualizacao_pronta":
+            self.atualizacao_pronta = arg or "1.9.1"
+            if self.foco is None:
+                self.recarregar_tela()
+        elif nome == "fechar_marcador" and tela is not None and hasattr(tela, "doc"):
+            tela._mudou = False
+            tela._sair()
+        elif nome == "salvar_pdf" and tela is not None and hasattr(tela, "dialogo_salvar"):
+            if arg == "fixas":
+                self.aj.set("marcador_fixas", True)
+            tela.dialogo_salvar()
+        elif nome == "nota_aberta" and tela is not None and hasattr(tela, "doc"):
+            m = next((x for x in tela.doc.marcacoes() if x["nota"] and x["tipo"] != "nota"), None)
+            if m:
+                tela.dialogo_marcacao(m)
 
     def _ao_redimensionar(self, e) -> None:
         if self._modo_nav is not None and self._modo_nav != self.modo_nav:
@@ -866,13 +951,17 @@ class App:
         if hasattr(tela, "ao_mostrar"):
             tela.ao_mostrar()
 
-    def fechar_foco(self, ir_para: str | None = None) -> None:
+    def fechar_foco(self, ir_para: str | None = None, **preparar) -> None:
         self.leitor.parar()
         self.foco = None
         if ir_para:
             self.secao = ir_para
         self.telas.pop("inicio", None)
         self.telas.pop("estudar", None)
+        if ir_para and preparar:
+            tela = self._tela(ir_para)
+            if hasattr(tela, "preparar"):
+                tela.preparar(**preparar)
         self.montar()
 
     def trocar_tema(self, nome: str) -> None:

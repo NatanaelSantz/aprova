@@ -733,3 +733,230 @@ def test_entrada_rapida_e_convite(tmp_path):
             ranking.Ranking(config.Ajustes(tmp_path / "r3.json"), cfg).entrar_rapido("Alguem")
     finally:
         srv.parar()
+
+
+def _pdf_de_texto(caminho: Path) -> Path:
+    import pymupdf
+
+    doc = pymupdf.open()
+    page = doc.new_page(width=595, height=842)
+    page.insert_text((72, 100), "Art. 5 Todos sao iguais perante a lei, sem distincao de qualquer natureza.", fontsize=11)
+    page.insert_text((72, 120), "Segunda linha com o prazo de cinco dias para recurso administrativo.", fontsize=11)
+    page.insert_text((72, 140), "Terceira linha fora da marcacao.", fontsize=11)
+    doc.new_page(width=595, height=842)  # página sem texto (como um PDF digitalizado)
+    doc.save(caminho)
+    return caminho
+
+
+def test_marcador_de_pdf(tmp_path, monkeypatch):
+    import pymupdf
+
+    from aprova import config, marcador
+
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path / "dados")
+    original = _pdf_de_texto(tmp_path / "lei.pdf")
+    bytes_original = original.read_bytes()
+    d = marcador.DocumentoMarcado(original, autor="Natan")
+    assert d.paginas == 2 and d.tem_texto()
+
+    # arrastar do começo de "Todos" até "lei," marca só esse trecho
+    m = d.marcar(0, (110, 95), (250, 96), "destaque", "verde", nota="cai muito")
+    assert m and m["tipo"] == "destaque" and m["cor"] == "verde" and m["nota"] == "cai muito"
+    assert "iguais perante" in m["trecho"] and "Segunda" not in m["trecho"]
+
+    # seleção em duas linhas vira um sublinhado com um retângulo por linha
+    s = d.marcar(0, (300, 96), (200, 116), "sublinhado", "azul")
+    assert s["tipo"] == "sublinhado" and "Segunda" in s["trecho"] and "Terceira" not in s["trecho"]
+
+    # soltar à direita do fim de uma linha curta pega até o fim dela (como num editor de texto)
+    ate_o_fim = d.selecao(0, (72, 136), (580, 138))
+    assert d.trecho(0, ate_o_fim) == "Terceira linha fora da marcacao."
+
+    n = d.nota(0, (500, 140), "Revisar art. 5")
+    assert n["tipo"] == "nota" and n["nota"] == "Revisar art. 5"
+    d.editar_nota(0, n["xref"], "Revisar art. 5 e 37")
+
+    # página sem texto: marca o retângulo arrastado
+    r = d.marcar(1, (100, 100), (300, 160))
+    assert r and r["tipo"] == "destaque"
+    assert d.marcar(1, (10, 10), (11, 11)) is None  # toque sem arrastar não marca nada
+
+    assert len(d.marcacoes()) == 4
+    assert d.na_posicao(0, 120, 98)["xref"] == m["xref"]
+    assert d.desfazer() and len(d.marcacoes()) == 3  # tira o retângulo da página 2
+    d.apagar(0, s["xref"])
+    assert [x["tipo"] for x in d.marcacoes()] == ["destaque", "nota"]
+    assert d.imagem(0, 1.0)[:4] == b"\x89PNG"
+    d.fechar()
+
+    # o original não muda; reabrir mostra as marcações salvas e a lista de recentes
+    assert original.read_bytes() == bytes_original
+    assert marcador.recentes()[0]["marcacoes"] == 2
+    d2 = marcador.DocumentoMarcado(Path(marcador.recentes()[0]["copia"]))
+    assert d2.marcacoes()[1]["nota"] == "Revisar art. 5 e 37" and d2.titulo == "lei"
+
+    # salvar editável: as anotações continuam anotações; fixas: viram parte da página
+    editavel = d2.exportar(tmp_path / "saida" / "lei (marcado).pdf")
+    fixo = d2.exportar(tmp_path / "saida" / "lei (fixo).pdf", fixas=True)
+    with pymupdf.open(editavel) as e, pymupdf.open(fixo) as f:
+        assert len(list(e[0].annots())) == 2
+        assert not list(f[0].annots() or [])
+        assert "Todos" in f[0].get_text()  # o texto continua pesquisável
+        assert e.page_count == 2 and f.page_count == 3  # as notas fixas vão para "Minhas anotações"
+        resumo = f[2].get_text()
+        assert "Minhas anotações" in resumo and "Revisar art. 5 e 37" in resumo and "cai muito" in resumo and "Pág. 1" in resumo
+    d2.fechar()
+    assert marcador.nome_para_salvar('Prova: TJ/SP') == "Prova  TJ SP (marcado).pdf"
+    # cada conta tem os seus PDFs; os do visitante vão junto quando ele cria a conta
+    conta = tmp_path / "dados" / "contas" / "u1"
+    assert marcador.recentes(conta) == []
+    assert marcador.copiar_para(tmp_path / "dados", conta) == 1 and marcador.copiar_para(tmp_path / "dados", conta) == 0
+    levado = marcador.recentes(conta)[0]
+    assert Path(levado["copia"]).parent == conta / "marcados"
+    d3 = marcador.DocumentoMarcado(Path(levado["copia"]))
+    assert d3.base == conta and len(d3.marcacoes()) == 2
+    d3.fechar()
+    marcador.esquecer(marcador.recentes()[0]["id"])
+    assert marcador.recentes() == [] and len(marcador.recentes(conta)) == 1
+
+
+def _zip_do_aprova(versao: str, extra: dict | None = None) -> bytes:
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("aprova-main/main.py", "print('novo')\n")
+        z.writestr("aprova-main/aprova/__init__.py", f'__version__ = "{versao}"\n')
+        z.writestr("aprova-main/aprova/novo.py", "X = 1\n")
+        z.writestr("aprova-main/ranking.json", "{}")  # nunca troca a configuração da pessoa
+        z.writestr("aprova-main/../fora.txt", "nao")
+        for nome, texto in (extra or {}).items():
+            z.writestr("aprova-main/" + nome, texto)
+    return buf.getvalue()
+
+
+def test_atualizacao_automatica(tmp_path, monkeypatch):
+    import json
+
+    from aprova import atualizar
+
+    assert atualizar.mais_nova("1.10.0", "1.9.3") and not atualizar.mais_nova("1.9.0", "1.9.0")
+    raiz, dados = tmp_path / "app", tmp_path / "dados"
+    (raiz / "aprova").mkdir(parents=True)
+    (raiz / "main.py").write_text("print('velho')\n")
+    (raiz / "aprova" / "__init__.py").write_text('__version__ = "1.8.0"\n')
+    (raiz / "ranking.json").write_text('{"url": "meu"}')
+
+    # versao.json do site
+    monkeypatch.setattr(atualizar, "_baixar", lambda url, timeout, progresso=None, limite=0: json.dumps({"versao": "1.9.0", "notas": ["Marcar PDF"], "zip": "https://x/main.zip"}).encode())
+    info = atualizar.verificar("1.8.0")
+    assert info["versao"] == "1.9.0" and info["notas"] == ["Marcar PDF"]
+    assert atualizar.verificar("1.9.0") is None
+
+    with pytest.raises(atualizar.ErroAtualizacao):
+        atualizar.preparar(info, dados, "1.8.0", conteudo=_zip_do_aprova("1.8.0"))  # não é mais nova
+    with pytest.raises(atualizar.ErroAtualizacao):
+        atualizar.preparar(info, dados, "1.8.0", conteudo=b"isto nao e zip")
+    assert atualizar.pendente(dados) is None
+
+    assert atualizar.preparar(info, dados, "1.8.0", conteudo=_zip_do_aprova("1.9.0")) == "1.9.0"
+    assert atualizar.pendente(dados)["versao"] == "1.9.0"
+    assert (raiz / "main.py").read_text() == "print('velho')\n"  # nada muda com o app aberto
+
+    assert atualizar.aplicar_pendente(raiz, dados) == "1.9.0"
+    assert (raiz / "main.py").read_text() == "print('novo')\n"
+    assert (raiz / "aprova" / "novo.py").exists()
+    assert json.loads((raiz / "ranking.json").read_text()) == {"url": "meu"}
+    assert not (tmp_path / "fora.txt").exists()
+    assert (dados / "atualizacao" / "anterior" / "1.8.0" / "main.py").read_text() == "print('velho')\n"
+    assert atualizar.pendente(dados) is None and atualizar.aplicar_pendente(raiz, dados) is None
+
+
+def test_iniciar_reinstala_so_quando_requisitos_mudam(tmp_path, monkeypatch):
+    import importlib.machinery
+    import importlib.util
+
+    caminho = str(RAIZ / "iniciar.pyw")
+    spec = importlib.util.spec_from_loader("iniciar_teste", importlib.machinery.SourceFileLoader("iniciar_teste", caminho))
+    ini = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ini)
+    monkeypatch.setattr(ini, "MARCA_REQUISITOS", tmp_path / ".requisitos")
+    assert not ini.requisitos_mudaram()  # instalação antiga sem a marca: não reinstala à toa
+    ini.marcar_requisitos()
+    assert not ini.requisitos_mudaram()
+    (tmp_path / ".requisitos").write_text("outro")
+    assert ini.requisitos_mudaram()
+
+
+def test_aviso_de_atualizacao_no_app(tmp_path, monkeypatch):
+    import asyncio
+    import json
+
+    from aprova import __version__, atualizar, config
+    from aprova.ui import atualizacao
+
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    consultas = []
+
+    def falso(url, timeout, progresso=None, limite=0):
+        consultas.append(url)
+        return json.dumps({"versao": "99.0.0", "notas": ["Novidade"], "zip": "https://x/main.zip"}).encode()
+
+    monkeypatch.setattr(atualizar, "_baixar", falso)
+
+    class AppFalso:
+        modo_web = False
+        sessao = config.AjustesMemoria()
+        atualizacao = None
+        atualizacao_pronta = None
+
+        async def em_segundo_plano(self, f, *a, **k):
+            return f(*a, **k)
+
+    app = AppFalso()
+    info = asyncio.run(atualizacao.verificar(app))
+    assert info["versao"] == "99.0.0" and app.atualizacao == info and len(consultas) == 1
+    asyncio.run(atualizacao.verificar(app))  # dentro de 12 horas: não consulta o site de novo
+    assert len(consultas) == 1
+    asyncio.run(atualizacao.verificar(app, forcar=True))
+    assert len(consultas) == 2
+
+    # versão já baixada esperando reiniciar
+    (tmp_path / "atualizacao").mkdir()
+    (tmp_path / "atualizacao" / "pronta.json").write_text(json.dumps({"versao": "99.0.0", "de": __version__}))
+    atualizacao.ver_pronta(app)
+    assert app.atualizacao_pronta == "99.0.0"
+
+    # o site ainda anuncia a versão que a pessoa já tem: nenhum aviso
+    monkeypatch.setattr(atualizar, "_baixar", lambda url, timeout, progresso=None, limite=0: json.dumps({"versao": __version__, "zip": "https://x"}).encode())
+    assert asyncio.run(atualizacao.verificar(app, forcar=True)) is None and app.atualizacao is None
+
+
+def test_versao_publicada_bate_com_o_app():
+    import json
+
+    from aprova import __version__
+
+    site = json.loads((RAIZ / "docs" / "versao.json").read_text(encoding="utf-8"))
+    assert site["versao"] == __version__, "rode ferramentas/nova_versao.py para publicar a versão"
+    assert site["zip"].startswith("https://github.com/") and site["notas"]
+
+
+def test_ferramenta_nova_versao(tmp_path, monkeypatch):
+    import importlib.util
+    import json
+    import shutil
+
+    (tmp_path / "aprova").mkdir()
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "ferramentas").mkdir()
+    shutil.copy(RAIZ / "ferramentas" / "nova_versao.py", tmp_path / "ferramentas" / "nova_versao.py")
+    (tmp_path / "aprova" / "__init__.py").write_text('"""Aprova."""\n\n__version__ = "1.9.0"\n')
+    spec = importlib.util.spec_from_file_location("nova_versao", tmp_path / "ferramentas" / "nova_versao.py")
+    nv = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(nv)
+    assert nv.main(["x", "1.8.9"]) == 1  # não volta versão
+    assert nv.main(["x", "1.9.1", "Corrige o fórum"]) == 0
+    assert '__version__ = "1.9.1"' in (tmp_path / "aprova" / "__init__.py").read_text()
+    assert json.loads((tmp_path / "docs" / "versao.json").read_text(encoding="utf-8"))["notas"] == ["Corrige o fórum"]

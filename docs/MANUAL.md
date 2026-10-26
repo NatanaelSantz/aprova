@@ -1,4 +1,4 @@
-# Guia completo do Aprova (v1.8)
+# Guia completo do Aprova (v1.9)
 
 [← voltar ao início](../README.md) · Site e download: https://natanaelsantz.github.io/aprova/
 
@@ -51,6 +51,8 @@ App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolv
   - Leitura em voz alta da questão.
   - Lembrete de pausa 20-20-20.
 - **Celular**: o mesmo app abre no navegador do celular, na mesma rede Wi-Fi.
+- **Marcar PDF** (Estudar → Marcar PDF): marca-texto em 4 cores, sublinhado e notas em qualquer PDF, e um PDF novo com as marcações, editáveis ou fixas. Veja [Marcar PDF](#marcar-pdf).
+- **Atualização automática**: o app avisa no Início quando sai versão nova e atualiza com um toque. Veja [Atualizações](#atualizações).
 
 ## Como abrir no Windows
 
@@ -64,6 +66,20 @@ Se algo der errado, a janela mostra o motivo e o botão **Tentar de novo**. Os d
 Se a instalação automática do Python falhar, instale o **Python 3.12 ou 3.13** em [python.org](https://www.python.org/downloads/), marque **“Add python.exe to PATH”** e abra o `.bat` de novo.
 
 No macOS/Linux: `./iniciar.sh` (ou `./iniciar.sh --web` para o modo navegador).
+
+## Atualizações
+
+Da versão 1.9 em diante, o Aprova se atualiza sozinho:
+
+1. Uma vez a cada 12 horas (com internet), ele confere se saiu versão nova. Quando sai, aparece o cartão **Nova versão do Aprova** no Início.
+2. Toque em **Atualizar**: a janela mostra o que mudou e baixa a versão nova (uns 2 MB).
+3. Toque em **Reiniciar agora** (ou **Depois**: a versão nova entra na próxima vez que você abrir o app).
+
+Para procurar na hora: **Ajustes → Atualizações → Procurar atualização**.
+
+Seus estudos, contas, ajustes e PDFs marcados ficam na pasta `.aprova` e não mudam. Se uma biblioteca nova for necessária, a janela *Preparando o Aprova* aparece ao reabrir e instala só o que falta. Uma cópia da versão anterior fica em `.aprova\atualizacao\anterior`.
+
+Quem tem a versão 1.8 ou anterior precisa baixar o .zip uma última vez no [site](https://natanaelsantz.github.io/aprova/) e extrair por cima da pasta antiga (substituindo os arquivos). Os estudos não se perdem, porque ficam à parte, na pasta `.aprova`.
 
 ## Usar no celular
 
@@ -101,6 +117,27 @@ Se a pasta de downloads for outra, ajuste em **Ajustes → Geral**. Também dá 
 | ← → | questão anterior / próxima |
 | M | marcar para revisar |
 | H | abrir a ajuda |
+
+## Marcar PDF
+
+Em **Estudar → Marcar PDF → Abrir um PDF para marcar** (ou no **⋮** de uma prova da biblioteca → *Marcar e anotar o PDF*):
+
+| Ferramenta | Como usar |
+|---|---|
+| **Marca-texto** | arraste sobre o texto; escolha a cor (amarelo, verde, azul ou rosa) nas bolinhas |
+| **Sublinhar** | arraste sobre o texto |
+| **Nota** | toque onde quer o balãozinho e escreva |
+| **Ver** | toque numa marcação para escrever uma nota nela, trocar a cor ou apagar |
+
+- A lista **Marcações**, ao lado (no celular, no botão de lista), mostra cada trecho marcado com a nota; tocar leva até a página.
+- **Desfazer** (ou Ctrl+Z) tira a última marcação. As setas ← → trocam de página e as teclas 1 a 4 trocam de ferramenta.
+- Tudo é guardado na hora, numa cópia do PDF dentro do Aprova. O arquivo original nunca muda. Para continuar depois, volte em **Estudar → Marcar PDF**.
+- PDF escaneado (imagem, sem texto): o marca-texto marca a área que você arrastar.
+
+**Salvar PDF** cria um arquivo novo na pasta de downloads, com duas opções:
+
+- **Marcações editáveis** (padrão): ficam como anotações do PDF. Abrem em qualquer leitor (Edge, Chrome, Acrobat, celular) e ainda dá para mudar ou apagar.
+- **Marcações fixas**: viram parte da página, como se tivessem sido impressas, e ninguém consegue apagar ou mudar. O texto das notas vai para as páginas **Minhas anotações**, no fim do arquivo.
 
 ## Contas: login, aluno e administrador
 
@@ -198,7 +235,7 @@ O uso da API é cobrado pela Anthropic. O modelo padrão é o Haiku, o mais bara
 
 ## Onde ficam seus dados
 
-Tudo fica no seu computador, na pasta `.aprova` dentro da sua pasta de usuário (`C:\Users\<você>\.aprova`): provas importadas, respostas, favoritos e ajustes. Os estudos de cada conta ficam em `.aprova\contas\<conta>`; os de quem usa sem conta, direto em `.aprova`. No servidor vão só o apelido, o concurso e os números da semana.
+Tudo fica no seu computador, na pasta `.aprova` dentro da sua pasta de usuário (`C:\Users\<você>\.aprova`): provas importadas, respostas, favoritos, ajustes e PDFs marcados (pasta `marcados`). Os estudos de cada conta ficam em `.aprova\contas\<conta>`; os de quem usa sem conta, direto em `.aprova`. No servidor vão só o apelido, o concurso e os números da semana.
 
 ## Limites
 
