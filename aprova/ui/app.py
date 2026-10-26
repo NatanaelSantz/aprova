@@ -1512,7 +1512,12 @@ class App:
                     await self.page.window.to_front()
                 except Exception:  # noqa: BLE001
                     pass
-                await self.processar_convite(pendente["codigo"], "link")
+                if pendente.get("acao") == "atualizar":
+                    from . import atualizacao
+
+                    await atualizacao.abrir_pela_notificacao(self)
+                else:
+                    await self.processar_convite(pendente["codigo"], "link")
             passo += 1
             await asyncio.sleep(2)
 
@@ -1673,6 +1678,8 @@ class App:
         )
 
     async def abrir_url(self, url: str) -> None:
+        if not str(url).lower().startswith(("http://", "https://", "file:", "mailto:")):
+            return  # outros esquemas podem abrir programas no computador
         try:
             await ft.UrlLauncher().launch_url(url)
         except Exception:  # noqa: BLE001
@@ -1690,7 +1697,7 @@ class App:
 
         externo = None
         if tipo == "link":
-            externo = alvo if alvo.startswith("http") else "https://" + alvo
+            externo = alvo if alvo.lower().startswith(("http://", "https://")) else "https://" + alvo.split("://")[-1]
         elif tipo == "busca":
             externo = "https://www.google.com/search?q=" + quote_plus(alvo or titulo)
         elif tipo == "video":

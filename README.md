@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.11.0" src="https://img.shields.io/badge/vers%C3%A3o-1.11.0-2340A8">
+  <img alt="Versão 1.12.0" src="https://img.shields.io/badge/vers%C3%A3o-1.12.0-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -50,7 +50,7 @@
     </td>
     <td valign="top">
       <h3>🔁 Revisão no dia certo</h3>
-      O que você erra volta em 1, 3, 7, 15 e 30 dias até ficar dominado. Também dá para montar simulados por disciplina e tirar dúvidas em cada questão.
+      O que você erra volta em 1, 3, 7, 15 e 30 dias até ficar dominado. Os simulados trazem primeiro as questões que você nunca fez e, no fim, comentam o resultado: o que você errou em cada matéria e o próximo passo.
     </td>
   </tr>
   <tr>
@@ -239,6 +239,7 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
+| **1.12.0** | Simulados sem repetição e sem questão quebrada, resultado comentado por matéria, aviso de atualização por notificação e reforço de segurança (grupos só com convite, arquivos perigosos bloqueados, acesso pelo celular com código) |
 | **1.11.0** | Minhas figurinhas: importe as do WhatsApp (arquivos, pacotes .wastickers/.zip ou Ctrl+V) e guarde as que chegam no grupo |
 | **1.10.0** | Fotos, arquivos, GIFs e figurinhas nos grupos (figurinhas próprias do Aprova; GIFs pelo GIPHY) |
 | 1.9.5 | Tamanho da interface (zoom automático em telas com zoom do Windows, Ctrl + e Ctrl −) e barra de rolagem nova |

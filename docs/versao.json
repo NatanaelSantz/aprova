@@ -1,10 +1,12 @@
 {
-  "versao": "1.11.0",
+  "versao": "1.12.0",
   "data": "26/10/2026",
   "notas": [
-    "Minhas figurinhas: traga as suas do WhatsApp (arquivos .webp, pacotes .wastickers/.zip ou Ctrl+V)",
-    "Clique numa figurinha que chegou no grupo para guardar nas suas; foto ampliada vira figurinha",
-    "GIFs mais rápidos e com menos limite (a mesma busca não repete)"
+    "Simulados sem repetição: primeiro as questões que você nunca fez; acerto no simulado agora conta",
+    "Questões quebradas (PDF mal lido, alternativa faltando) ficam de fora; com a IA, as repetidas viram questões novas",
+    "Resultado comentado: o que você errou em cada matéria, a resposta certa e o próximo passo",
+    "Aviso de versão nova por notificação do Windows",
+    "Segurança: grupos só com convite, arquivos perigosos bloqueados e acesso pelo celular com código"
   ],
   "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
 }

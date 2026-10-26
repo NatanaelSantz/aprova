@@ -46,13 +46,15 @@ def preparar_revisao(banco, disciplina: str | None = None, todas: bool = False, 
 
 
 def preparar_treino(banco, disciplina: str, quantidade: int = 10) -> int | None:
-    """Treino rápido de uma disciplina com questões da biblioteca (primeiro as que você ainda não acertou)."""
-    acertadas = banco.acertadas()
-    pool = [q for q in banco.banco_de_questoes() if q["disciplina"] == disciplina]
+    """Treino rápido de uma disciplina com questões da biblioteca (primeiro as que você nunca fez)."""
+    from .montador import Historico, _incompleta, problema
+
+    pool = [q for q in banco.banco_de_questoes() if q["disciplina"] == disciplina and not problema(q)]
     if not pool:
         return None
+    hist = Historico(banco)
     random.shuffle(pool)
-    pool.sort(key=lambda q: (q["prova_id"], q["numero"]) in acertadas)
+    pool.sort(key=lambda q: (_incompleta(q), *hist.nivel(q)))  # nunca vistas primeiro; as que esperam a revisão por último
     pid = banco.prova_interna(ORIGEM_TREINO, f"Treino de {disciplina}")
     banco.salvar_questoes(pid, _copias(pool[:quantidade]))
     banco.atualizar_prova(pid, orgao="", banca="")

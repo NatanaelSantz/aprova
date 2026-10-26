@@ -101,8 +101,6 @@ create table if not exists public.grupos (
     criado_em timestamptz not null default now()
 );
 alter table public.grupos enable row level security;
-drop policy if exists "grupos: logados veem" on public.grupos;
-create policy "grupos: logados veem" on public.grupos for select to authenticated using (true);
 drop policy if exists "grupos: cria" on public.grupos;
 create policy "grupos: cria" on public.grupos for insert to authenticated with check (criado_por = auth.uid());
 drop policy if exists "grupos: apaga" on public.grupos;
@@ -115,10 +113,25 @@ create table if not exists public.membros (
     primary key (codigo, usuario_id)
 );
 alter table public.membros enable row level security;
+-- quem está no grupo vê os colegas; ninguém vê os grupos dos outros
+create or replace function public.eh_membro(cod text) returns boolean
+language sql stable security definer set search_path = public as $$
+    select exists (select 1 from public.membros where codigo = cod and usuario_id = auth.uid());
+$$;
+-- 1.12: só vê o grupo quem é membro, quem criou ou o admin. Antes qualquer pessoa logada listava
+-- todos os códigos e conseguia entrar em qualquer grupo; agora o código do convite é o segredo.
+drop policy if exists "grupos: logados veem" on public.grupos;
+drop policy if exists "grupos: membros veem" on public.grupos;
+create policy "grupos: membros veem" on public.grupos for select to authenticated
+    using (criado_por = auth.uid() or public.eh_admin() or public.eh_membro(codigo));
 drop policy if exists "membros: logados veem" on public.membros;
-create policy "membros: logados veem" on public.membros for select to authenticated using (true);
+drop policy if exists "membros: colegas veem" on public.membros;
+create policy "membros: colegas veem" on public.membros for select to authenticated
+    using (usuario_id = auth.uid() or public.eh_membro(codigo) or public.eh_admin());
+-- entrar direto só quem criou o grupo; os outros entram pela função entrar_no_grupo (com o código)
 drop policy if exists "membros: entra" on public.membros;
-create policy "membros: entra" on public.membros for insert to authenticated with check (usuario_id = auth.uid());
+create policy "membros: entra" on public.membros for insert to authenticated
+    with check (usuario_id = auth.uid() and exists (select 1 from public.grupos g where g.codigo = membros.codigo and g.criado_por = auth.uid()));
 drop policy if exists "membros: sai" on public.membros;
 create policy "membros: sai" on public.membros for delete to authenticated using (usuario_id = auth.uid());
 
@@ -131,6 +144,25 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke all on function public.convite_info(text) from public;
 grant execute on function public.convite_info(text) to anon, authenticated;
+
+-- entrar no grupo com o código do convite (quem está bloqueado não entra)
+create or replace function public.entrar_no_grupo(cod text) returns table (codigo text, nome text)
+language plpgsql security definer set search_path = public as $$
+declare
+    g public.grupos%rowtype;
+begin
+    if auth.uid() is null or exists (select 1 from public.perfis where id = auth.uid() and bloqueado) then
+        return;
+    end if;
+    select * into g from public.grupos where grupos.codigo = upper(trim(cod));
+    if not found then
+        return;
+    end if;
+    insert into public.membros (codigo, usuario_id) values (g.codigo, auth.uid()) on conflict do nothing;
+    return query select g.codigo, g.nome;
+end $$;
+revoke all on function public.entrar_no_grupo(text) from public, anon;
+grant execute on function public.entrar_no_grupo(text) to authenticated;
 
 -- ---------------------------------------------------------------- rankings (só apelido e números; e-mail nunca aparece)
 create or replace view public.ranking_semana with (security_invoker = true) as
@@ -305,7 +337,9 @@ create policy "uteis: marca" on public.forum_uteis for insert to authenticated w
 drop policy if exists "uteis: desmarca" on public.forum_uteis;
 create policy "uteis: desmarca" on public.forum_uteis for delete to authenticated using (usuario_id = auth.uid());
 
--- regras de conteúdo (1.10): texto, figurinha ou anexo; anexos só do próprio grupo ou GIF do GIPHY
+-- regras de conteúdo (1.10, mais rígidas na 1.12): texto, figurinha ou anexo. Anexo é arquivo do próprio
+-- grupo, com extensão da lista do app (nada de .exe/.bat), ou GIF do GIPHY. Endereço só no GIF do GIPHY
+-- (ninguém faz o app dos colegas carregar imagem de outro site).
 create or replace function public.anexos_validos(a jsonb, cod text) returns boolean
 language sql immutable as $$
     select a is null or (
@@ -314,9 +348,16 @@ language sql immutable as $$
             select 1 from jsonb_array_elements(a) e
             where jsonb_typeof(e) <> 'object'
                or coalesce(e->>'tipo', '') not in ('imagem', 'gif', 'arquivo')
+               or char_length(coalesce(e->>'nome', '')) > 120
+               or (e ? 'figurinha' and jsonb_typeof(e->'figurinha') <> 'boolean')
+               or (e ? 'url' and not (e->>'tipo' = 'gif' and coalesce(e->>'url', '') ~ '^https://media[0-9]?\.giphy\.com/'))
+               or (e->>'tipo' = 'arquivo' and lower(coalesce(e->>'nome', ''))
+                     !~ '\.(png|jpe?g|webp|gif|pdf|txt|csv|rtf|zip|docx?|xlsx?|pptx?|od[tsp]|mp3|m4a|ogg|wav|mp4)$')
                or not (
-                    (coalesce(e->>'caminho', '') like cod || '/%' and coalesce(e->>'caminho', '') !~ '\.\.')
-                    or (e->>'tipo' = 'gif' and coalesce(e->>'url', '') ~ '^https://media[0-9]?\.giphy\.com/')
+                    (coalesce(e->>'caminho', '') ~ ('^' || cod || '/[0-9a-f-]{36}/[A-Za-z0-9._-]{1,140}$')
+                       and lower(e->>'caminho') ~ '\.(png|jpe?g|webp|gif|pdf|txt|csv|rtf|zip|docx?|xlsx?|pptx?|od[tsp]|mp3|m4a|ogg|wav|mp4)$'
+                       and e->>'caminho' !~ '\.\.')
+                    or (e->>'tipo' = 'gif' and not (e ? 'caminho') and coalesce(e->>'url', '') ~ '^https://media[0-9]?\.giphy\.com/')
                )
         )
     )
@@ -326,7 +367,7 @@ alter table public.forum_posts drop constraint if exists forum_posts_conteudo;
 alter table public.forum_posts add constraint forum_posts_conteudo
     check (char_length(titulo) + char_length(texto) > 0 or anexos is not null or figurinha is not null);
 alter table public.forum_posts drop constraint if exists forum_posts_anexos;
-alter table public.forum_posts add constraint forum_posts_anexos check (public.anexos_validos(anexos, codigo));
+alter table public.forum_posts add constraint forum_posts_anexos check (public.anexos_validos(anexos, codigo)) not valid;
 alter table public.forum_posts drop constraint if exists forum_posts_figurinha;
 alter table public.forum_posts add constraint forum_posts_figurinha check (figurinha is null or figurinha ~ '^[a-z0-9-]{1,40}$');
 alter table public.forum_respostas drop constraint if exists forum_respostas_texto_check;
@@ -336,7 +377,7 @@ alter table public.forum_respostas drop constraint if exists forum_respostas_con
 alter table public.forum_respostas add constraint forum_respostas_conteudo
     check (char_length(texto) > 0 or anexos is not null or figurinha is not null);
 alter table public.forum_respostas drop constraint if exists forum_respostas_anexos;
-alter table public.forum_respostas add constraint forum_respostas_anexos check (public.anexos_validos(anexos, codigo));
+alter table public.forum_respostas add constraint forum_respostas_anexos check (public.anexos_validos(anexos, codigo)) not valid;
 alter table public.forum_respostas drop constraint if exists forum_respostas_figurinha;
 alter table public.forum_respostas add constraint forum_respostas_figurinha check (figurinha is null or figurinha ~ '^[a-z0-9-]{1,40}$');
 

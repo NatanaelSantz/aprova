@@ -116,8 +116,12 @@ def test_papeis_e_primeiro_admin(db):
 
 def test_forum_so_para_membros(db):
     db.como(B).q("insert into grupos (codigo, nome, criado_por) values ('TURMA-0001', 'Turma', %s)", (B,))
-    for uid in (B, C, D):
-        db.como(uid).q("insert into membros (codigo, usuario_id) values ('TURMA-0001', %s)", (uid,))
+    db.como(B).q("insert into membros (codigo, usuario_id) values ('TURMA-0001', %s)", (B,))
+    for uid in (C, D):
+        db.como(uid).q("select * from entrar_no_grupo('turma-0001')")
+    db.como(None).q("update perfis set bloqueado = false where id = %s", (D,))
+    db.como(D).q("select * from entrar_no_grupo('TURMA-0001')")
+    db.como(None).q("update perfis set bloqueado = true where id = %s", (D,))
     # membro escreve; o pedido de fixar é ignorado para quem não modera
     db.como(C).q("insert into forum_posts (codigo, autor, tipo, texto, fixado) values ('TURMA-0001', %s, 'conversa', 'Bora estudar?', true)", (C,))
     pid = db.como(C).q("select id, fixado from forum_posts")[0]
@@ -128,7 +132,7 @@ def test_forum_so_para_membros(db):
     db.como(None).q("delete from membros where usuario_id = %s", (C,))
     assert db.como(C).q("select count(*) from forum_feed") == [(0,)]
     assert "row-level security" in db.como(C).falha("insert into forum_posts (codigo, autor, texto) values ('TURMA-0001', %s, 'oi')", (C,))
-    db.como(C).q("insert into membros (codigo, usuario_id) values ('TURMA-0001', %s)", (C,))
+    db.como(C).q("select * from entrar_no_grupo('TURMA-0001')")
     # bloqueado não escreve
     assert "row-level security" in db.como(D).falha("insert into forum_posts (codigo, autor, texto) values ('TURMA-0001', %s, 'spam')", (D,))
     # não dá para escrever em nome de outra pessoa
@@ -195,8 +199,8 @@ def test_ranking_e_comunicados(db):
 
 def test_anexos_figurinhas_e_arquivos(db):
     db.como(B).q("insert into grupos (codigo, nome, criado_por) values ('ANEXO-0001', 'Turma', %s)", (B,))
-    for uid in (B, C):
-        db.como(uid).q("insert into membros (codigo, usuario_id) values ('ANEXO-0001', %s)", (uid,))
+    db.como(B).q("insert into membros (codigo, usuario_id) values ('ANEXO-0001', %s)", (B,))
+    db.como(C).q("select * from entrar_no_grupo('ANEXO-0001')")
     foto = json.dumps([{"tipo": "imagem", "caminho": f"ANEXO-0001/{C}/a1-resumo.png", "nome": "resumo.png", "tamanho": 1000}])
     gif = json.dumps([{"tipo": "gif", "url": "https://media1.giphy.com/media/abc/giphy.gif", "largura": 200, "altura": 150}])
     # só figurinha, só foto ou só GIF (sem texto) valem
@@ -211,10 +215,22 @@ def test_anexos_figurinhas_e_arquivos(db):
     link = json.dumps([{"tipo": "gif", "url": "https://site-estranho.com/x.gif"}])
     assert "check" in db.como(C).falha("insert into forum_posts (codigo, autor, anexos) values ('ANEXO-0001', %s, %s)", (C, link))
     assert "check" in db.como(C).falha("insert into forum_posts (codigo, autor, figurinha) values ('ANEXO-0001', %s, '<script>')", (C,))
+    # 1.12: arquivo que roda programa, endereço fora do GIPHY e caminho fora do padrão são recusados
+    for ruim in (
+        [{"tipo": "arquivo", "caminho": f"ANEXO-0001/{C}/a1-resumo.pdf", "nome": "Resumo.pdf.bat"}],
+        [{"tipo": "arquivo", "caminho": f"ANEXO-0001/{C}/a1-virus.exe", "nome": "virus.pdf"}],
+        [{"tipo": "imagem", "caminho": f"ANEXO-0001/{C}/a1-resumo.png", "url": "https://rastreador.com/pixel.png"}],
+        [{"tipo": "imagem", "caminho": f"ANEXO-0001/{C}/../x.png"}],
+        [{"tipo": "imagem", "caminho": "ANEXO-0001/nao-e-uuid/x.png"}],
+        [{"tipo": "imagem", "caminho": f"ANEXO-0001/{C}/a1.png", "figurinha": "sim"}],
+    ):
+        assert "check" in db.como(C).falha("insert into forum_posts (codigo, autor, anexos) values ('ANEXO-0001', %s, %s)", (C, json.dumps(ruim))), ruim
+    figurinha = json.dumps([{"tipo": "imagem", "caminho": f"ANEXO-0001/{C}/f1-figurinha.webp", "nome": "Figurinha", "figurinha": True}])
+    db.como(C).q("insert into forum_posts (codigo, autor, anexos) values ('ANEXO-0001', %s, %s)", (C, figurinha))
     # resposta só com figurinha ou só com foto
     pid = db.como(C).q("select id from forum_posts where figurinha is not null")[0][0]
     db.como(B).q("insert into forum_respostas (post_id, figurinha) values (%s, 'valeu')", (pid,))
-    db.como(B).q("insert into forum_respostas (post_id, anexos) values (%s, %s)", (pid, json.dumps([{"tipo": "arquivo", "caminho": f"ANEXO-0001/{B}/b2-lei.pdf"}])))
+    db.como(B).q("insert into forum_respostas (post_id, anexos) values (%s, %s)", (pid, json.dumps([{"tipo": "arquivo", "caminho": f"ANEXO-0001/{B}/b2-lei.pdf", "nome": "Lei 8.112.pdf"}])))
     assert db.como(C).q("select figurinha from forum_respostas_v where post_id = %s order by id", (pid,)) == [("valeu",), (None,)]
     assert "check" in db.como(B).falha("insert into forum_respostas (post_id) values (%s)", (pid,))
     # quem modera não troca a figurinha nem os anexos de outra pessoa
@@ -244,3 +260,25 @@ def test_config_so_admin_muda(db):
     assert db.como(C).q("select valor from config where chave = 'giphy'") == [("chave-publica-123",)]
     db.como(C).q("update config set valor = 'hack' where chave = 'giphy'")
     assert db.como(C).q("select valor from config where chave = 'giphy'") == [("chave-publica-123",)]
+
+
+def test_grupos_so_para_quem_tem_o_convite(db):
+    """1.12: ninguém lista os grupos dos outros nem entra sem o código."""
+    db.como(B).q("insert into grupos (codigo, nome, criado_por) values ('SEGREDO-ABC234', 'Turma fechada', %s)", (B,))
+    db.como(B).q("insert into membros (codigo, usuario_id) values ('SEGREDO-ABC234', %s)", (B,))
+    # quem não é do grupo não vê o grupo nem os membros
+    assert db.como(C).q("select count(*) from grupos where codigo = 'SEGREDO-ABC234'") == [(0,)]
+    assert db.como(C).q("select count(*) from membros where codigo = 'SEGREDO-ABC234'") == [(0,)]
+    # não entra pela tabela (só quem criou entra direto)
+    assert "row-level security" in db.como(C).falha("insert into membros (codigo, usuario_id) values ('SEGREDO-ABC234', %s)", (C,))
+    # com o código errado não acontece nada; com o certo, entra e passa a ver
+    assert db.como(C).q("select * from entrar_no_grupo('SEGREDO-XXXXXX')") == []
+    assert db.como(C).q("select * from entrar_no_grupo(' segredo-abc234 ')") == [("SEGREDO-ABC234", "Turma fechada")]
+    assert db.como(C).q("select * from entrar_no_grupo('SEGREDO-ABC234')") == [("SEGREDO-ABC234", "Turma fechada")]  # de novo: sem erro
+    assert db.como(C).q("select count(*) from grupos where codigo = 'SEGREDO-ABC234'") == [(1,)]
+    assert db.como(C).q("select count(*) from membros where codigo = 'SEGREDO-ABC234'") == [(2,)]
+    # bloqueado não entra; o admin vê todos os grupos; quem não está logado não chama a função
+    assert db.como(D).q("select * from entrar_no_grupo('SEGREDO-ABC234')") == []
+    assert db.como(A).q("select count(*) from grupos where codigo = 'SEGREDO-ABC234'") == [(1,)]
+    assert "permission denied" in db.como(None).falha("set role anon; select * from entrar_no_grupo('SEGREDO-ABC234')")
+    db.como(None)

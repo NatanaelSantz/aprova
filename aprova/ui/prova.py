@@ -404,7 +404,7 @@ class TelaProva:
             self.reveladas.add(n)
             gab = self._gab(q)
             correta = None if not gab else (gab == "*" or gab == letra)
-            self.app.db.registrar_resposta(self.tentativa_id, n, q.get("disciplina") or "Geral", letra, correta)
+            self.app.db.registrar_resposta(self.tentativa_id, n, q.get("disciplina") or "Geral", letra, correta, q.get("ref") or "")
             self.app.db.revisao_registrar(self.prova["id"], n, q.get("disciplina") or "Geral", correta, q.get("ref") or "")
         self._atualizar()
 
@@ -1020,7 +1020,7 @@ class TelaProva:
             disc = q.get("disciplina") or "Geral"
             if not gab:
                 if resp and self.modo != "estudo":
-                    db.registrar_resposta(self.tentativa_id, n, disc, resp, None)
+                    db.registrar_resposta(self.tentativa_id, n, disc, resp, None, q.get("ref") or "")
                 continue
             correta = gab == "*" or resp == gab
             total += 1
@@ -1030,7 +1030,7 @@ class TelaProva:
             if not correta:
                 erradas.append(n)
             if self.modo != "estudo" or n not in self.reveladas:
-                db.registrar_resposta(self.tentativa_id, n, disc, resp, correta)
+                db.registrar_resposta(self.tentativa_id, n, disc, resp, correta, q.get("ref") or "")
                 if resp:  # em branco não entra na revisão (pode ter sido falta de tempo)
                     db.revisao_registrar(self.prova["id"], n, disc, correta, q.get("ref") or "")
             if n in self.marcadas and (q.get("enunciado") or "").strip():
@@ -1061,17 +1061,16 @@ class TelaProva:
         self.modo = "revisao"
         self._atualizar()
 
+    def _ir_para_questao(self, numero: int):
+        self.idx = next((i for i, q in enumerate(self.questoes) if q["numero"] == numero), 0)
+        self.modo = "revisao"
+        self._atualizar()
+
     def _tela_resultado(self) -> ft.Control:
+        from .. import coach
+
         app, c, r = self.app, self.c, self.resultado
         taxa = r["acertos"] / r["total"] if r["total"] else None
-        if taxa is None:
-            frase = "Sem gabarito para corrigir. Cadastre as respostas oficiais para ver sua nota."
-        elif taxa >= 0.8:
-            frase = "Resultado forte. Revise os erros para fechar as lacunas."
-        elif taxa >= 0.6:
-            frase = "Bom caminho. As disciplinas abaixo mostram onde ganhar pontos."
-        else:
-            frase = "Comece pelas disciplinas com menos acertos e refaça as questões erradas."
         numero = ft.Row(
             [
                 ft.Text(f"{r['acertos']}", size=84, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["tinta"]),
@@ -1091,6 +1090,68 @@ class TelaProva:
             spacing=8,
             run_spacing=8,
         )
+
+        # ---- comentário do professor (sem internet) + próximo passo
+        erradas = coach.erradas_por_disciplina(self.questoes, self.respostas, self._gab)
+        com = coach.comentar(r)
+        acoes_coach: list[ft.Control] = []
+        if com["foco"]:
+            foco = com["foco"]
+            acoes_coach.append(
+                comp.botao(f"Treinar {foco}", lambda e, d=foco: app.page.run_task(app.abrir_destino, "treino", d, d), ft.Icons.FITNESS_CENTER)
+            )
+        if r["erradas"] and not self.cartao:
+            acoes_coach.append(comp.botao_contorno("Revisar os erros", lambda e: self._revisar(True), ft.Icons.FACT_CHECK_OUTLINED))
+        cartao_coach = ft.Container(
+            ft.Column(
+                [
+                    ft.Row(
+                        [ft.Icon(ft.Icons.EMOJI_EVENTS_OUTLINED if (taxa or 0) >= 0.7 else ft.Icons.TRENDING_UP, color=c["tinta"], size=26),
+                         ft.Text(com["titulo"], size=21, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["texto"], expand=True)],
+                        spacing=10,
+                    ),
+                    *[ft.Text(t, size=15, color=c["texto"]) for t in com["paragrafos"]],
+                    ft.Row(acoes_coach, wrap=True, spacing=10, run_spacing=8) if acoes_coach else ft.Container(height=0),
+                ],
+                spacing=10,
+            ),
+            bgcolor=c["tinta_suave"],
+            border_radius=16,
+            padding=ft.Padding.symmetric(horizontal=20, vertical=18),
+            border=ft.Border.only(left=ft.BorderSide(4, c["tinta"])),
+        )
+
+        # ---- análise do professor com IA (quem tem a chave do Claude)
+        analise = ft.Column(spacing=8)
+
+        def mostrar_analise():
+            if getattr(self, "_analise", None):
+                analise.controls = [
+                    comp.subtitulo("Análise do professor (IA)", c, 18),
+                    ft.Markdown(self._analise, selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB),
+                ]
+            elif app.aj.chave_claude and erradas:
+                analise.controls = [
+                    comp.botao_contorno("Pedir a análise do professor (IA): assuntos para revisar e plano de 3 dias", pedir_analise, ft.Icons.AUTO_AWESOME)
+                ]
+
+        async def pedir_analise(e=None):
+            from .. import ia
+
+            analise.controls = [comp.carregando("O professor está lendo as suas respostas…", c)]
+            analise.update()
+            try:
+                self._analise = await app.em_segundo_plano(ia.analisar_resultado, r, erradas, app.aj.chave_claude, app.aj["claude_modelo"])
+            except Exception as ex:  # noqa: BLE001
+                analise.controls = [comp.aviso(f"Não deu para pedir a análise agora ({type(ex).__name__}). Confira a chave do Claude nos Ajustes.", c, "erro")]
+                analise.update()
+                return
+            mostrar_analise()
+            analise.update()
+
+        mostrar_analise()
+
+        # ---- por matéria
         disc_linhas: list[ft.Control] = []
         for disc, (a, t) in sorted(r["por_disc"].items(), key=lambda x: x[1][0] / x[1][1] if x[1][1] else 1):
             fr = a / t if t else 0
@@ -1103,9 +1164,48 @@ class TelaProva:
                     spacing=6,
                 )
             )
+
+        # ---- o que você errou, matéria por matéria
+        blocos_erros: list[ft.Control] = []
+        for disc, lista in sorted(erradas.items(), key=lambda x: -len(x[1])):
+            itens: list[ft.Control] = []
+            for e in lista:
+                resumo = e["enunciado"][:260] + ("…" if len(e["enunciado"]) > 260 else "")
+                linha_resp = [
+                    comp.pilula(f"Questão {e['numero']}", c["sup2"], c["texto"], tamanho=11.5),
+                    comp.pilula(f"você: {e['sua']}" if e["sua"] else "em branco", c["erro_suave"], c["erro"], tamanho=11.5),
+                    comp.pilula(f"certa: {e['certa']}", c["ok_suave"], c["ok"], tamanho=11.5),
+                ]
+                corpo_item: list[ft.Control] = [
+                    ft.Row(linha_resp, spacing=6, wrap=True, run_spacing=6),
+                    ft.Text(resumo, size=14, color=c["texto"]),
+                ]
+                if e["texto_certa"]:
+                    corpo_item.append(comp.apagado(f"Resposta certa ({e['certa']}): {e['texto_certa'][:220]}", c, 13.5))
+                if e["explicacao"]:
+                    corpo_item.append(comp.apagado("Por quê: " + e["explicacao"][:300] + ("…" if len(e["explicacao"]) > 300 else ""), c, 13.5))
+                if not self.cartao:
+                    corpo_item.append(comp.botao_texto("Ver a questão", lambda ev, n=e["numero"]: self._ir_para_questao(n), ft.Icons.ARROW_FORWARD))
+                itens.append(
+                    ft.Container(
+                        ft.Column(corpo_item, spacing=6),
+                        bgcolor=c["sup"],
+                        border=ft.Border.all(1, c["borda"]),
+                        border_radius=12,
+                        padding=ft.Padding.symmetric(horizontal=14, vertical=12),
+                    )
+                )
+            blocos_erros.append(
+                ft.Column(
+                    [ft.Row([comp.texto(disc, c, 16, peso=ft.FontWeight.W_700), comp.apagado(f"{len(lista)} {'erro' if len(lista) == 1 else 'erros'}", c, 13.5)], spacing=10),
+                     ft.Column(itens, spacing=8, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)],
+                    spacing=8,
+                    horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+                )
+            )
+
         botoes = ft.Row(
             [
-                comp.botao("Revisar erros", lambda e: self._revisar(True), ft.Icons.FACT_CHECK_OUTLINED, disabled=not r["erradas"]),
                 comp.botao_contorno("Ver todas as questões", lambda e: self._revisar(False), ft.Icons.LIST_ALT),
                 comp.botao_texto("Voltar à biblioteca", lambda e: self._sair()),
             ],
@@ -1115,18 +1215,22 @@ class TelaProva:
         )
         if self.cartao:
             botoes.controls[0] = comp.botao("Ver o cartão corrigido", lambda e: self._revisar(False), ft.Icons.FACT_CHECK_OUTLINED)
-            botoes.controls.pop(1)
         coluna = ft.Column(
             [
                 comp.apagado("Resultado", c, 15),
                 ft.Text(self.prova["titulo"], size=24 if app.largo else 20, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["texto"]),
                 numero,
                 dados,
-                comp.texto(frase, c, 16),
+                cartao_coach,
+                analise,
                 botoes,
-                ft.Container(height=8),
-                comp.subtitulo("Por disciplina", c, 20) if disc_linhas else ft.Container(),
+                ft.Container(height=4),
+                comp.subtitulo("Por matéria", c, 20) if disc_linhas else ft.Container(),
                 ft.Column(disc_linhas, spacing=16),
+                ft.Container(height=8),
+                comp.subtitulo("O que você errou", c, 20) if blocos_erros else ft.Container(),
+                comp.apagado("Cada uma já está na sua Revisão: ela volta no dia certo até você dominar.", c, 13.5) if blocos_erros else ft.Container(),
+                ft.Column(blocos_erros, spacing=18, horizontal_alignment=ft.CrossAxisAlignment.STRETCH),
                 ft.Container(height=30),
             ],
             spacing=14,

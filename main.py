@@ -4,6 +4,7 @@ Uso:
     python main.py                 abre o app no computador
     python main.py --web           abre no navegador (e libera o acesso pelo celular)
     python main.py aprova://grupo/CODIGO   abre (ou leva ao app já aberto) um convite de grupo
+    python main.py aprova://atualizar      abre (ou traz para a frente) o app com a atualização
 """
 
 from __future__ import annotations
@@ -34,8 +35,42 @@ def _fechar_abertura() -> None:
             pass
 
 
+def _tela_trancada(page: ft.Page) -> None:
+    page.title = "Aprova"
+    page.bgcolor = "#F4F6FA"
+    page.vertical_alignment = ft.MainAxisAlignment.CENTER
+    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
+    page.add(
+        ft.Container(
+            ft.Column(
+                [
+                    ft.Icon(ft.Icons.LOCK_OUTLINE, size=48, color="#2340A8"),
+                    ft.Text("Abra pelo QR code", size=24, weight=ft.FontWeight.W_700, color="#141C33"),
+                    ft.Text(
+                        "Este endereço precisa do código de acesso. No computador, abra o Aprova em Ajustes → Usar no celular "
+                        "e aponte a câmera para o QR code (ou digite o endereço inteiro).",
+                        size=16,
+                        color="#586179",
+                        text_align=ft.TextAlign.CENTER,
+                    ),
+                ],
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=12,
+            ),
+            width=420,
+            padding=24,
+        )
+    )
+
+
 def principal(modo_web: bool):
     async def main(page: ft.Page):
+        if modo_web:
+            from aprova import rede
+
+            if not rede.acesso_liberado(page.client_ip, page.route, os.environ.get(rede.CHAVE_ENV, "")):
+                _tela_trancada(page)
+                return
         try:
             App(page, modo_web=modo_web).iniciar()
         finally:
@@ -72,8 +107,12 @@ def run():
     args = p.parse_args()
     config.garantir_pastas()
     codigo = convite.extrair_codigo(args.link)
-    if codigo:
+    acao = convite.acao_do_link(args.link)
+    if acao:
+        convite.guardar_acao(acao)  # clique na notificação de versão nova
+    elif codigo:
         convite.guardar_pendente(codigo, "link")
+    if acao or codigo:
         if not args.web and convite.outro_app_aberto():
             # o Aprova já está aberto: ele pega o convite e vem para a frente
             _fechar_abertura()
@@ -84,8 +123,11 @@ def run():
 
         if args.sem_navegador:
             os.environ["FLET_FORCE_WEB_SERVER"] = "1"
+        # sem este código no endereço, só este computador abre (ninguém mais no Wi-Fi)
+        chave = os.environ.get(rede.CHAVE_ENV) or rede.nova_chave()
+        os.environ[rede.CHAVE_ENV] = chave
         print(f"\nAprova no navegador: http://localhost:{args.porta}")
-        print(f"No celular (mesmo Wi-Fi): {rede.endereco_celular(args.porta)}\n")
+        print(f"No celular (mesmo Wi-Fi): {rede.endereco_celular(args.porta, chave)}\n")
         ft.run(principal(True), view=ft.AppView.WEB_BROWSER, host="0.0.0.0", port=args.porta, assets_dir=assets)
     else:
         try:

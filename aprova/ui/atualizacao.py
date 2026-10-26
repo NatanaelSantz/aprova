@@ -14,7 +14,7 @@ from .. import __version__, atualizar, config, convite
 from . import comp
 from .tema import FONTE_TITULO
 
-INTERVALO = 12 * 3600  # procura versão nova no máximo a cada 12 horas
+INTERVALO = 3 * 3600  # procura versão nova a cada 3 horas com o app aberto (é um arquivinho de 1 KB)
 
 
 def url_versao() -> str:
@@ -54,6 +54,7 @@ async def verificar(app, forcar: bool = False) -> dict | None:
 async def vigiar(app) -> None:
     """Roda em segundo plano enquanto o app está aberto."""
     await asyncio.sleep(8)
+    avisar_atualizado(app)
     while True:
         antes = (app.atualizacao or {}).get("versao")
         try:
@@ -65,7 +66,86 @@ async def vigiar(app) -> None:
         novo = (app.atualizacao or {}).get("versao")
         if novo and novo != antes and app.foco is None and app.secao == "inicio" and not app.em_login:
             app.recarregar_tela()
+        if novo and not app.atualizacao_pronta:
+            notificar_versao(app, app.atualizacao)
         await asyncio.sleep(INTERVALO + 60)
+
+
+def notificar_versao(app, info: dict) -> bool:
+    """Avisa da versão nova uma vez: notificação do sistema (clicar leva para a atualização) e faixa no app.
+
+    Devolve True se avisou agora (False se esta versão já tinha sido avisada)."""
+    versao = str(info.get("versao") or "")
+    if not versao or app.sessao.get("atualizacao_avisada") == versao:
+        return False
+    app.sessao.set("atualizacao_avisada", versao)
+    notas = info.get("notas") or []
+    from .. import notificar
+
+    notificar.mostrar(
+        f"Nova versão do Aprova: {versao}",
+        (notas[0] if notas else "Melhorias e correções.") + " Clique para atualizar.",
+        link="aprova://atualizar",
+        botao="Atualizar agora",
+    )
+    _faixa(app, f"Nova versão do Aprova: {versao}", "Atualizar", lambda e: dialogo_atualizar(app, info))
+    return True
+
+
+def _faixa(app, texto: str, acao: str, ao_clicar) -> None:
+    """Aviso na parte de baixo da tela, em qualquer tela do app (não só no Início)."""
+    try:
+        app.page.show_dialog(
+            ft.SnackBar(
+                ft.Text(texto),
+                action=acao,
+                on_action=ao_clicar,
+                duration=ft.Duration(seconds=12),
+                show_close_icon=True,
+            )
+        )
+    except Exception:  # noqa: BLE001
+        app.msg(texto)
+
+
+async def abrir_pela_notificacao(app) -> None:
+    """Clicou na notificação: mostra a versão nova (ou pede para reiniciar, se já baixou)."""
+    if app.atualizacao_pronta:
+        _faixa(app, f"A versão {app.atualizacao_pronta} já foi baixada.", "Reiniciar agora", lambda e: app.page.run_task(reiniciar, app))
+        return
+    info = app.atualizacao
+    if not info:
+        try:
+            info = await verificar(app, forcar=True)
+        except atualizar.ErroAtualizacao as ex:
+            app.msg(str(ex))
+            return
+    if info:
+        dialogo_atualizar(app, info)
+    else:
+        app.msg(f"Você já está na versão mais nova ({__version__}).")
+
+
+def avisar_atualizado(app) -> None:
+    """Primeira abertura depois de atualizar: conta o que mudou (uma vez)."""
+    if app.sessao.get("versao_anunciada") == __version__:
+        return
+    anterior = app.sessao.get("versao_anunciada")
+    app.sessao.set("versao_anunciada", __version__)
+    try:
+        import json
+
+        ultima = json.loads((config.DATA_DIR / atualizar.PASTA / "ultima.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        ultima = {}
+    if not anterior and str(ultima.get("versao")) != __version__:
+        return  # primeira vez com o app (ou instalado à mão): nada a anunciar
+    info = app.sessao.get("atualizacao_info") or {}
+    notas = info.get("notas") if str(info.get("versao")) == __version__ else None
+    texto = f"Aprova atualizado para a versão {__version__}."
+    if notas:
+        texto += " Novidade: " + notas[0]
+    _faixa(app, texto, "OK", lambda e: None)
 
 
 def cartao_inicio(app) -> list[ft.Control]:

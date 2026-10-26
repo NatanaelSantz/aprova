@@ -60,6 +60,43 @@ TIPOS_ARQUIVO = {
 LIMITE_ARQUIVO = 20 * 1024 * 1024  # o mesmo do servidor (supabase/ranking.sql)
 MAX_ANEXOS = 10
 GIPHY = re.compile(r"^https://media[0-9]?\.giphy\.com/")
+CODIGO_GRUPO = re.compile(r"[A-Z0-9][A-Z0-9-]{3,23}")
+UUID = re.compile(r"[0-9a-fA-F-]{36}")
+# código novo: 6 letras/números sem os que confundem (0/O, 1/I/L): 30^6 ≈ 729 milhões de combinações
+LETRAS_CODIGO = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+
+
+def _cod(codigo: str) -> str:
+    """Código de grupo conferido antes de ir para o endereço da API (nada de filtros enfiados no código)."""
+    c = (codigo or "").strip().upper()
+    if not CODIGO_GRUPO.fullmatch(c):
+        raise ErroRanking("Código de grupo inválido. Confira com quem te passou.")
+    return c
+
+
+def _uid(valor: str) -> str:
+    v = str(valor or "")
+    if not UUID.fullmatch(v):
+        raise ErroRanking("Pessoa inválida.")
+    return v
+
+
+def nome_local_seguro(anexo: dict) -> tuple[str, bool]:
+    """Nome para gravar um anexo no computador e se dá para abrir com segurança.
+
+    O nome vem de quem mandou a mensagem, então só vale extensão da lista do app (PDF, Office, imagens...).
+    "Resumo.pdf.bat" vira "Resumo.pdf" com a extensão (segura) do arquivo no servidor; se nenhuma for
+    segura, fica ".bin" e o app não abre, só salva."""
+    nome = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', " ", str(anexo.get("nome") or "arquivo")).strip(" .")[:120] or "arquivo"
+    base, _, ext = nome.rpartition(".")
+    ext = ext.lower() if base else ""
+    if ext in TIPOS_ARQUIVO:
+        return nome, True
+    ext_srv = Path(str(anexo.get("caminho") or "")).suffix.lower().lstrip(".")
+    raiz = (base if base else nome).strip(" .") or "arquivo"
+    if ext_srv in TIPOS_ARQUIVO:
+        return f"{raiz}.{ext_srv}", True
+    return f"{raiz}.bin", False
 
 
 def tamanho_texto(n: int) -> str:
@@ -426,7 +463,7 @@ class Ranking:
         return {"codigo": g.get("codigo") or codigo, "nome": g.get("nome") or codigo, "membros": int(g.get("membros") or 0)}
 
     def sou_membro(self, codigo: str) -> bool:
-        linhas = self._pedir("GET", f"/rest/v1/membros?codigo=eq.{codigo}&usuario_id=eq.{self.usuario_id}&select=codigo").json()
+        linhas = self._pedir("GET", f"/rest/v1/membros?codigo=eq.{_cod(codigo)}&usuario_id=eq.{self.usuario_id}&select=codigo").json()
         return bool(linhas)
 
     def entrar(self, email: str, senha: str) -> dict | None:
@@ -513,7 +550,7 @@ class Ranking:
         tabela = "ranking_grupo" if grupo else "ranking_semana"
         filtros = [f"semana=eq.{semana}", "select=usuario_id,apelido,concurso,segundos,questoes,acertos,dias,sequencia,taxa"]
         if grupo:
-            filtros.append(f"codigo=eq.{grupo}")
+            filtros.append(f"codigo=eq.{_cod(grupo)}")
         if metrica == "acerto":
             filtros.append(f"questoes=gte.{MIN_QUESTOES_ACERTO}")
         filtros.append(f"order={coluna}.desc.nullslast,questoes.desc")
@@ -527,7 +564,7 @@ class Ranking:
     # ---- grupos
 
     def meus_grupos(self) -> list[dict]:
-        cods = [m["codigo"] for m in self._pedir("GET", f"/rest/v1/membros?usuario_id=eq.{self.usuario_id}&select=codigo").json()]
+        cods = [m["codigo"] for m in self._pedir("GET", f"/rest/v1/membros?usuario_id=eq.{self.usuario_id}&select=codigo").json() if CODIGO_GRUPO.fullmatch(str(m.get("codigo") or ""))]
         if not cods:
             return []
         lista = ",".join(cods)
@@ -541,29 +578,44 @@ class Ranking:
         if not 3 <= len(nome) <= 40:
             raise ErroRanking("O nome do grupo deve ter de 3 a 40 letras.")
         base = re.sub(r"[^A-Z0-9]", "", analise_norm(nome).upper())[:8] or "GRUPO"
-        codigo = f"{base}-{secrets.token_hex(2).upper()}"
+        codigo = f"{base}-{''.join(secrets.choice(LETRAS_CODIGO) for _ in range(6))}"
         self._pedir("POST", "/rest/v1/grupos", json={"codigo": codigo, "nome": nome, "criado_por": self.usuario_id}, cabecalhos={"Prefer": "return=minimal"})
         self.entrar_grupo(codigo)
         return codigo
 
     def entrar_grupo(self, codigo: str) -> dict:
-        codigo = codigo.strip().upper()
-        achados = self._pedir("GET", f"/rest/v1/grupos?codigo=eq.{codigo}&select=codigo,nome").json()
+        """Entra pelo código do convite. Desde a 1.12 o servidor só mostra os grupos de quem é membro,
+        então a entrada passa pela função entrar_no_grupo (ninguém consegue listar os códigos)."""
+        codigo = _cod(codigo)
+        try:
+            achados = self._pedir("POST", "/rest/v1/rpc/entrar_no_grupo", json={"cod": codigo}).json()
+        except ErroRanking as e:
+            if "SQL novo" not in str(e):
+                raise
+            achados = self._entrar_grupo_antigo(codigo)  # servidor ainda sem o SQL da 1.12
+        if isinstance(achados, dict):
+            achados = [achados]
         if not achados:
             raise ErroRanking("Não achei um grupo com esse código. Confira com quem te passou.")
-        try:
-            self._pedir("POST", "/rest/v1/membros", json={"codigo": codigo, "usuario_id": self.usuario_id}, cabecalhos={"Prefer": "return=minimal"})
-        except ErroRanking as e:
-            if "já existe" not in str(e):
-                raise
-        return achados[0]
+        return {"codigo": achados[0].get("codigo") or codigo, "nome": achados[0].get("nome") or codigo}
+
+    def _entrar_grupo_antigo(self, codigo: str) -> list[dict]:
+        achados = self._pedir("GET", f"/rest/v1/grupos?codigo=eq.{codigo}&select=codigo,nome").json()
+        if achados:
+            try:
+                self._pedir("POST", "/rest/v1/membros", json={"codigo": codigo, "usuario_id": self.usuario_id}, cabecalhos={"Prefer": "return=minimal"})
+            except ErroRanking as e:
+                if "já existe" not in str(e):
+                    raise
+        return achados
 
     def sair_grupo(self, codigo: str) -> None:
-        self._pedir("DELETE", f"/rest/v1/membros?codigo=eq.{codigo}&usuario_id=eq.{self.usuario_id}")
+        self._pedir("DELETE", f"/rest/v1/membros?codigo=eq.{_cod(codigo)}&usuario_id=eq.{self.usuario_id}")
 
     def membros_grupo(self, codigo: str) -> list[dict]:
         """Quem está no grupo (apelido e concurso), com quem criou o grupo marcado."""
-        ids = [m["usuario_id"] for m in self._pedir("GET", f"/rest/v1/membros?codigo=eq.{codigo}&select=usuario_id&limit=1000").json()]
+        codigo = _cod(codigo)
+        ids = [m["usuario_id"] for m in self._pedir("GET", f"/rest/v1/membros?codigo=eq.{codigo}&select=usuario_id&limit=1000").json() if UUID.fullmatch(str(m.get("usuario_id") or ""))]
         if not ids:
             return []
         grupo = self._pedir("GET", f"/rest/v1/grupos?codigo=eq.{codigo}&select=criado_por").json()
@@ -582,7 +634,7 @@ class Ranking:
         """Mensagens do grupo, fixadas primeiro. tipo='plano' traz só os planos; 'conversa', o resto."""
         colunas = "id,codigo,autor,apelido,tipo,titulo,texto,plano,fixado,criado_em,editado_em,respostas,uteis"
         filtros = [
-            f"codigo=eq.{codigo}",
+            f"codigo=eq.{_cod(codigo)}",
             "order=fixado.desc,criado_em.desc",
             f"limit={limite}",
         ]
@@ -602,6 +654,12 @@ class Ranking:
                 except ValueError:
                     p["plano"] = None
             p["meu"] = p.get("autor") == self.usuario_id
+            if p.get("plano") is not None:
+                # plano vem de outra pessoa: só passa adiante se estiver dentro das regras do app
+                try:
+                    p["plano"] = validar_plano(p["plano"]) if isinstance(p["plano"], dict) else None
+                except (ErroRanking, TypeError, ValueError, AttributeError):
+                    p["plano"] = None
             p["util_meu"] = p["id"] in meus
             p["respostas"] = int(p.get("respostas") or 0)
             p["uteis"] = int(p.get("uteis") or 0)
@@ -753,9 +811,16 @@ class Ranking:
         _guardar_cache(chave, dados)
         return dados
 
-    def apagar_anexos(self, anexos: list[dict]) -> None:
-        """Apaga do servidor os arquivos (melhor esforço: se falhar, fica só o arquivo sem a mensagem)."""
-        caminhos = [a["caminho"] for a in anexos or [] if a.get("caminho")]
+    def apagar_anexos(self, anexos: list[dict], dono: str | None = None) -> None:
+        """Apaga do servidor os arquivos de uma mensagem (melhor esforço).
+
+        Só os que estão na pasta de quem mandou a mensagem (dono; por padrão, você): uma mensagem
+        que aponte para o arquivo de outra pessoa não faz quem modera apagar o arquivo dela."""
+        dono = str(dono or self.usuario_id or "")
+        caminhos = [
+            a["caminho"] for a in anexos or []
+            if isinstance(a, dict) and a.get("caminho") and str(a["caminho"]).split("/")[1:2] == [dono] and ".." not in str(a["caminho"])
+        ]
         if caminhos:
             try:
                 self._pedir("DELETE", "/storage/v1/object/anexos", json={"prefixes": caminhos})
@@ -851,6 +916,7 @@ class Ranking:
 
     def forum_novidades(self, codigos: list[str], vistos: dict[str, str]) -> dict[str, int]:
         """Quantas mensagens de outras pessoas chegaram em cada grupo desde a última visita."""
+        codigos = [c for c in codigos if CODIGO_GRUPO.fullmatch(str(c or ""))]
         if not codigos:
             return {}
         marcas = {c: _quando(vistos.get(c)) for c in codigos}
@@ -932,13 +998,13 @@ class Ranking:
             raise ErroRanking("Papel inválido.")
         if usuario_id == self.usuario_id and papel != "admin":
             raise ErroRanking("Você não pode tirar o seu próprio acesso de administrador.")
-        self._pedir("PATCH", f"/rest/v1/perfis?id=eq.{usuario_id}", json={"papel": papel}, cabecalhos={"Prefer": "return=minimal"})
+        self._pedir("PATCH", f"/rest/v1/perfis?id=eq.{_uid(usuario_id)}", json={"papel": papel}, cabecalhos={"Prefer": "return=minimal"})
 
     def bloquear(self, usuario_id: str, bloqueado: bool) -> None:
         self._exigir_admin()
         if usuario_id == self.usuario_id:
             raise ErroRanking("Você não pode bloquear a si mesmo.")
-        self._pedir("PATCH", f"/rest/v1/perfis?id=eq.{usuario_id}", json={"bloqueado": bool(bloqueado)}, cabecalhos={"Prefer": "return=minimal"})
+        self._pedir("PATCH", f"/rest/v1/perfis?id=eq.{_uid(usuario_id)}", json={"bloqueado": bool(bloqueado)}, cabecalhos={"Prefer": "return=minimal"})
 
     def criar_comunicado(self, titulo: str, texto: str) -> None:
         self._exigir_admin()
@@ -967,16 +1033,44 @@ class Ranking:
         return grupos
 
     def apagar_grupo(self, codigo: str) -> None:
-        self._pedir("DELETE", f"/rest/v1/grupos?codigo=eq.{codigo}")
+        self._pedir("DELETE", f"/rest/v1/grupos?codigo=eq.{_cod(codigo)}")
 
 
 def _lista_anexos(valor) -> list[dict]:
+    """Anexos de uma mensagem, limpos: vêm de outra pessoa, então nada de tipo estranho quebrar a tela."""
     if isinstance(valor, str):
         try:
             valor = json.loads(valor)
         except ValueError:
             return []
-    return [a for a in valor if isinstance(a, dict)] if isinstance(valor, list) else []
+    if not isinstance(valor, list):
+        return []
+
+    def inteiro(v) -> int:
+        try:
+            return max(0, min(int(v or 0), 10**9))
+        except (TypeError, ValueError):
+            return 0
+
+    saida = []
+    for a in valor[:MAX_ANEXOS]:
+        if not isinstance(a, dict) or a.get("tipo") not in ("imagem", "gif", "arquivo"):
+            continue
+        limpo = {"tipo": a["tipo"], "nome": str(a.get("nome") or "")[:120]}
+        if a.get("caminho"):
+            limpo["caminho"] = str(a["caminho"])[:300]
+        if a.get("url") and a["tipo"] == "gif" and GIPHY.match(str(a["url"])):
+            limpo["url"] = str(a["url"])[:500]
+        for k in ("largura", "altura", "tamanho"):
+            if a.get(k) is not None:
+                limpo[k] = inteiro(a.get(k))
+        if a.get("mime"):
+            limpo["mime"] = str(a["mime"])[:100]
+        if a.get("figurinha") is True:
+            limpo["figurinha"] = True
+        if limpo.get("caminho") or limpo.get("url"):
+            saida.append(limpo)
+    return saida
 
 
 def _pasta_cache() -> Path:

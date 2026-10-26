@@ -301,3 +301,49 @@ def gerar_questoes(
                 lote = [q for q, l in zip(lote, letras) if l == q["gabarito"]]
         feitas += lote
     return feitas[:quantidade]
+
+
+PEDIDO_ANALISE = """Você é um professor brasileiro de cursinho para concursos públicos e torce pelo aluno.
+O aluno acabou de fazer um simulado. Escreva para ele, em português do Brasil, em segunda pessoa ("você"):
+1. Uma frase curta e sincera sobre o resultado (sem exagero e sem bronca).
+2. Pelas questões erradas abaixo, diga QUAIS ASSUNTOS ele precisa revisar (ex.: "crase antes de horas",
+   "princípios da administração pública"), agrupando por matéria. Seja específico, use o enunciado.
+3. Um plano curto para os próximos 3 dias (o que estudar em cada dia, em 1 linha cada).
+4. Termine com uma frase de incentivo.
+Use Markdown simples (negrito e listas), no máximo 220 palavras. Não invente notas nem dados que não estão aqui.
+
+Resultado: {acertos} de {total} ({pct}%). Por matéria: {por_disc}.
+
+Questões erradas:
+{erradas}"""
+
+
+def analisar_resultado(resultado: dict, erradas: dict[str, list[dict]], api_key: str, modelo: str) -> str:
+    """Análise do professor (IA) sobre o simulado: assuntos para revisar e um plano de 3 dias."""
+    import anthropic
+
+    total = int(resultado.get("total") or 0)
+    acertos = int(resultado.get("acertos") or 0)
+    por_disc = ", ".join(f"{d}: {a}/{t}" for d, (a, t) in (resultado.get("por_disc") or {}).items())
+    linhas = []
+    for disc, lista in erradas.items():
+        for e in lista[:6]:
+            linhas.append(
+                f"- [{disc}] {e['enunciado'][:400]} | marcou {e['sua'] or 'em branco'}, certa {e['certa']}"
+                + (f" ({e['texto_certa'][:150]})" if e.get("texto_certa") else "")
+            )
+    cliente = anthropic.Anthropic(api_key=api_key, timeout=90)
+    msg = cliente.messages.create(
+        model=modelo,
+        max_tokens=1200,
+        messages=[
+            {
+                "role": "user",
+                "content": PEDIDO_ANALISE.format(
+                    acertos=acertos, total=total, pct=round(100 * acertos / total) if total else 0,
+                    por_disc=por_disc or "não informado", erradas="\n".join(linhas[:30]) or "(nenhuma)",
+                ),
+            }
+        ],
+    )
+    return "".join(getattr(b, "text", "") for b in msg.content).strip()

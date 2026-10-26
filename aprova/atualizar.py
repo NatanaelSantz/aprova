@@ -22,6 +22,16 @@ import zipfile
 from pathlib import Path
 
 URL_VERSAO = "https://natanaelsantz.github.io/aprova/versao.json"
+# de onde o .zip da atualização pode vir (o repositório do Aprova no GitHub)
+ZIP_PERMITIDO = re.compile(r"^https://(github\.com|codeload\.github\.com)/NatanaelSantz/aprova/", re.I)
+
+
+def zip_confiavel(url: str) -> bool:
+    import os
+
+    if os.environ.get("APROVA_ATUALIZACAO_URL"):  # testes e servidor próprio de quem mantém o app
+        return str(url).startswith(("https://", "http://127.0.0.1", "http://localhost"))
+    return bool(ZIP_PERMITIDO.match(str(url or "")))
 NAO_SUBSTITUIR = {".venv", ".git", "ranking.json", "__pycache__", ".pytest_cache"}
 PASTA = "atualizacao"
 
@@ -62,7 +72,7 @@ def verificar(versao_atual: str, url: str = URL_VERSAO, timeout: float = 8) -> d
         dados = json.loads(_baixar(url + f"?t={int(time.time() // 600)}", timeout).decode("utf-8"))
     except Exception as e:  # noqa: BLE001
         raise ErroAtualizacao("Não deu para procurar atualização agora. Confira a internet.") from e
-    if not isinstance(dados, dict) or not dados.get("versao") or not str(dados.get("zip", "")).startswith("https://"):
+    if not isinstance(dados, dict) or not dados.get("versao") or not zip_confiavel(str(dados.get("zip", ""))):
         raise ErroAtualizacao("A informação de versão veio incompleta.")
     if not mais_nova(dados["versao"], versao_atual):
         return None
@@ -85,6 +95,8 @@ def preparar(info: dict, dados: Path, versao_atual: str, progresso=None, conteud
     Devolve a versão preparada. A troca dos arquivos acontece ao reabrir o app (aplicar_pendente)."""
     base = dados / PASTA
     novo = base / "novo"
+    if conteudo is None and not zip_confiavel(str(info.get("zip") or "")):
+        raise ErroAtualizacao("O endereço da atualização não é o do Aprova.")
     conteudo = conteudo if conteudo is not None else _baixar(info["zip"], 60, progresso)
     try:
         z = zipfile.ZipFile(io.BytesIO(conteudo))

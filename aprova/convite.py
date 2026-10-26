@@ -88,8 +88,23 @@ def guardar_pendente(codigo: str, origem: str = "link") -> None:
         pass
 
 
+def guardar_acao(acao: str) -> None:
+    """Pedido vindo de um clique fora do app (ex.: a notificação de atualização: aprova://atualizar)."""
+    try:
+        config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+        (config.DATA_DIR / ARQ_PENDENTE).write_text(json.dumps({"acao": acao, "quando": time.time()}), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def acao_do_link(texto: str | None) -> str | None:
+    """aprova://atualizar → "atualizar" (as outras ações do app chegam por aqui também no futuro)."""
+    t = (texto or "").strip().lower().rstrip("/")
+    return "atualizar" if t in (f"{ESQUEMA}://atualizar", f"{ESQUEMA}:atualizar") else None
+
+
 def pegar_pendente() -> dict | None:
-    """Lê e apaga o convite deixado por um clique no link (convites com mais de 1 dia são ignorados)."""
+    """Lê e apaga o convite (ou ação) deixado por um clique no link (com mais de 1 dia é ignorado)."""
     arq = config.DATA_DIR / ARQ_PENDENTE
     try:
         dados = json.loads(arq.read_text(encoding="utf-8"))
@@ -99,7 +114,9 @@ def pegar_pendente() -> dict | None:
         arq.unlink()
     except OSError:
         pass
-    if not isinstance(dados, dict) or not dados.get("codigo") or time.time() - float(dados.get("quando") or 0) > 86400:
+    if not isinstance(dados, dict) or not (dados.get("codigo") or dados.get("acao") == "atualizar"):
+        return None
+    if time.time() - float(dados.get("quando") or 0) > 86400:
         return None
     return dados
 

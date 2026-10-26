@@ -200,7 +200,7 @@ class VisorAnexos:
             tooltip=a.get("nome") or "",
         )
         ajuste = ft.BoxFit.COVER if not sozinho else ft.BoxFit.CONTAIN
-        if a.get("url"):  # GIF do GIPHY: o app baixa direto
+        if _gif_giphy(a):  # GIF do GIPHY: o app baixa direto (outro endereço qualquer nunca é carregado)
             caixa.content = ft.Image(src=a["url"], width=w, height=h, fit=ajuste, gapless_playback=True)
             return caixa
         chave = a.get("caminho") or ""
@@ -310,14 +310,19 @@ class VisorAnexos:
             return None
 
     async def abrir_arquivo(self, a: dict):
-        self.app.msg(f"Abrindo {a.get('nome') or 'o arquivo'}…")
+        nome, seguro = rk.nome_local_seguro(a)
+        if not seguro:
+            # .exe, .bat, atalho...: o app não abre arquivo que pode rodar programa no seu computador
+            self.app.msg("Esse tipo de arquivo não abre pelo Aprova, por segurança. Use Salvar e confira antes de abrir.")
+            return
+        self.app.msg(f"Abrindo {nome}…")
         dados = await self._baixar(a)
         if dados is None:
             return
-        pasta = Path(tempfile.gettempdir()) / "aprova-anexos"
-        pasta.mkdir(parents=True, exist_ok=True)
-        destino = pasta / _nome_local(a)
+        pasta = Path(tempfile.mkdtemp(prefix="aprova-anexo-"))
+        destino = pasta / nome
         destino.write_bytes(dados)
+        marcar_da_internet(destino)
         _abrir_no_sistema(self.app, destino)
 
     async def salvar_arquivo(self, a: dict):
@@ -329,13 +334,14 @@ class VisorAnexos:
             pasta = Path.home()
         destino = _livre(pasta / _nome_local(a))
         destino.write_bytes(dados)
+        marcar_da_internet(destino)
         self.app.msg(f"Salvo em {destino}")
 
     def abrir_imagem(self, a: dict):
         app, c = self.app, self.app.c
         largura = min(900, (app.page.width or 900) - 80)
         altura = min(640, (app.page.height or 700) - 200)
-        if a.get("url"):
+        if _gif_giphy(a):
             imagem: ft.Control = ft.Image(src=a["url"], fit=ft.BoxFit.CONTAIN, width=largura, height=altura)
         elif (a.get("caminho") or "") in self._bytes:
             imagem = ft.InteractiveViewer(ft.Image(src=self._bytes[a["caminho"]], fit=ft.BoxFit.CONTAIN, width=largura, height=altura), min_scale=0.8, max_scale=5)
@@ -356,10 +362,24 @@ class VisorAnexos:
 
 
 def _nome_local(a: dict) -> str:
-    nome = re.sub(r'[<>:"/\\|?*]+', " ", a.get("nome") or "arquivo").strip() or "arquivo"
-    if not Path(nome).suffix and a.get("caminho"):
-        nome += Path(a["caminho"]).suffix
-    return nome
+    return rk.nome_local_seguro(a)[0]
+
+
+def _gif_giphy(a: dict) -> bool:
+    return a.get("tipo") == "gif" and bool(rk.GIPHY.match(str(a.get("url") or "")))
+
+
+def marcar_da_internet(caminho: Path) -> None:
+    """No Windows, marca o arquivo como baixado da internet (como o navegador faz).
+
+    Assim o Word/Excel abrem no Modo de Exibição Protegido e o Windows avisa antes de rodar algo."""
+    if sys.platform != "win32":
+        return
+    try:
+        with open(str(caminho) + ":Zone.Identifier", "wb") as f:
+            f.write(b"[ZoneTransfer]\r\nZoneId=3\r\nHostUrl=about:internet\r\n")
+    except OSError:
+        pass
 
 
 def _livre(destino: Path) -> Path:

@@ -36,12 +36,12 @@ def abrir_montador(app, filtro: str = "", nome: str = "", banca: str = "") -> No
     )
     campo_banca = ft.TextField(value=banca, label="Banca (ex.: FGV)", border_radius=10, dense=True, width=170, on_change=lambda e: recalcular())
     outras = ft.Checkbox(
-        label="Quando faltar, usar questões de outras provas da biblioteca",
+        label="Quando faltar ou repetir, usar questões de outras provas da biblioteca",
         value=True,
         on_change=lambda e: recalcular(),
     )
     usar_ia = ft.Checkbox(
-        label="Completar o que faltar com questões novas criadas por IA",
+        label="Usar a IA: completar o que faltar e trocar as que você já fez por questões novas",
         value=tem_ia,
         disabled=not tem_ia,
         on_change=lambda e: (setattr(assuntos, "visible", bool(e.control.value)), recalcular()),
@@ -230,6 +230,19 @@ def abrir_montador(app, filtro: str = "", nome: str = "", banca: str = "") -> No
         if res["faltas"]:
             falt = ", ".join(f"{d}: {n}" for d, n in res["faltas"].items())
             filhos.append(comp.aviso(f"Não deu para completar: {falt}.", c, "alerta"))
+        if res.get("repetidas"):
+            rep = res["repetidas"]
+            n_rep = sum(rep.values())
+            discs = sorted(rep, key=lambda d: -rep[d])
+            nomes = ", ".join(discs[:3]) + (" e outras" if len(discs) > 3 else "")
+            filhos.append(
+                comp.aviso(
+                    f"{n_rep} {'questão você já tinha visto' if n_rep == 1 else 'questões você já tinha visto'} ({nomes}). "
+                    "As novas dessa parte da sua biblioteca acabaram: baixe mais provas do concurso ou crie questões inéditas com a IA para variar.",
+                    c,
+                    "info",
+                )
+            )
 
         def ir(modo):
             def _f(ev):

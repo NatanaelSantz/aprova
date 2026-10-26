@@ -27,6 +27,7 @@ class Dados:
         }
         self.arquivos: dict[str, tuple[bytes, str]] = {}  # Storage: caminho na pasta "anexos" -> (dados, tipo)
         self.sem_anexos = False  # finge um servidor sem o SQL da 1.10
+        self.sem_entrar_no_grupo = False  # finge um servidor sem o SQL da 1.12 (grupos visíveis para todos)
         self._seq = 0
         self.anonimo_ligado = True
         self.confirmar_email = False
@@ -272,6 +273,16 @@ class Manipulador(BaseHTTPRequestHandler):
                         p["papel"] = "admin"
                         return self._json(200, True)
                 return self._json(200, False)
+            if caminho == "/rest/v1/rpc/entrar_no_grupo":
+                if d.sem_entrar_no_grupo:
+                    return self._json(404, {"code": "PGRST202", "message": "Could not find the function public.entrar_no_grupo(cod) in the schema cache"})
+                cod = str((self._corpo() or {}).get("cod") or "").strip().upper()
+                g = next((g for g in d.tabelas["grupos"] if g["codigo"] == cod), None)
+                if not g:
+                    return self._json(200, [])
+                if not d.eh_membro(uid, cod):
+                    d.tabelas["membros"].append({"codigo": cod, "usuario_id": uid})
+                return self._json(200, [{"codigo": g["codigo"], "nome": g["nome"]}])
             if caminho == "/rest/v1/rpc/apagar_minha_conta":
                 d.usuarios.pop(uid, None)
                 for t in d.tabelas:
@@ -299,6 +310,11 @@ class Manipulador(BaseHTTPRequestHandler):
                     linhas = d.forum_respostas_v(uid)
                 elif tabela in ("forum_posts", "forum_respostas", "forum_uteis"):
                     linhas = [l for l in d.tabelas[tabela] if d.ve(uid, l["codigo"])]
+                elif tabela == "grupos" and not d.sem_entrar_no_grupo:
+                    # 1.12: só vê o grupo quem é membro, quem criou ou o admin (ninguém lista os códigos)
+                    linhas = [g for g in d.tabelas["grupos"] if d.eh_membro(uid, g["codigo"]) or g.get("criado_por") == uid or d.eh_admin(uid)]
+                elif tabela == "membros" and not d.sem_entrar_no_grupo:
+                    linhas = [m for m in d.tabelas["membros"] if m["usuario_id"] == uid or d.eh_membro(uid, m["codigo"]) or d.eh_admin(uid)]
                 else:
                     linhas = d.tabelas[tabela]
                 linhas = _filtrar(linhas, filtros)
@@ -336,6 +352,11 @@ class Manipulador(BaseHTTPRequestHandler):
                         continue
                     dono = n.get("id") if tabela == "perfis" else n.get("criado_por") if tabela == "grupos" else n.get("usuario_id")
                     if dono != uid:
+                        return self._json(403, {"code": "42501", "message": "new row violates row-level security policy"})
+                    if tabela == "membros" and not d.sem_entrar_no_grupo and not any(
+                        g["codigo"] == n.get("codigo") and g.get("criado_por") == uid for g in d.tabelas["grupos"]
+                    ):
+                        # só quem criou entra direto; os outros entram pela função, com o código do convite
                         return self._json(403, {"code": "42501", "message": "new row violates row-level security policy"})
                     if tabela == "perfis" and not d.eh_admin(uid):
                         # gatilho proteger_perfil: o aluno não escolhe o próprio papel

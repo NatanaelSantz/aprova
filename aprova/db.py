@@ -160,6 +160,9 @@ class Banco:
                 self._con.execute("ALTER TABLE questoes ADD COLUMN fonte TEXT DEFAULT ''")
             if "ref" not in colunas:  # "prova_id:numero" da questão original (simulados e revisão)
                 self._con.execute("ALTER TABLE questoes ADD COLUMN ref TEXT DEFAULT ''")
+            if "ref" not in {r[1] for r in self._con.execute("PRAGMA table_info(respostas)")}:
+                # 1.12: a resposta lembra a questão original (no simulado e na revisão o número muda)
+                self._con.execute("ALTER TABLE respostas ADD COLUMN ref TEXT DEFAULT ''")
             self._con.commit()
 
     @contextmanager
@@ -303,8 +306,8 @@ class Banco:
         ):
             d = dict(r)
             d["alternativas"] = json.loads(d["alternativas"] or "{}")
+            sig = d["assinatura"] = assinatura(d)
             if unicas:
-                sig = assinatura(d)
                 if sig in pos:
                     i = pos[sig]
                     if not saida[i].get("gabarito") and d.get("gabarito"):
@@ -330,13 +333,41 @@ class Banco:
         }
 
     def acertadas(self) -> set[tuple[int, int]]:
-        """(prova_id, numero) das questões que você já acertou alguma vez."""
-        return {
-            (r["prova_id"], r["numero"])
-            for r in self._q(
-                "SELECT DISTINCT t.prova_id, r.numero FROM respostas r JOIN tentativas t ON t.id = r.tentativa_id WHERE r.correta = 1"
-            )
-        }
+        """(prova_id, numero) das questões originais que você já acertou alguma vez (em qualquer lugar)."""
+        return {k for k, h in self.historico_questoes().items() if h["acertou"]}
+
+    def historico_questoes(self) -> dict[tuple[int, int], dict]:
+        """O que você já fez com cada questão original: {(prova_id, numero): {"vista", "acertou", "vezes"}}.
+
+        Respostas dadas num simulado, num treino ou na revisão contam para a questão de onde ela veio.
+        As antigas (antes da 1.12) sem a referência só valem quando dá para saber a origem com certeza:
+        treino e revisão reaproveitam a mesma prova com outras questões, então ficam de fora."""
+        linhas = self._q(
+            """SELECT t.prova_id, r.numero, r.correta, r.respondida_em, r.ref, q.ref AS ref_q, p.origem_url
+               FROM respostas r
+               JOIN tentativas t ON t.id = r.tentativa_id
+               JOIN provas p ON p.id = t.prova_id
+               LEFT JOIN questoes q ON q.prova_id = t.prova_id AND q.numero = r.numero"""
+        )
+        saida: dict[tuple[int, int], dict] = {}
+        reaproveitadas = ("aprova://revisao", "aprova://simulado/treino")
+        for r in linhas:
+            ref = r["ref"] or ""
+            if not ref:
+                if (r["origem_url"] or "").startswith(reaproveitadas):
+                    continue
+                ref = r["ref_q"] or ""
+            chave = self._original(r["prova_id"], r["numero"], ref)
+            h = saida.setdefault(chave, {"vista": "", "acertou": False, "vezes": 0})
+            h["vezes"] += 1
+            h["vista"] = max(h["vista"], r["respondida_em"] or "")
+            if r["correta"] == 1:
+                h["acertou"] = True
+        return saida
+
+    def em_revisao(self) -> set[tuple[int, int]]:
+        """Questões que você errou e que ainda estão esperando o dia de revisar."""
+        return {(r["prova_id"], r["numero"]) for r in self._q("SELECT prova_id, numero FROM revisao WHERE caixa < 6")}
 
     def distribuicao_da_prova(self, prova_id: int) -> list[tuple[str, int]]:
         linhas = self._q(
@@ -355,11 +386,12 @@ class Banco:
             )
             return int(cur.lastrowid)
 
-    def registrar_resposta(self, tentativa_id: int, numero: int, disciplina: str, resposta: str | None, correta: bool | None) -> None:
+    def registrar_resposta(self, tentativa_id: int, numero: int, disciplina: str, resposta: str | None, correta: bool | None, ref: str = "") -> None:
+        """ref: "prova_id:numero" da questão original (quando a questão veio de outra prova)."""
         with self._tx() as c:
             c.execute("DELETE FROM respostas WHERE tentativa_id=? AND numero=?", (tentativa_id, numero))
             c.execute(
-                "INSERT INTO respostas (tentativa_id, numero, disciplina, resposta, correta, respondida_em) VALUES (?,?,?,?,?,?)",
+                "INSERT INTO respostas (tentativa_id, numero, disciplina, resposta, correta, respondida_em, ref) VALUES (?,?,?,?,?,?,?)",
                 (
                     tentativa_id,
                     numero,
@@ -367,6 +399,7 @@ class Banco:
                     resposta,
                     None if correta is None else int(correta),
                     datetime.now().isoformat(timespec="seconds"),
+                    ref if re.fullmatch(r"\d+:\d+", ref or "") else "",
                 ),
             )
 

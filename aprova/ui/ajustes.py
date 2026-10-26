@@ -194,7 +194,7 @@ class TelaAjustes:
         def mostrar():
             estado.controls.clear()
             if app.servidor.ativo:
-                url = rede.endereco_celular()
+                url = app.servidor.endereco()
                 png = rede.qr_png(url)
                 linha: list[ft.Control] = []
                 if png:
@@ -202,8 +202,8 @@ class TelaAjustes:
                 linha.append(
                     ft.Column(
                         [
-                            comp.texto("Aponte a câmera do celular para o código ou digite:", c, 14.5),
-                            ft.Text(url, size=20, weight=ft.FontWeight.W_700, color=c["tinta"], selectable=True),
+                            comp.texto("Aponte a câmera do celular para o QR code ou digite o endereço inteiro:", c, 14.5),
+                            ft.Text(url, size=18, weight=ft.FontWeight.W_700, color=c["tinta"], selectable=True),
                             comp.apagado(
                                 "O celular precisa estar no mesmo Wi-Fi que este computador. Se não abrir, permita o Python no firewall do Windows (redes privadas).",
                                 c,
@@ -237,7 +237,7 @@ class TelaAjustes:
         mostrar()
         return self._secao(
             "Usar no celular",
-            "Abre o Aprova no navegador do celular, com o mesmo progresso deste computador. Funciona enquanto o computador estiver ligado com o Aprova aberto. Qualquer aparelho no mesmo Wi-Fi consegue abrir enquanto o acesso estiver ligado.",
+            "Abre o Aprova no navegador do celular, com o mesmo progresso deste computador. Funciona enquanto o computador estiver ligado com o Aprova aberto. O endereço leva um código secreto: sem ele, ninguém no mesmo Wi-Fi abre o seu Aprova. Cada vez que você liga o acesso, o código muda.",
             estado,
         )
 

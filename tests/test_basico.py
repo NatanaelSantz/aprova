@@ -240,7 +240,7 @@ def _banco_com_historico(tmp_path):
     pid = banco.criar_prova(titulo="Prova X", orgao="Dataprev 2026", banca="FGV", origem_url="https://x/p.pdf", modo="questoes")
     qs = []
     for i in range(1, 11):
-        qs.append({"numero": i, "enunciado": f"Pergunta {i} sobre assunto {i}", "alternativas": {"A": "a", "B": "b"}, "gabarito": "A",
+        qs.append({"numero": i, "enunciado": f"Pergunta {i} sobre assunto {i} cobrado na prova", "alternativas": {"A": "a", "B": "b", "C": "c", "D": "d"}, "gabarito": "A",
                    "disciplina": "Língua Portuguesa" if i <= 6 else "Raciocínio Lógico"})
     banco.salvar_questoes(pid, qs)
     t = banco.iniciar_tentativa(pid, "simulado")
@@ -417,11 +417,25 @@ def test_ranking_cadastro_envio_e_grupos(tmp_path):
         assert "Rafa" not in [l["apelido"] for l in r.ranking("acerto")]
         # grupos por código
         codigo = r.criar_grupo("Turma Dataprev")
-        assert re.match(r"^[A-Z0-9]+-[0-9A-F]{4}$", codigo)
+        assert re.match(r"^[A-Z0-9]+-[A-HJ-NP-Z2-9]{6}$", codigo)  # 6 letras/números: não dá para adivinhar
+        # quem não é do grupo não lista os códigos nem entra sem o convite
+        assert outro._pedir("GET", "/rest/v1/grupos?select=codigo").json() == []
+        assert outro._pedir("GET", "/rest/v1/membros?select=codigo").json() == []
+        with pytest.raises(ranking.ErroRanking):
+            outro._pedir("POST", "/rest/v1/membros", json={"codigo": codigo, "usuario_id": outro.usuario_id})
+        with pytest.raises(ranking.ErroRanking, match="inválido"):
+            outro.entrar_grupo("X&usuario_id=neq.0")  # nada de filtro enfiado no código
+        assert outro.meus_grupos() == []
         outro.entrar_grupo(codigo.lower())
         nomes = [l["apelido"] for l in r.ranking("horas", grupo=codigo)]
         assert set(nomes) == {"Natan"}  # Fulano ainda não enviou números
         assert r.meus_grupos()[0]["nome"] == "Turma Dataprev"
+        assert [g["codigo"] for g in outro.meus_grupos()] == [codigo]
+        # servidor ainda sem o SQL da 1.12: entrar continua funcionando do jeito antigo
+        srv.dados.sem_entrar_no_grupo = True
+        cod_velho = r.criar_grupo("Grupo antigo")
+        assert outro.entrar_grupo(cod_velho)["nome"] == "Grupo antigo"
+        srv.dados.sem_entrar_no_grupo = False
         # sessão continua depois de reabrir o app (só com o token salvo)
         r2 = ranking.Ranking(config.Ajustes(tmp_path / "a.json"), {"url": srv.url, "chave": CHAVE})
         assert r2.logado and r2.perfil()["apelido"] == "Natan"
@@ -849,10 +863,15 @@ def test_atualizacao_automatica(tmp_path, monkeypatch):
     (raiz / "ranking.json").write_text('{"url": "meu"}')
 
     # versao.json do site
-    monkeypatch.setattr(atualizar, "_baixar", lambda url, timeout, progresso=None, limite=0: json.dumps({"versao": "1.9.0", "notas": ["Marcar PDF"], "zip": "https://x/main.zip"}).encode())
+    monkeypatch.setattr(atualizar, "_baixar", lambda url, timeout, progresso=None, limite=0: json.dumps({"versao": "1.9.0", "notas": ["Marcar PDF"], "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"}).encode())
     info = atualizar.verificar("1.8.0")
     assert info["versao"] == "1.9.0" and info["notas"] == ["Marcar PDF"]
     assert atualizar.verificar("1.9.0") is None
+    # .zip de outro lugar que não o repositório do Aprova não é aceito
+    assert not atualizar.zip_confiavel("https://site-estranho.com/NatanaelSantz/aprova/main.zip")
+    assert not atualizar.zip_confiavel("https://github.com/outra-pessoa/aprova/archive/main.zip")
+    with pytest.raises(atualizar.ErroAtualizacao):
+        atualizar.preparar({**info, "zip": "https://site-estranho.com/main.zip"}, dados, "1.8.0")
 
     with pytest.raises(atualizar.ErroAtualizacao):
         atualizar.preparar(info, dados, "1.8.0", conteudo=_zip_do_aprova("1.8.0"))  # não é mais nova
@@ -901,7 +920,7 @@ def test_aviso_de_atualizacao_no_app(tmp_path, monkeypatch):
 
     def falso(url, timeout, progresso=None, limite=0):
         consultas.append(url)
-        return json.dumps({"versao": "99.0.0", "notas": ["Novidade"], "zip": "https://x/main.zip"}).encode()
+        return json.dumps({"versao": "99.0.0", "notas": ["Novidade"], "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"}).encode()
 
     monkeypatch.setattr(atualizar, "_baixar", falso)
 
@@ -917,7 +936,7 @@ def test_aviso_de_atualizacao_no_app(tmp_path, monkeypatch):
     app = AppFalso()
     info = asyncio.run(atualizacao.verificar(app))
     assert info["versao"] == "99.0.0" and app.atualizacao == info and len(consultas) == 1
-    asyncio.run(atualizacao.verificar(app))  # dentro de 12 horas: não consulta o site de novo
+    asyncio.run(atualizacao.verificar(app))  # dentro do intervalo: não consulta o site de novo
     assert len(consultas) == 1
     asyncio.run(atualizacao.verificar(app, forcar=True))
     assert len(consultas) == 2
@@ -929,7 +948,7 @@ def test_aviso_de_atualizacao_no_app(tmp_path, monkeypatch):
     assert app.atualizacao_pronta == "99.0.0"
 
     # o site ainda anuncia a versão que a pessoa já tem: nenhum aviso
-    monkeypatch.setattr(atualizar, "_baixar", lambda url, timeout, progresso=None, limite=0: json.dumps({"versao": __version__, "zip": "https://x"}).encode())
+    monkeypatch.setattr(atualizar, "_baixar", lambda url, timeout, progresso=None, limite=0: json.dumps({"versao": __version__, "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"}).encode())
     assert asyncio.run(atualizacao.verificar(app, forcar=True)) is None and app.atualizacao is None
 
 
@@ -1251,3 +1270,267 @@ def test_mensagem_de_servidor_sem_sql_novo():
             return {"code": "PGRST205", "message": "Could not find the table 'public.config' in the schema cache"}
 
     assert "SQL novo" in ranking._mensagem(R())
+
+
+def test_simulado_nao_repete_o_que_voce_ja_fez(tmp_path):
+    """Acerto feito dentro de um simulado conta para a questão original; o próximo simulado traz as novas primeiro."""
+    from aprova import config, db, montador, sessoes
+
+    banco = db.Banco(tmp_path / "r.db")
+    aj = config.Ajustes(tmp_path / "a.json")
+    pid = banco.criar_prova(titulo="Prova Dataprev", orgao="Dataprev", banca="FGV", origem_url="https://x/d.pdf", modo="questoes")
+    banco.salvar_questoes(pid, [
+        {"numero": i, "enunciado": f"Questão de português número {i} sobre crase e regência", "alternativas": {"A": f"a{i}", "B": f"b{i}", "C": f"c{i}", "D": f"d{i}"},
+         "gabarito": "A", "disciplina": "Língua Portuguesa"}
+        for i in range(1, 9)
+    ])
+    # a mesma questão 1 aparece em outra prova (outro cargo): é a mesma questão
+    outra = banco.criar_prova(titulo="Prova Dataprev cargo 2", orgao="Dataprev", banca="FGV", origem_url="https://x/d2.pdf", modo="questoes")
+    banco.salvar_questoes(outra, [{"numero": 1, "enunciado": "Questão de português número 1 sobre crase e regência", "alternativas": {"A": "a1", "B": "b1", "C": "c1", "D": "d1"},
+                                   "gabarito": "A", "disciplina": "Língua Portuguesa"}])
+
+    def fazer(prova_id, acertar):
+        """Resolve o simulado como o app faz (com a referência da questão original)."""
+        qs = banco.questoes(prova_id)
+        t = banco.iniciar_tentativa(prova_id, "simulado")
+        for q in qs:
+            certo = acertar(q)
+            banco.registrar_resposta(t, q["numero"], q["disciplina"], "A" if certo else "B", certo, q.get("ref") or "")
+            banco.revisao_registrar(prova_id, q["numero"], q["disciplina"], certo, q.get("ref") or "")
+        banco.finalizar_tentativa(t, 60, 0, len(qs))
+        return {q.get("ref") for q in qs}
+
+    s1 = montador.montar(banco, aj, "S1", [("Língua Portuguesa", 4)], filtro="Dataprev")
+    assert s1["repetidas"] == {}
+    vistas1 = fazer(s1["prova_id"], lambda q: True)
+    with banco._tx() as c:  # o primeiro simulado foi feito semana passada
+        c.execute("UPDATE respostas SET respondida_em='2026-01-05T20:00:00'")
+    # o acerto dentro do simulado conta para a questão original
+    assert {f"{a}:{b}" for a, b in banco.acertadas()} >= vistas1
+
+    s2 = montador.montar(banco, aj, "S2", [("Língua Portuguesa", 4)], filtro="Dataprev")
+    vistas2 = {q.get("ref") for q in banco.questoes(s2["prova_id"])}
+    assert not (vistas1 & vistas2), "o segundo simulado tinha que trazer só questões novas"
+    assert s2["repetidas"] == {}
+    fazer(s2["prova_id"], lambda q: q["numero"] != 1)  # erra uma: ela vai para a Revisão
+
+    # todas já vistas: volta primeiro a acertada há mais tempo, e a errada (esperando a revisão) fica por último
+    s3 = montador.montar(banco, aj, "S3", [("Língua Portuguesa", 7)], filtro="Dataprev")
+    refs3 = [q.get("ref") for q in banco.questoes(s3["prova_id"])]
+    assert s3["repetidas"] == {"Língua Portuguesa": 7}
+    errada = next(r for r in vistas2 if r in {f"{a}:{b}" for a, b in banco.em_revisao()})
+    assert errada not in refs3[:7] or len(refs3) == 7 and refs3[-1] == errada
+    assert set(refs3[:4]) == vistas1  # as mais antigas primeiro
+
+    # a mesma questão em outra prova conta como vista; o treino também segue a ordem
+    hist = montador.Historico(banco)
+    q1_outra = next(q for q in banco.banco_de_questoes(unicas=False) if q["prova_id"] == outra)
+    assert hist.ja_vista(q1_outra)
+    treino = sessoes.preparar_treino(banco, "Língua Portuguesa", 3)
+    assert treino
+
+
+def test_resposta_antiga_sem_referencia_nao_confunde(tmp_path):
+    """Respostas de antes da 1.12 no treino/revisão (prova reaproveitada) não são atribuídas à questão errada."""
+    from aprova import db, sessoes
+
+    banco = db.Banco(tmp_path / "v.db")
+    pid = banco.criar_prova(titulo="P", orgao="X", origem_url="https://x/p.pdf", modo="questoes")
+    banco.salvar_questoes(pid, [{"numero": i, "enunciado": f"Enunciado {i} bem diferente dos outros enunciados", "alternativas": {"A": "1", "B": "2", "C": "3"}, "gabarito": "A",
+                                 "disciplina": "Informática"} for i in range(1, 4)])
+    treino = sessoes.preparar_treino(banco, "Informática", 3)
+    t = banco.iniciar_tentativa(treino, "estudo")
+    banco.registrar_resposta(t, 1, "Informática", "A", True)  # jeito antigo: sem ref
+    assert banco.historico_questoes() == {}
+    # simulado montado (prova própria, não reaproveitada): dá para achar a origem pela questão
+    from aprova import config, montador
+
+    s = montador.montar(banco, config.Ajustes(tmp_path / "a.json"), "S", [("Informática", 1)], filtro="X")
+    t2 = banco.iniciar_tentativa(s["prova_id"], "simulado")
+    banco.registrar_resposta(t2, 1, "Informática", "A", True)  # sem ref, mas a questão do simulado sabe de onde veio
+    ref = banco.questoes(s["prova_id"])[0]["ref"]
+    a, b = (int(x) for x in ref.split(":"))
+    assert banco.historico_questoes()[(a, b)]["acertou"]
+
+
+def test_modo_web_pede_codigo_de_acesso(monkeypatch):
+    """Pelo Wi-Fi, o Aprova só abre com o código do QR code; neste computador abre direto."""
+    import asyncio
+    import importlib.util
+
+    from aprova import rede
+
+    assert rede.acesso_liberado("127.0.0.1", "/", "abc")
+    assert rede.acesso_liberado("::1", "/", "")
+    assert not rede.acesso_liberado("192.168.0.20", "/", "segredo")
+    assert not rede.acesso_liberado("192.168.0.20", "/?k=errado", "segredo")
+    assert not rede.acesso_liberado("192.168.0.20", "/?k=segredo", "")  # sem código configurado, ninguém de fora
+    assert rede.acesso_liberado("192.168.0.20", "/?k=segredo", "segredo")
+    assert "/?k=xyz" in rede.endereco_celular(8550, "xyz")
+    assert rede.nova_chave() != rede.nova_chave()
+
+    spec = importlib.util.spec_from_file_location("main_aprova", Path(__file__).parent.parent / "main.py")
+    principal = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(principal)
+    abriu = []
+    monkeypatch.setattr(principal, "App", lambda page, modo_web: abriu.append(page) or type("A", (), {"iniciar": lambda self: None})())
+    monkeypatch.setenv(rede.CHAVE_ENV, "segredo")
+
+    class Pagina:
+        def __init__(self, ip, rota):
+            self.client_ip, self.route, self.adicionados = ip, rota, []
+
+        def add(self, *c):
+            self.adicionados.extend(c)
+
+    de_fora = Pagina("192.168.0.20", "/")
+    asyncio.run(principal.principal(True)(de_fora))
+    assert de_fora.adicionados and not abriu  # tela "Abra pelo QR code"
+    com_codigo = Pagina("192.168.0.20", "/?k=segredo")
+    asyncio.run(principal.principal(True)(com_codigo))
+    assert abriu == [com_codigo]
+
+
+def test_atualizacao_chega_por_notificacao(tmp_path, monkeypatch):
+    """Versão nova: notificação do sistema uma vez (clicar abre aprova://atualizar) e faixa dentro do app."""
+    import base64
+    import json
+
+    from aprova import __version__, atualizar, config, convite, notificar
+    from aprova.ui import atualizacao
+
+    # a notificação do Windows: texto escapado, botão e clique levando ao app
+    xml = notificar.xml_toast('Versão "nova" <1.12>', "Simulados & segurança", "aprova://atualizar", "Atualizar agora")
+    assert "&lt;1.12&gt;" in xml and "&amp;" in xml and 'launch="aprova://atualizar"' in xml and 'content="Atualizar agora"' in xml
+    cmd = notificar.comando_windows("Título com 'aspas'", "texto", "aprova://atualizar", "Atualizar")
+    script = base64.b64decode(cmd[-1]).decode("utf-16-le")
+    assert cmd[0] == "powershell.exe" and notificar.APP_ID in script and "Título com ''aspas''" in script
+
+    mostradas = []
+    monkeypatch.setattr(notificar, "mostrar", lambda *a, **k: mostradas.append((a, k)) or True)
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+
+    class Pagina:
+        def __init__(self):
+            self.dialogos = []
+
+        def show_dialog(self, d):
+            self.dialogos.append(d)
+
+    class AppFalso:
+        sessao = config.AjustesMemoria()
+        atualizacao = None
+        atualizacao_pronta = None
+        page = Pagina()
+
+        def msg(self, t):
+            self.page.dialogos.append(t)
+
+    app = AppFalso()
+    info = {"versao": "99.0.0", "notas": ["Simulados sem repetição"]}
+    assert atualizacao.notificar_versao(app, info)
+    assert mostradas[0][1]["link"] == "aprova://atualizar" and "99.0.0" in mostradas[0][0][0]
+    assert len(app.page.dialogos) == 1  # a faixa dentro do app
+    assert not atualizacao.notificar_versao(app, info)  # a mesma versão não avisa de novo
+    assert len(mostradas) == 1
+
+    # clicar na notificação: o app aberto recebe o pedido
+    assert convite.acao_do_link("aprova://atualizar/") == "atualizar" and convite.acao_do_link("aprova://grupo/X") is None
+    convite.guardar_acao("atualizar")
+    assert convite.pegar_pendente()["acao"] == "atualizar"
+    assert convite.pegar_pendente() is None
+
+    # depois de atualizar, a primeira abertura conta a novidade (uma vez)
+    app2 = AppFalso()
+    app2.page = Pagina()
+    app2.sessao = config.AjustesMemoria()
+    (tmp_path / atualizar.PASTA).mkdir(parents=True, exist_ok=True)
+    (tmp_path / atualizar.PASTA / "ultima.json").write_text(json.dumps({"versao": __version__, "de": "1.0.0"}))
+    app2.sessao.set("atualizacao_info", {"versao": __version__, "notas": ["Novidade boa"]})
+    atualizacao.avisar_atualizado(app2)
+    assert len(app2.page.dialogos) == 1
+    atualizacao.avisar_atualizado(app2)
+    assert len(app2.page.dialogos) == 1
+
+
+
+def test_questao_esquisita_fica_fora_do_simulado(tmp_path):
+    """PDF mal lido (letras separadas, alternativa faltando ou repetida) não entra no simulado."""
+    from aprova import config, db, montador
+
+    banco = db.Banco(tmp_path / "q.db")
+    pid = banco.criar_prova(titulo="P", orgao="TJ", origem_url="https://x/p.pdf", modo="questoes")
+    boas = [{"numero": i, "enunciado": f"Sobre a Lei 8.112, assinale a alternativa correta quanto ao item {i} da lei.",
+             "alternativas": {"A": f"um {i}", "B": f"dois {i}", "C": f"três {i}", "D": f"quatro {i}"}, "gabarito": "C", "disciplina": "Direito"}
+            for i in range(1, 4)]
+    ruins = [
+        {"numero": 10, "enunciado": "A s s i n a l e a a l t e r n a t i v a c o r r e t a s o b r e", "alternativas": {"A": "1", "B": "2", "C": "3"}, "gabarito": "A", "disciplina": "Direito"},
+        {"numero": 11, "enunciado": "Sobre a Lei 8.112, assinale a alternativa correta quanto à posse.", "alternativas": {"A": "igual", "B": "igual", "C": "outra"}, "gabarito": "A", "disciplina": "Direito"},
+        {"numero": 12, "enunciado": "Sobre a Lei 8.112, assinale a alternativa correta quanto à vacância.", "alternativas": {"A": "só uma"}, "gabarito": "A", "disciplina": "Direito"},
+    ]
+    sem_gabarito = {"numero": 20, "enunciado": "Sobre a Lei 8.112, assinale a alternativa correta quanto à remoção.", "alternativas": {"A": "x", "B": "y", "C": "z"}, "disciplina": "Direito"}
+    banco.salvar_questoes(pid, boas + ruins + [sem_gabarito])
+    res = montador.montar(banco, config.Ajustes(tmp_path / "a.json"), "S", [("Direito", 10)], filtro="TJ")
+    nums = [int(q["ref"].split(":")[1]) for q in banco.questoes(res["prova_id"])]
+    assert set(nums) == {1, 2, 3, 20} and nums[-1] == 20  # a sem gabarito só no fim; as esquisitas, nunca
+    assert res["faltas"] == {"Direito": 6}
+
+
+def test_ia_troca_as_repetidas_por_novas(tmp_path, monkeypatch):
+    """Com a chave do Claude, a IA completa o simulado e troca as questões já feitas por inéditas."""
+    from aprova import config, db, ia, montador
+
+    banco = db.Banco(tmp_path / "ia.db")
+    aj = config.Ajustes(tmp_path / "a.json")
+    aj.set("claude_api_key", "sk-teste")
+    pid = banco.criar_prova(titulo="P", orgao="INSS", banca="Cebraspe", origem_url="https://x/p.pdf", modo="questoes")
+    banco.salvar_questoes(pid, [{"numero": i, "enunciado": f"Questão {i} sobre seguridade social e benefícios do INSS.",
+                                 "alternativas": {"A": f"a{i}", "B": f"b{i}", "C": f"c{i}"}, "gabarito": "A", "disciplina": "Previdenciário"}
+                                for i in range(1, 4)])
+    t = banco.iniciar_tentativa(pid, "estudo")
+    for i in (1, 2):  # já fez duas
+        banco.registrar_resposta(t, i, "Previdenciário", "A", True)
+    pedidos = []
+
+    def gerar(disc, n, *a, **k):
+        pedidos.append(n)
+        return [{"enunciado": f"Questão inédita {j} sobre aposentadoria por idade e carência.", "alternativas": {"A": "1", "B": "2", "C": "3", "D": "4"},
+                 "gabarito": "B", "tipo": "ME"} for j in range(n)]
+
+    monkeypatch.setattr(ia, "gerar_questoes", gerar)
+    res = montador.montar(banco, aj, "S", [("Previdenciário", 4)], filtro="INSS", usar_ia=True)
+    qs = banco.questoes(res["prova_id"])
+    assert pedidos == [3]  # 1 que faltava + 2 repetidas
+    assert len(qs) == 4 and res["geradas"] == 3 and res["repetidas"] == {}
+    assert [q["ref"] for q in qs if q.get("ref")] == [f"{pid}:3"]  # da biblioteca, só a que você nunca fez
+    # sem a IA, as repetidas ficam (e o app avisa)
+    sem = montador.montar(banco, aj, "S2", [("Previdenciário", 4)], filtro="INSS", usar_ia=False)
+    assert sem["repetidas"] == {"Previdenciário": 2} and sem["faltas"] == {"Previdenciário": 1}
+
+
+def test_comentario_do_simulado(tmp_path):
+    """O resultado diz o que foi bem, onde ganhar pontos e lista cada erro por matéria."""
+    from aprova import coach
+
+    r = {"acertos": 7, "total": 10, "duracao": 600, "respondidas": 9,
+         "por_disc": {"Língua Portuguesa": [5, 5], "Raciocínio Lógico": [1, 4], "Informática": [1, 1]}}
+    com = coach.comentar(r)
+    texto = " ".join(com["paragrafos"])
+    assert com["titulo"] == "Bom resultado!" and com["forte"] == "Língua Portuguesa" and com["foco"] == "Raciocínio Lógico"
+    assert "errou 3 de 4" in texto and "5 de 5" in texto and "1 em branco" in texto
+    devagar = coach.comentar({**r, "duracao": 9 * 400})
+    assert "por questão" in " ".join(devagar["paragrafos"])
+    assert coach.comentar({"acertos": 2, "total": 10, "por_disc": {"X": [2, 10]}})["titulo"] == "Simulado é para isso"
+    assert coach.comentar({"acertos": 0, "total": 0})["foco"] is None
+
+    qs = [
+        {"numero": 1, "disciplina": "Raciocínio Lógico", "enunciado": "Se  todo A é B...", "alternativas": {"A": "x", "B": "y"}, "gabarito": "A", "explicacao": "Silogismo."},
+        {"numero": 2, "disciplina": "Raciocínio Lógico", "enunciado": "Quantos anagramas...", "alternativas": {"A": "10", "B": "120"}, "gabarito": "B"},
+        {"numero": 3, "disciplina": "Língua Portuguesa", "enunciado": "Crase", "alternativas": {"A": "a", "B": "b"}, "gabarito": "A"},
+        {"numero": 4, "disciplina": "Informática", "enunciado": "Anulada", "alternativas": {"A": "a"}, "gabarito": "*"},
+    ]
+    erradas = coach.erradas_por_disciplina(qs, {1: "B", 3: "A"}, lambda q: q.get("gabarito"))
+    assert list(erradas) == ["Raciocínio Lógico"]
+    e1, e2 = erradas["Raciocínio Lógico"]
+    assert (e1["sua"], e1["certa"], e1["texto_certa"], e1["explicacao"]) == ("B", "A", "x", "Silogismo.")
+    assert e1["enunciado"] == "Se todo A é B..." and e2["sua"] is None

@@ -935,8 +935,12 @@ class TelaGrupos:
             except rk.ErroRanking as ex:
                 app.msg(str(ex))
                 return
+            # os arquivos vão junto: os da mensagem e os das respostas (cada um da pasta de quem mandou)
             if p.get("anexos"):
-                await app.em_segundo_plano(self.r.apagar_anexos, p["anexos"])
+                await app.em_segundo_plano(self.r.apagar_anexos, p["anexos"], p.get("autor"))
+            for r in self.respostas.pop(p["id"], None) or []:
+                if r.get("anexos"):
+                    await app.em_segundo_plano(self.r.apagar_anexos, r["anexos"], r.get("autor"))
             app.msg("Mensagem apagada.")
             self._atualizar()
 
@@ -952,6 +956,8 @@ class TelaGrupos:
     async def _apagar_resposta(self, p: dict, r: dict):
         try:
             await self.app.em_segundo_plano(self.r.forum_apagar_resposta, r["id"])
+            if r.get("anexos"):
+                await self.app.em_segundo_plano(self.r.apagar_anexos, r["anexos"], r.get("autor"))
             self.respostas[p["id"]] = await self.app.em_segundo_plano(self.r.forum_respostas, p["id"])
         except rk.ErroRanking as ex:
             self.app.msg(str(ex))

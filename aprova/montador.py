@@ -9,6 +9,7 @@ As questões vêm, nesta ordem:
 from __future__ import annotations
 
 import random
+import re
 import unicodedata
 from datetime import datetime
 
@@ -120,11 +121,95 @@ def distribuicao_do_concurso(banco, filtro: str, total: int = 20) -> list[tuple[
     return dist
 
 
-def _escolher(pool: list[dict], n: int, acertadas: set, ja: set) -> list[dict]:
-    livres = [q for q in pool if (q["prova_id"], q["numero"]) not in ja]
-    random.shuffle(livres)
-    # primeiro as que você ainda não acertou
-    livres.sort(key=lambda q: (q["prova_id"], q["numero"]) in acertadas)
+class Historico:
+    """O que você já fez com cada questão, para o simulado não ficar repetitivo.
+
+    A mesma questão em provas diferentes (ex.: o Português igual para todos os cargos) conta junto,
+    pela assinatura do enunciado. Ordem de escolha:
+      0. nunca respondida;
+      1. respondida e ainda não acertada (a que foi respondida há mais tempo primeiro);
+      2. já acertada (também a mais antiga primeiro);
+      3. errada e esperando o dia da Revisão: só entra se faltar questão.
+    """
+
+    def __init__(self, banco):
+        hist = banco.historico_questoes()
+        revisao = banco.em_revisao()
+        self.por_sig: dict[str, dict] = {}
+        self.revisao: set[str] = set()
+        if not hist and not revisao:
+            return
+        for q in banco.banco_de_questoes(unicas=False):
+            k = (q["prova_id"], q["numero"])
+            sig = q.get("assinatura") or ""
+            if k in hist:
+                h, atual = hist[k], self.por_sig.get(sig)
+                if atual is None:
+                    self.por_sig[sig] = dict(h)
+                else:
+                    atual["acertou"] = atual["acertou"] or h["acertou"]
+                    atual["vista"] = max(atual["vista"], h["vista"])
+                    atual["vezes"] += h["vezes"]
+            if k in revisao:
+                self.revisao.add(sig)
+
+    def nivel(self, q: dict) -> tuple[int, str]:
+        sig = q.get("assinatura") or ""
+        if sig in self.revisao:
+            return 3, ""
+        h = self.por_sig.get(sig)
+        if not h:
+            return 0, ""
+        return (2 if h["acertou"] else 1), h["vista"]
+
+    def ja_vista(self, q: dict) -> bool:
+        return self.nivel(q)[0] > 0
+
+
+_FIGURA = re.compile(r"\b(observe|veja|analise|considere|conforme|de acordo com)\b[^.?!]{0,40}\b(figura|imagem|gr[aá]fico|charge|tirinha|mapa|ilustra[cç][aã]o)\b", re.I)
+
+
+def problema(q: dict) -> str:
+    """Por que uma questão não serve para o simulado ("" se está boa).
+
+    PDF mal lido gera questão "esquisita": letras separadas, texto cortado, alternativas faltando ou
+    repetidas. Essas ficam de fora (a IA pode criar outras no lugar)."""
+    enunciado = re.sub(r"\s+", " ", str(q.get("enunciado") or "")).strip()
+    if len(enunciado) < 25:
+        return "enunciado curto demais"
+    if "\ufffd" in enunciado or len(re.findall(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", enunciado)) > 0:
+        return "texto com caracteres quebrados"
+    palavras = enunciado.split()
+    soltas = sum(1 for w in palavras if len(w) == 1 and w.isalpha() and w.lower() not in "aeiouéàóô")
+    if len(palavras) >= 8 and soltas / len(palavras) > 0.3:
+        return "letras separadas (PDF mal lido)"
+    alts = q.get("alternativas") or {}
+    if not isinstance(alts, dict):
+        return "alternativas inválidas"
+    if (q.get("tipo") or "ME") == "CE":
+        return ""
+    textos = [re.sub(r"\s+", " ", str(v or "")).strip().lower() for v in alts.values()]
+    if len(textos) < 3:
+        return "faltam alternativas"
+    if sum(1 for t in textos if not t) > 0:
+        return "alternativa vazia"
+    if len(set(textos)) < len(textos):
+        return "alternativas repetidas"
+    gab = str(q.get("gabarito") or "").strip().upper()
+    if gab and gab != "*" and gab not in {str(k).upper() for k in alts}:
+        return "gabarito não bate com as alternativas"
+    return ""
+
+
+def _incompleta(q: dict) -> bool:
+    """Serve, mas fica para o fim: sem gabarito (não dá para corrigir) ou depende de figura que não veio."""
+    return not q.get("gabarito") or bool(_FIGURA.search(str(q.get("enunciado") or "")))
+
+
+def _escolher(pool: list[dict], n: int, hist: Historico, ja: set) -> list[dict]:
+    livres = [q for q in pool if (q["prova_id"], q["numero"]) not in ja and q.get("assinatura") not in ja and not problema(q)]
+    random.shuffle(livres)  # empate (ex.: todas nunca vistas) fica na sorte
+    livres.sort(key=lambda q: (_incompleta(q), *hist.nivel(q)))
     return livres[:n]
 
 
@@ -147,10 +232,11 @@ def montar(
             progresso(f, t)
 
     todas = banco.banco_de_questoes()
-    acertadas = banco.acertadas()
+    hist = Historico(banco)
     usadas: set = set()
     escolhidas: list[dict] = []
     faltas: dict[str, int] = {}
+    repetidas: dict[str, int] = {}
     da_biblioteca = geradas = 0
     total = sum(n for _, n in distribuicao) or 1
     feito = 0
@@ -159,12 +245,49 @@ def montar(
             continue
         passo(feito / total * 0.9, f"Separando {disc}…")
         mesmas = [q for q in todas if q["disciplina"] == disc and combina(q, filtro)]
-        grupo = _escolher(mesmas, n, acertadas, usadas)
-        if len(grupo) < n and usar_outras and filtro.strip():
+        grupo = _escolher(mesmas, n, hist, usadas)
+        if usar_outras and filtro.strip() and (len(grupo) < n or any(hist.ja_vista(q) for q in grupo)):
+            # do concurso faltou ou só sobrou repetida: completa (ou troca) com questão nova de outras provas
             outras = [q for q in todas if q["disciplina"] == disc and not combina(q, filtro)]
-            grupo += _escolher(outras, n - len(grupo), acertadas, usadas)
+            candidatas = grupo + _escolher(outras, n, hist, usadas | {q.get("assinatura") for q in grupo})
+            candidatas.sort(key=lambda q: hist.nivel(q)[0])  # mantém a ordem dentro de cada nível
+            grupo = candidatas[:n]
+        falta = n - len(grupo)
+        repetidas_aqui = [q for q in grupo if hist.ja_vista(q)]
+        novas: list[dict] = []
+        pedir = falta + len(repetidas_aqui)
+        if pedir and usar_ia and ajustes is not None and ajustes.chave_claude:
+            # a IA completa o que faltou e troca as que você já viu por questões novas no estilo da banca
+            passo(feito / total * 0.9, f"Criando {pedir} questões novas de {disc} com IA…")
+            from . import ia
+
+            try:
+                novas = ia.gerar_questoes(
+                    disc,
+                    pedir,
+                    ajustes.chave_claude,
+                    ajustes["claude_modelo"],
+                    banca=banca,
+                    concurso=filtro,
+                    assuntos=assuntos,
+                    exemplos=exemplos_para(todas, disc, filtro, banca),
+                )[:pedir]
+            except Exception as e:  # noqa: BLE001
+                novas = []
+                if falta:
+                    faltas[f"{disc} (IA: {type(e).__name__})"] = falta
+                    falta = 0
+            novas = [q for q in novas if not problema(q)]  # a IA também não passa questão quebrada
+            sobra = len(novas) - falta
+            if sobra > 0:  # sai primeiro a mais "batida" (o grupo está do menos para o mais visto)
+                sair = repetidas_aqui[::-1][:sobra]
+                grupo = [q for q in grupo if all(q is not x for x in sair)]
+        vistas = sum(1 for q in grupo if hist.ja_vista(q))
+        if vistas:
+            repetidas[disc] = vistas
         for q in grupo:
             usadas.add((q["prova_id"], q["numero"]))
+            usadas.add(q.get("assinatura"))
             escolhidas.append(
                 {
                     "enunciado": q["enunciado"],
@@ -179,36 +302,17 @@ def montar(
                 }
             )
         da_biblioteca += len(grupo)
-        falta = n - len(grupo)
-        if falta and usar_ia and ajustes is not None and ajustes.chave_claude:
-            passo(feito / total * 0.9, f"Criando {falta} questões de {disc} com IA…")
-            from . import ia
-
-            try:
-                novas = ia.gerar_questoes(
-                    disc,
-                    falta,
-                    ajustes.chave_claude,
-                    ajustes["claude_modelo"],
-                    banca=banca,
-                    concurso=filtro,
-                    assuntos=assuntos,
-                    exemplos=exemplos_para(todas, disc, filtro, banca),
-                )
-            except Exception as e:  # noqa: BLE001
-                novas = []
-                faltas[f"{disc} (IA: {type(e).__name__})"] = falta
-                falta = 0
-            for q in novas:
-                q["fonte"] = f"Criada por IA no estilo {banca or 'de concurso'}"
-                escolhidas.append(q)
-            geradas += len(novas)
-            falta -= len(novas)
-        if falta > 0:
+        for q in novas:
+            q["fonte"] = f"Criada por IA no estilo {banca or 'de concurso'}"
+            q["disciplina"] = disc
+            escolhidas.append(q)
+        geradas += len(novas)
+        falta = n - len(grupo) - len(novas)
+        if falta > 0 and not any(k.startswith(f"{disc} (IA:") for k in faltas):
             faltas[disc] = falta
         feito += n
     if not escolhidas:
-        return {"prova_id": None, "total": 0, "da_biblioteca": 0, "geradas": 0, "faltas": faltas}
+        return {"prova_id": None, "total": 0, "da_biblioteca": 0, "geradas": 0, "faltas": faltas, "repetidas": repetidas}
     for i, q in enumerate(escolhidas, start=1):
         q["numero"] = i
         q["pagina"] = 0
@@ -230,4 +334,5 @@ def montar(
         "da_biblioteca": da_biblioteca,
         "geradas": geradas,
         "faltas": faltas,
+        "repetidas": repetidas,  # por disciplina: questões que você já tinha visto
     }

@@ -27,7 +27,10 @@ App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolv
 - **Ajuda em cada questão**: sempre pesquisa na internet e mostra as fontes. A *dica* não revela a resposta; a *explicação completa* revela. Com a chave da API do Claude (opcional), a explicação é escrita pela IA.
 - **Montar simulado**: você escolhe o número de questões e quantas de cada disciplina. Já vem o modelo da Dataprev 2026 (FGV, 70 questões).
   - As questões saem das provas anteriores do mesmo concurso ou órgão; se faltar, de outras provas da biblioteca.
-  - Com a chave do Claude, a IA cria as que faltarem no estilo da banca, usando os assuntos do edital.
+  - **Sem repetição**: primeiro vêm as questões que você nunca fez, depois as feitas há mais tempo e por último as que já acertou. Acerto feito em simulado, treino ou revisão conta para a questão original. A que você errou espera o dia dela na Revisão. Quando as novas acabam, o app avisa.
+  - **Sem questão esquisita**: questão com texto quebrado na leitura do PDF (letras separadas), alternativa faltando ou repetida fica de fora; sem gabarito só entra se faltar.
+  - Com a chave do Claude, a IA completa o que faltar **e troca as que você já fez** por questões novas no estilo da banca, usando os assuntos do edital.
+- **Resultado comentado**: no fim do simulado, o Aprova diz o que foi bem, em que matéria dá para ganhar mais pontos e qual o próximo passo (com botão para treinar a matéria). Embaixo vem **O que você errou**, matéria por matéria: o que você marcou, a resposta certa e o porquê. Com a chave do Claude, dá para pedir a **análise do professor (IA)**, com os assuntos para revisar e um plano de 3 dias.
   - Também dá para montar a partir do edital: botão “Montar simulado” na janela do concurso.
 - **Onde focar**: cruza quanto cada disciplina cai nas suas provas com quanto você ainda erra.
 - **Meta semanal (tela Início)**: o painel **Sua semana** mostra as horas estudadas e a meta, o ritmo (em dia, à frente ou quanto falta), a sequência de dias, o dia de hoje e as horas de cada dia em barras, com um tracinho na altura da meta do dia. Embaixo vem “Seu próximo estudo” (revisão do dia ou treino do ponto fraco).
@@ -72,7 +75,7 @@ No macOS/Linux: `./iniciar.sh` (ou `./iniciar.sh --web` para o modo navegador).
 
 Da versão 1.9 em diante, o Aprova se atualiza sozinho:
 
-1. Uma vez a cada 12 horas (com internet), ele confere se saiu versão nova. Quando sai, aparece o cartão **Nova versão do Aprova** no Início.
+1. Com o app aberto, a cada 3 horas ele confere se saiu versão nova. Quando sai, chega uma **notificação do Windows** (clique nela para atualizar), aparece um aviso embaixo da tela e o cartão **Nova versão do Aprova** no Início.
 2. Toque em **Atualizar**: a janela mostra o que mudou e baixa a versão nova (uns 2 MB).
 3. Toque em **Reiniciar agora** (ou **Depois**: a versão nova entra na próxima vez que você abrir o app).
 
@@ -85,7 +88,8 @@ Quem tem a versão 1.8 ou anterior precisa baixar o .zip uma última vez no [sit
 ## Usar no celular
 
 - Jeito mais fácil: no app, vá em **Ajustes → Usar no celular → Ligar acesso pelo celular** e aponte a câmera para o QR code.
-- Ou abra **`Abrir no celular.bat`** e digite no celular o endereço que aparece na janela (ex.: `http://192.168.0.10:8550`).
+- Ou abra **`Abrir no celular.bat`** e digite no celular o endereço inteiro que aparece na janela (ex.: `http://192.168.0.10:8550/?k=...`).
+- O endereço tem um **código de acesso**: sem ele, ninguém no mesmo Wi-Fi abre o seu Aprova. O código muda cada vez que você liga o acesso.
 
 O celular precisa estar no mesmo Wi-Fi. Se não abrir, permita o Python no firewall do Windows em redes privadas. Para colocar um ícone na tela inicial, use “Adicionar à tela inicial” no menu do navegador do celular.
 
