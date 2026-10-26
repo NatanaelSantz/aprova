@@ -203,7 +203,7 @@ class Manipulador(BaseHTTPRequestHandler):
                     u["senha"] = c["password"]
                 return self._json(200, self._sessao(uid)["user"])
             if caminho == "/rest/v1/rpc/virar_primeiro_admin":
-                if any(p.get("papel") == "admin" for p in d.tabelas["perfis"]):
+                if not d.usuarios[uid]["email"] or any(p.get("papel") == "admin" for p in d.tabelas["perfis"]):
                     return self._json(200, False)
                 for p in d.tabelas["perfis"]:
                     if p["id"] == uid:

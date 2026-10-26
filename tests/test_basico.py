@@ -693,6 +693,12 @@ def test_entrada_rapida_e_convite(tmp_path):
         adm = ranking.Ranking(config.Ajustes(tmp_path / "adm.json"), cfg)
         adm.criar_conta("adm@exemplo.com", "segredo1", "Natan")
         cod = adm.criar_grupo("Turma Dataprev")
+        # mesmo num servidor sem admin, a conta rápida nunca vira administrador
+        srv.dados.tabelas["perfis"][0]["papel"] = "aluno"
+        anonimo = ranking.Ranking(config.Ajustes(tmp_path / "an.json"), cfg)
+        anonimo.entrar_rapido("Visitante")
+        assert anonimo.eh_anonimo and not anonimo.eh_admin
+        srv.dados.tabelas["perfis"][0]["papel"] = "admin"
         # a página do convite (e o app sem conta) leem o nome do grupo sem login
         visitante = ranking.Ranking(config.Ajustes(tmp_path / "v.json"), cfg)
         info = visitante.convite_info(cod.lower())

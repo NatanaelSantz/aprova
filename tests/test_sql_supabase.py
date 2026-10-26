@@ -30,6 +30,9 @@ create table auth.users (id uuid primary key, email text);
 create function auth.uid() returns uuid language sql stable as $f$
     select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $f$;
+create function auth.jwt() returns jsonb language sql stable as $f$
+    select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb
+$f$;
 grant usage on schema auth to anon, authenticated;
 grant usage on schema public to anon, authenticated;
 -- sem "expor tabelas novas": o ranking.sql precisa dar o acesso sozinho
@@ -43,9 +46,10 @@ class Banco:
         self.con = psycopg.connect(DSN, autocommit=True)
         self.como(None)
 
-    def como(self, uid: str | None):
+    def como(self, uid: str | None, anonimo: bool = False):
         cur = self.con.cursor()
         cur.execute("reset role")
+        cur.execute("select set_config('request.jwt.claims', %s, false)", (json.dumps({"sub": uid, "is_anonymous": anonimo}) if uid else "",))
         if uid:
             cur.execute("set role authenticated")
             cur.execute("select set_config('request.jwt.claim.sub', %s, false)", (uid,))
@@ -86,6 +90,7 @@ def test_papeis_e_primeiro_admin(db):
         db.como(uid).q("insert into perfis (id, apelido, papel) values (%s, %s, 'admin')", (uid, nome))
     db.como(None)
     assert db.q("select count(*) from perfis where papel = 'admin'") == [(0,)]  # ninguém se cria admin
+    assert db.como(D, anonimo=True).q("select virar_primeiro_admin()") == [(False,)]  # conta rápida não vira admin
     assert db.como(A).q("select virar_primeiro_admin()") == [(True,)]
     assert db.como(B).q("select virar_primeiro_admin()") == [(False,)]
     db.como(B).q("update perfis set papel = 'admin', bloqueado = false where id = %s", (B,))

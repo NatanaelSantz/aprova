@@ -41,10 +41,14 @@ drop trigger if exists proteger_perfil on public.perfis;
 create trigger proteger_perfil before insert or update on public.perfis
     for each row execute function public.proteger_perfil();
 
--- o primeiro a chamar esta função (quando ainda não há nenhum admin) vira administrador
+-- o primeiro a chamar esta função (quando ainda não há nenhum admin) vira administrador.
+-- Conta rápida (anônima, dos convites) nunca vira admin: só conta com e-mail e senha.
 create or replace function public.virar_primeiro_admin() returns boolean
 language plpgsql security definer set search_path = public as $$
 begin
+    if coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) then
+        return false;
+    end if;
     if exists (select 1 from public.perfis where papel = 'admin') then
         return false;
     end if;

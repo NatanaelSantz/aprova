@@ -370,11 +370,12 @@ class Ranking:
         return perfil
 
     def _depois_de_entrar(self) -> dict | None:
-        """O primeiro usuário do servidor vira administrador; depois atualiza o papel guardado."""
-        try:
-            self._pedir("POST", "/rest/v1/rpc/virar_primeiro_admin", json={})
-        except ErroRanking:
-            pass
+        """O primeiro usuário do servidor vira administrador (nunca a conta rápida); depois atualiza o papel guardado."""
+        if not self.eh_anonimo:
+            try:
+                self._pedir("POST", "/rest/v1/rpc/virar_primeiro_admin", json={})
+            except ErroRanking:
+                pass
         return self.atualizar_perfil()
 
     def atualizar_perfil(self) -> dict | None:
