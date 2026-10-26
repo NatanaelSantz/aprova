@@ -48,6 +48,13 @@ def principal(modo_web: bool):
                 page.window.visible = True
                 page.update()
                 _fechar_abertura()
+                if not os.environ.get("APROVA_JANELA") and not os.environ.get("APROVA_SEM_MAXIMIZAR"):
+                    # tela cheia só depois que a janela já está à vista (como clicar no botão de maximizar)
+                    try:
+                        page.window.maximized = True
+                        page.update()
+                    except Exception:  # noqa: BLE001
+                        pass
                 try:
                     await page.window.to_front()
                 except Exception:  # noqa: BLE001

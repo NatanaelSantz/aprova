@@ -20,7 +20,8 @@ from . import comp, tema
 from .tema import FONTE_TITULO
 
 LARGURA_TRILHO = 700  # abaixo disso: celular (barra embaixo)
-LARGURA_LATERAL = 1180  # a partir disso: barra lateral completa; entre os dois: trilho só com ícones
+LARGURA_LATERAL = 1180
+ALTURA_BARRA = 40  # barra de título própria (computador)  # a partir disso: barra lateral completa; entre os dois: trilho só com ícones
 
 DESTINOS = [
     ("inicio", "Início", ft.Icons.HOME_OUTLINED, ft.Icons.HOME_ROUNDED),
@@ -101,6 +102,7 @@ class App:
         self.telas: dict[str, object] = {}
         self._largo: bool | None = None
         self._modo_nav: str | None = None
+        self._baixa: bool | None = None
         self.conteudo = ft.Container(expand=True)
         self._moldura: ft.Container | None = None
         self._comunicados: tuple[float, list] = (0.0, [])
@@ -395,12 +397,18 @@ class App:
         if not self.modo_web:
             try:
                 p.window.min_width = 380
-                p.window.min_height = 600
-                larg, alt = 1280, 820
+                p.window.min_height = 520
                 if os.environ.get("APROVA_JANELA"):
                     larg, alt = (int(x) for x in os.environ["APROVA_JANELA"].lower().split("x"))
-                p.window.width = larg
-                p.window.height = alt
+                    p.window.width, p.window.height = larg, alt
+                else:
+                    # tamanho que cabe mesmo em notebook com zoom de 150% no Windows (a janela de 1280x820
+                    # passava da tela e cortava o rodapé do menu). Depois que a janela aparece, o main.py
+                    # maximiza (maximizar com a janela ainda escondida é arriscado no Windows).
+                    p.window.width, p.window.height = 1120, 620
+                if self.barra_propria:
+                    p.window.title_bar_hidden = True
+                    p.window.title_bar_buttons_hidden = True
             except Exception:  # noqa: BLE001
                 pass
         if not self.modo_web:
@@ -670,7 +678,7 @@ class App:
                 tela.dialogo_marcacao(m)
 
     def _ao_redimensionar(self, e) -> None:
-        if self._modo_nav is not None and self._modo_nav != self.modo_nav:
+        if self._modo_nav is not None and (self._modo_nav != self.modo_nav or self._baixa != self.baixa):
             self.montar()
             return
         if self._moldura is not None and not self.em_login and self.foco is None:
@@ -695,6 +703,7 @@ class App:
         p = self.page
         self._largo = self.largo
         self._modo_nav = self.modo_nav
+        self._baixa = self.baixa
         c = self.c
         p.bgcolor = c["bg"]
         p.controls.clear()
@@ -702,10 +711,12 @@ class App:
         p.appbar = None
         if self.em_login:
             p.controls.append(ft.SafeArea(self._tela_login.build(), expand=True))
+            self._vestir_barra("login")
             p.update()
             return
         if self.foco is not None:
             p.controls.append(ft.SafeArea(self.foco_container(), expand=True))
+            self._vestir_barra("foco")
             p.update()
             return
         destinos = self.destinos()
@@ -749,7 +760,110 @@ class App:
                     on_change=lambda e: self.ir(barra[e.control.selected_index][0]),
                 )
                 p.controls.append(ft.SafeArea(self._moldura, expand=True))
+        self._vestir_barra(modo)
         self.ir(self.secao, reconstruir_layout=False)
+
+    # ------------------------------------------------------------ barra de título
+
+    def _vestir_barra(self, modo: str) -> None:
+        """Põe a barra de título própria em cima do que já está na página."""
+        if not self.barra_propria:
+            return
+        corpo = list(self.page.controls)
+        self.page.controls.clear()
+        self.page.controls.append(ft.Column([self._barra_janela(modo), *corpo], spacing=0, expand=True))
+
+    def _barra_janela(self, modo: str) -> ft.Control:
+        """Faixa de cima integrada ao app: continua a barra lateral, mostra a marca e os botões da janela."""
+        c = self.c
+        altura = ALTURA_BARRA
+
+        def marca(tam_icone: int, tam_texto: float) -> ft.Control:
+            return ft.Row(
+                [ft.Image(src="icon.png", width=tam_icone, height=tam_icone), ft.Text("Aprova", size=tam_texto, font_family=FONTE_TITULO, weight=ft.FontWeight.W_700, color=c["tinta"])],
+                spacing=8,
+                tight=True,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            )
+
+        fundo = c["sup"] if modo == "foco" else c["bg"]
+        if modo == "lateral":
+            esquerda = ft.Container(marca(24, 18), width=236, height=altura, bgcolor=c["sup"], padding=ft.Padding.only(left=22), alignment=ft.Alignment.CENTER_LEFT, border=ft.Border.only(right=ft.BorderSide(1, c["borda"])))
+        elif modo == "trilho":
+            esquerda = ft.Container(ft.Image(src="icon.png", width=24, height=24), width=88, height=altura, bgcolor=c["sup"], alignment=ft.Alignment.CENTER, border=ft.Border.only(right=ft.BorderSide(1, c["borda"])))
+        else:
+            esquerda = ft.Container(marca(20, 15.5), height=altura, padding=ft.Padding.only(left=14), alignment=ft.Alignment.CENTER_LEFT)
+        arrastar = ft.WindowDragArea(
+            ft.Row([esquerda, ft.Container(expand=True, height=altura)], spacing=0),
+            maximizable=True,
+            expand=True,
+        )
+        self._icone_maximizar = ft.Icon(ft.Icons.FILTER_NONE if self.page.window.maximized else ft.Icons.CROP_SQUARE, size=15, color=c["texto2"])
+        botoes = ft.Row(
+            [
+                self._botao_janela(ft.Icon(ft.Icons.REMOVE, size=16, color=c["texto2"]), "Minimizar", self._minimizar),
+                self._botao_janela(self._icone_maximizar, "Maximizar / restaurar", self._alternar_maximizar),
+                self._botao_janela(ft.Icon(ft.Icons.CLOSE, size=17, color=c["texto2"]), "Fechar", self._fechar_janela, perigo=True),
+            ],
+            spacing=0,
+        )
+        if modo == "login" and (self.page.width or 0) >= 960:
+            # tela de entrada larga: a faixa continua o painel azul da esquerda (mesma proporção 5:6)
+            return ft.Container(
+                ft.Row(
+                    [
+                        ft.WindowDragArea(ft.Container(height=altura, bgcolor=c["tinta"]), maximizable=True, expand=5),
+                        ft.Container(ft.Row([ft.WindowDragArea(ft.Container(height=altura), maximizable=True, expand=True), botoes], spacing=0), expand=6),
+                    ],
+                    spacing=0,
+                ),
+                height=altura,
+                bgcolor=fundo,
+            )
+        return ft.Container(ft.Row([arrastar, botoes], spacing=0), height=altura, bgcolor=fundo)
+
+    def _botao_janela(self, icone: ft.Icon, dica: str, acao, perigo: bool = False) -> ft.Control:
+        c = self.c
+        caixa = ft.Container(icone, width=46, height=ALTURA_BARRA, alignment=ft.Alignment.CENTER, on_click=acao, tooltip=dica)
+
+        def passar(e):
+            dentro = str(e.data).lower() in ("true", "1")
+            caixa.bgcolor = ("#C42B1C" if perigo else c["sup2"]) if dentro else None
+            icone.color = "#FFFFFF" if (perigo and dentro) else c["texto2"]
+            try:
+                caixa.update()
+            except Exception:  # noqa: BLE001
+                pass
+
+        caixa.on_hover = passar
+        return caixa
+
+    def _minimizar(self, e=None) -> None:
+        self.page.window.minimized = True
+        self.page.update()
+
+    def _alternar_maximizar(self, e=None) -> None:
+        self.page.window.maximized = not self.page.window.maximized
+        self.page.update()
+        self._atualizar_icone_maximizar()
+
+    def _atualizar_icone_maximizar(self) -> None:
+        icone = getattr(self, "_icone_maximizar", None)
+        if icone is None:
+            return
+        icone.icon = ft.Icons.FILTER_NONE if self.page.window.maximized else ft.Icons.CROP_SQUARE
+        try:
+            icone.update()
+        except Exception:  # noqa: BLE001
+            pass
+
+    async def _fechar_janela(self, e=None) -> None:
+        if self.cronometro_rodando:
+            self.parar_cronometro(salvar=True)  # não perde o tempo que estava contando
+        try:
+            await self.page.window.close()
+        except Exception:  # noqa: BLE001
+            await self.page.window.destroy()
 
     def _voltar_celular(self) -> None:
         destino = self._antes_extra if self._antes_extra not in FORA_DA_BARRA else "inicio"
@@ -760,14 +874,15 @@ class App:
         """Margens por tamanho; em telas muito largas o conteúdo fica centralizado (linhas não ficam longas demais)."""
         w = self.page.width or 1200
         modo = self.modo_nav
+        topo_extra = 0 if self.barra_propria else 1  # a barra de título própria já dá o respiro de cima
         if modo == "inferior":
-            return ft.Padding.only(left=16, right=16, top=12)
+            return ft.Padding.only(left=16, right=16, top=4 + 8 * topo_extra)
         barra = 236 if modo == "lateral" else 88
         lado = 36 if modo == "lateral" else 24
         sobra = (w - barra) - 1480
         if sobra > 0:
             lado += sobra // 2
-        return ft.Padding.only(left=lado, right=lado, top=28 if modo == "lateral" else 20)
+        return ft.Padding.only(left=lado, right=lado, top=(28 if modo == "lateral" else 20) if topo_extra else 6)
 
     def _trilho(self, destinos: list[tuple]) -> ft.Control:
         """Navegação só com ícones, para janelas médias."""
@@ -802,7 +917,7 @@ class App:
         return ft.Container(
             ft.Column(
                 [
-                    ft.Container(ft.Image(src="icon.png", width=40, height=40), padding=ft.Padding.only(top=16)),
+                    ft.Container(height=8) if self.barra_propria else ft.Container(ft.Image(src="icon.png", width=40, height=40), padding=ft.Padding.only(top=16)),
                     self.menu_conta(compacto=True),
                     ft.Container(height=6),
                     ft.Column(itens, spacing=4, horizontal_alignment=ft.CrossAxisAlignment.CENTER, scroll=ft.ScrollMode.AUTO, expand=True),
@@ -827,8 +942,23 @@ class App:
     def foco_container(self) -> ft.Control:
         return self.foco.build() if hasattr(self.foco, "build") else self.foco
 
+    @property
+    def barra_propria(self) -> bool:
+        """Barra de título desenhada pelo Aprova (no lugar da faixa do Windows).
+
+        Desligada por padrão: na 1.9.2 ela impediu o app de abrir no Windows. Fica disponível para
+        testes com APROVA_BARRA_PROPRIA=1 até ser conferida num Windows de verdade."""
+        return not self.modo_web and os.environ.get("APROVA_BARRA_PROPRIA") == "1"
+
+    @property
+    def baixa(self) -> bool:
+        """Janela baixa (ex.: notebook com zoom de 125% ou 150% no Windows): menu mais compacto."""
+        return (self.page.height or 900) - (ALTURA_BARRA if self.barra_propria else 0) < 720
+
     def _barra_lateral(self) -> ft.Container:
         c = self.c
+        baixa = self.baixa
+        bolha = 30 if baixa else 34
         itens = []
         for chave, rotulo, icone, icone_sel in self.destinos():
             sel = chave == self.secao
@@ -837,64 +967,64 @@ class App:
                 ft.Container(
                     content=ft.Row(
                         [
-                            comp.bolha_icone(icone, c, marcada=sel, tamanho=34, icone_marcado=icone_sel),
-                            ft.Text(rotulo, size=15.5, color=c["texto"] if sel else c["texto2"], weight=ft.FontWeight.W_700 if sel else ft.FontWeight.W_500),
+                            comp.bolha_icone(icone, c, marcada=sel, tamanho=bolha, icone_marcado=icone_sel),
+                            ft.Text(rotulo, size=15 if baixa else 15.5, color=c["texto"] if sel else c["texto2"], weight=ft.FontWeight.W_700 if sel else ft.FontWeight.W_500),
                         ],
                         spacing=14,
                     ),
                     border_radius=22,
-                    padding=ft.Padding.only(left=8, right=12, top=5, bottom=5),
+                    padding=ft.Padding.only(left=8, right=12, top=3 if baixa else 5, bottom=3 if baixa else 5),
                     on_click=lambda e, k=chave: self.ir(k),
                     ink=True,
-                    tooltip=None,
                 )
             )
         temas = ft.Row(
             [
-                ft.IconButton(
-                    icon=ic,
-                    tooltip=tema.NOMES_TEMA[nome],
-                    icon_color=c["tinta"] if self.aj["tema"] == nome else c["texto2"],
-                    bgcolor=c["tinta_suave"] if self.aj["tema"] == nome else None,
-                    on_click=lambda e, n=nome: self.trocar_tema(n),
-                )
-                for nome, ic in (
-                    ("claro", ft.Icons.LIGHT_MODE_OUTLINED),
-                    ("sepia", ft.Icons.AUTO_STORIES_OUTLINED),
-                    ("escuro", ft.Icons.DARK_MODE_OUTLINED),
-                )
+                comp.apagado("Leitura", c, 12.5),
+                ft.Container(expand=True),
+                *[
+                    ft.IconButton(
+                        icon=ic,
+                        tooltip=tema.NOMES_TEMA[nome],
+                        icon_color=c["tinta"] if self.aj["tema"] == nome else c["texto2"],
+                        bgcolor=c["tinta_suave"] if self.aj["tema"] == nome else None,
+                        icon_size=20,
+                        on_click=lambda e, n=nome: self.trocar_tema(n),
+                    )
+                    for nome, ic in (
+                        ("claro", ft.Icons.LIGHT_MODE_OUTLINED),
+                        ("sepia", ft.Icons.AUTO_STORIES_OUTLINED),
+                        ("escuro", ft.Icons.DARK_MODE_OUTLINED),
+                    )
+                ],
             ],
-            spacing=4,
+            spacing=0,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+        marca = ft.Row(
+            [
+                ft.Image(src="icon.png", width=36 if baixa else 44, height=36 if baixa else 44),
+                ft.Column(
+                    [ft.Text("Aprova", size=24 if baixa else 28, font_family=FONTE_TITULO, weight=ft.FontWeight.W_700, color=c["tinta"])]
+                    + ([] if baixa else [ft.Text("estudo para concursos", size=12.5, color=c["texto2"])]),
+                    spacing=0,
+                ),
+            ],
+            spacing=10,
         )
         return ft.Container(
             width=236,
             bgcolor=c["sup"],
             border=ft.Border.only(right=ft.BorderSide(1, c["borda"])),
-            padding=ft.Padding.only(left=16, right=16, top=28, bottom=18),
+            padding=ft.Padding.only(left=16, right=12, top=(8 if baixa else 14) if self.barra_propria else (14 if baixa else 28), bottom=8 if baixa else 14),
             content=ft.Column(
-                [
-                    ft.Container(
-                        ft.Row(
-                            [
-                                ft.Image(src="icon.png", width=44, height=44),
-                                ft.Column(
-                                    [
-                                        ft.Text("Aprova", size=28, font_family=FONTE_TITULO, weight=ft.FontWeight.W_700, color=c["tinta"]),
-                                        ft.Text("estudo para concursos", size=12.5, color=c["texto2"]),
-                                    ],
-                                    spacing=0,
-                                ),
-                            ],
-                            spacing=10,
-                        ),
-                        padding=ft.Padding.only(left=6, bottom=16),
-                    ),
-                    ft.Container(self.menu_conta(), padding=ft.Padding.only(left=4, right=2, bottom=14)),
-                    *itens,
-                    ft.Container(expand=True),
+                ([] if self.barra_propria else [ft.Container(marca, padding=ft.Padding.only(left=6, bottom=8 if baixa else 16))])
+                + [
+                    ft.Container(self.menu_conta(), padding=ft.Padding.only(left=4, right=2, bottom=6 if baixa else 14)),
+                    # os itens rolam se a janela for baixa demais; o rodapé (estudo e leitura) fica sempre à vista
+                    ft.Column(itens, spacing=2 if baixa else 4, scroll=ft.ScrollMode.AUTO, expand=True),
                     self._pilula_cronometro(),
-                    ft.Container(comp.apagado("Leitura", c, 12.5), padding=ft.Padding.only(left=10)),
-                    temas,
+                    ft.Container(temas, padding=ft.Padding.only(left=8)),
                 ],
                 spacing=4,
             ),
@@ -1085,7 +1215,7 @@ class App:
                     tooltip="Liga o cronômetro de estudo",
                     style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10), padding=ft.Padding.symmetric(horizontal=12, vertical=12)),
                 ),
-                margin=ft.Margin.only(bottom=12),
+                margin=ft.Margin.only(top=6, bottom=2),
             )
         return ft.Container(
             ft.Row(
@@ -1100,7 +1230,7 @@ class App:
             bgcolor=c["tinta_suave"],
             border_radius=10,
             padding=ft.Padding.only(left=12, right=4),
-            margin=ft.Margin.only(bottom=12),
+            margin=ft.Margin.only(top=6, bottom=2),
             tooltip=self.aj["cronometro_atividade"] or "Estudando",
         )
 
@@ -1247,8 +1377,11 @@ class App:
             await asyncio.sleep(2)
 
     async def _evento_janela(self, e) -> None:
-        if str(getattr(e, "type", "")).lower().endswith("focus"):
+        tipo = str(getattr(e, "type", "")).lower()
+        if tipo.endswith("focus"):
             await self._ler_area_de_transferencia()
+        elif tipo.endswith("maximize") or tipo.endswith("unmaximize") or tipo.endswith("restore"):
+            self._atualizar_icone_maximizar()
 
     async def _ler_area_de_transferencia(self) -> None:
         """Quem clicou no convite antes de instalar o app tem o link copiado: oferece entrar no grupo."""

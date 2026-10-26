@@ -1,10 +1,10 @@
 {
-  "versao": "1.9.1",
-  "data": "25/10/2026",
+  "versao": "1.9.3",
+  "data": "26/10/2026",
   "notas": [
-    "Visual novo: navegação em bolinhas do cartão-resposta, tela Início mais limpa e elegante",
-    "Sua semana num painel só, com as horas de cada dia em barras e a marca da meta",
-    "Layout que se ajusta melhor a janelas médias e ao celular"
+    "O menu lateral cabe em notebooks com zoom de 125% ou 150%: Iniciar estudo e Leitura sempre à vista",
+    "A janela abre num tamanho que cabe na tela e depois vai para tela cheia",
+    "Leitura e os três temas numa linha só"
   ],
   "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
 }
