@@ -106,9 +106,38 @@ def bloco(content: ft.Control, c: dict, padding: int = 20, **kw) -> ft.Container
         content=content,
         bgcolor=c["sup"],
         border=ft.Border.all(1, c["borda"]),
-        border_radius=14,
+        border_radius=16,
         padding=padding,
         **kw,
+    )
+
+
+def rotulo(texto_: str, c: dict, cor: str | None = None) -> ft.Text:
+    """Rótulo curto acima de um número ou bloco (sem caixa alta)."""
+    return ft.Text(texto_, size=13, weight=ft.FontWeight.W_600, color=cor or c["texto2"])
+
+
+def bolha_icone(icone, c: dict, marcada: bool = False, tamanho: int = 36, icone_marcado=None) -> ft.Container:
+    """Ícone dentro de uma bolinha do cartão-resposta: vazia (traço) ou marcada (cheia de tinta)."""
+    return ft.Container(
+        ft.Icon(icone_marcado if (marcada and icone_marcado) else icone, size=round(tamanho * 0.52), color=c["sobre_tinta"] if marcada else c["texto2"]),
+        width=tamanho,
+        height=tamanho,
+        shape=ft.BoxShape.CIRCLE,
+        bgcolor=c["tinta"] if marcada else None,
+        border=ft.Border.all(1.5, c["tinta"] if marcada else c["traco"]),
+        alignment=ft.Alignment.CENTER,
+        animate=ft.Animation(160, ft.AnimationCurve.EASE_OUT),
+    )
+
+
+def marca_texto(texto_: str, c: dict, tamanho: float = 12.5, peso=ft.FontWeight.W_700) -> ft.Container:
+    """Palavra com fundo de marca-texto (usado só para "hoje" e o próximo passo)."""
+    return ft.Container(
+        ft.Text(texto_, size=tamanho, weight=peso, color=c["sobre_destaque"]),
+        bgcolor=c["destaque"],
+        border_radius=4,
+        padding=ft.Padding.symmetric(horizontal=5, vertical=1),
     )
 
 

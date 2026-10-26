@@ -44,7 +44,7 @@ class TelaInicio:
         from .grupos import cartao_plano_ativo
 
         motivacao = ft.Column(
-            [metas.indicadores(app, r), metas.horas_por_dia(app, r)]
+            [metas.painel_semana(app, r)]
             + ([x] if (x := cartao_plano_ativo(app)) else [])
             + ([x] if (x := metas.proximo_estudo(app)) else []),
             spacing=14,
@@ -233,25 +233,31 @@ class TelaInicio:
             (str(self.app.db.revisao_resumo()["pendentes"]), "para revisar hoje"),
             (str(est["provas"]), "provas na sua biblioteca"),
         ]
+        from .metas import largura_util
+
+        # numa linha só quando cabe; senão, duas por linha (sem uma sobrando sozinha)
+        uma_linha = largura_util(self.app) >= 760
         blocos = []
         for i, (valor, rotulo) in enumerate(itens):
+            separa = i if uma_linha else i % 2
             blocos.append(
                 ft.Container(
                     ft.Column(
                         [
-                            ft.Text(valor, size=34, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["tinta"] if i == 1 else c["texto"]),
+                            ft.Text(valor, size=34 if self.app.largo else 30, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["tinta"] if i == 1 else c["texto"]),
                             comp.apagado(rotulo, c, 13.5),
                         ],
                         spacing=0,
                     ),
-                    padding=ft.Padding.only(left=0 if (i == 0 if self.app.largo else i % 2 == 0) else 22, right=22),
-                    border=ft.Border.only(left=ft.BorderSide(1, c["borda"])) if (i if self.app.largo else i % 2) else None,
-                    col={"xs": 6, "md": 3},
+                    padding=ft.Padding.only(left=22 if separa else 0, right=22),
+                    border=ft.Border.only(left=ft.BorderSide(1, c["borda"])) if separa else None,
+                    expand=uma_linha,
+                    col=6,
                 )
             )
-        if self.app.largo:
-            return ft.Row(blocos, spacing=0, wrap=True)
-        return ft.ResponsiveRow(blocos, run_spacing=14, spacing=0)
+        if uma_linha:
+            return ft.Row(blocos, spacing=0)
+        return ft.ResponsiveRow(blocos, run_spacing=16, spacing=0)
 
     def _avisos(self) -> ft.Control:
         app, c = self.app, self.app.c

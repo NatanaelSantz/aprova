@@ -738,8 +738,13 @@ class App:
                 p.navigation_bar = ft.NavigationBar(
                     selected_index=[d[0] for d in barra].index(self.secao),
                     bgcolor=c["sup"],
-                    indicator_color=c["tinta_suave"],
-                    destinations=[ft.NavigationBarDestination(icon=d[2], selected_icon=d[3], label=d[1]) for d in barra],
+                    indicator_color=c["tinta"],
+                    indicator_shape=ft.CircleBorder(),
+                    border=ft.Border.only(top=ft.BorderSide(1, c["borda"])),
+                    elevation=0,
+                    destinations=[
+                        ft.NavigationBarDestination(icon=ft.Icon(d[2], color=c["texto2"]), selected_icon=ft.Icon(d[3], color=c["sobre_tinta"]), label=d[1]) for d in barra
+                    ],
                     label_behavior=ft.NavigationBarLabelBehavior.ONLY_SHOW_SELECTED if (p.width or 0) < 460 else ft.NavigationBarLabelBehavior.ALWAYS_SHOW,
                     on_change=lambda e: self.ir(barra[e.control.selected_index][0]),
                 )
@@ -767,7 +772,6 @@ class App:
     def _trilho(self, destinos: list[tuple]) -> ft.Control:
         """Navegação só com ícones, para janelas médias."""
         c = self.c
-        chaves = [d[0] for d in destinos]
         estudo = (
             ft.IconButton(ft.Icons.STOP_CIRCLE_OUTLINED, tooltip="Parar o estudo", icon_color=c["tinta"], on_click=lambda e: self.dialogo_parar())
             if self.cronometro_rodando
@@ -775,37 +779,47 @@ class App:
         )
         proximo = {"claro": "sepia", "sepia": "escuro", "escuro": "claro"}
         icone_tema = {"claro": ft.Icons.LIGHT_MODE_OUTLINED, "sepia": ft.Icons.AUTO_STORIES_OUTLINED, "escuro": ft.Icons.DARK_MODE_OUTLINED}
+        itens = []
+        for chave, rotulo, icone, icone_sel in destinos:
+            sel = chave == self.secao
+            itens.append(
+                ft.Container(
+                    ft.Column(
+                        [
+                            comp.bolha_icone(icone, c, marcada=sel, tamanho=38, icone_marcado=icone_sel),
+                            ft.Text(rotulo, size=11.5, color=c["texto"] if sel else c["texto2"], weight=ft.FontWeight.W_700 if sel else None, max_lines=1),
+                        ],
+                        spacing=4,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    ),
+                    padding=ft.Padding.symmetric(vertical=5),
+                    border_radius=12,
+                    on_click=lambda e, k=chave: self.ir(k),
+                    ink=True,
+                    width=80,
+                )
+            )
         return ft.Container(
-            ft.NavigationRail(
-                selected_index=chaves.index(self.secao) if self.secao in chaves else 0,
-                label_type=ft.NavigationRailLabelType.ALL,
-                bgcolor=c["sup"],
-                indicator_color=c["tinta_suave"],
-                min_width=88,
-                group_alignment=-0.85,
-                leading=ft.Column(
-                    [ft.Image(src="icon.png", width=40, height=40), self.menu_conta(compacto=True)],
-                    spacing=14,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                ),
-                trailing=ft.Column(
-                    [
-                        ft.Container(height=12),
-                        estudo,
-                        self.rotulo_cronometro(11.5) if self.cronometro_rodando else ft.Container(),
-                        ft.IconButton(
-                            icone_tema.get(self.aj["tema"], ft.Icons.LIGHT_MODE_OUTLINED),
-                            tooltip=f"Leitura: {tema.NOMES_TEMA.get(self.aj['tema'], '')} (toque para trocar)",
-                            on_click=lambda e: self.trocar_tema(proximo.get(self.aj["tema"], "claro")),
-                        ),
-                    ],
-                    spacing=2,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                ),
-                destinations=[ft.NavigationRailDestination(icon=d[2], selected_icon=d[3], label=d[1]) for d in destinos],
-                on_change=lambda e: self.ir(destinos[e.control.selected_index][0]),
-                expand=True,
+            ft.Column(
+                [
+                    ft.Container(ft.Image(src="icon.png", width=40, height=40), padding=ft.Padding.only(top=16)),
+                    self.menu_conta(compacto=True),
+                    ft.Container(height=6),
+                    ft.Column(itens, spacing=4, horizontal_alignment=ft.CrossAxisAlignment.CENTER, scroll=ft.ScrollMode.AUTO, expand=True),
+                    estudo,
+                    self.rotulo_cronometro(11.5) if self.cronometro_rodando else ft.Container(),
+                    ft.IconButton(
+                        icone_tema.get(self.aj["tema"], ft.Icons.LIGHT_MODE_OUTLINED),
+                        tooltip=f"Leitura: {tema.NOMES_TEMA.get(self.aj['tema'], '')} (toque para trocar)",
+                        on_click=lambda e: self.trocar_tema(proximo.get(self.aj["tema"], "claro")),
+                        icon_color=c["texto2"],
+                    ),
+                    ft.Container(height=8),
+                ],
+                spacing=8,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             ),
+            bgcolor=c["sup"],
             border=ft.Border.only(right=ft.BorderSide(1, c["borda"])),
             width=88,
         )
@@ -818,20 +832,21 @@ class App:
         itens = []
         for chave, rotulo, icone, icone_sel in self.destinos():
             sel = chave == self.secao
+            # cada seção é uma bolinha do cartão-resposta; a atual fica "marcada"
             itens.append(
                 ft.Container(
                     content=ft.Row(
                         [
-                            ft.Icon(icone_sel if sel else icone, size=21, color=c["tinta"] if sel else c["texto2"]),
-                            ft.Text(rotulo, size=15.5, color=c["texto"] if sel else c["texto2"], weight=ft.FontWeight.W_700 if sel else None),
+                            comp.bolha_icone(icone, c, marcada=sel, tamanho=34, icone_marcado=icone_sel),
+                            ft.Text(rotulo, size=15.5, color=c["texto"] if sel else c["texto2"], weight=ft.FontWeight.W_700 if sel else ft.FontWeight.W_500),
                         ],
                         spacing=14,
                     ),
-                    bgcolor=c["tinta_suave"] if sel else None,
-                    border_radius=10,
-                    padding=ft.Padding.symmetric(horizontal=14, vertical=11),
+                    border_radius=22,
+                    padding=ft.Padding.only(left=8, right=12, top=5, bottom=5),
                     on_click=lambda e, k=chave: self.ir(k),
                     ink=True,
+                    tooltip=None,
                 )
             )
         temas = ft.Row(

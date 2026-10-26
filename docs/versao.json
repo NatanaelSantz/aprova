@@ -1,10 +1,10 @@
 {
-  "versao": "1.9.0",
+  "versao": "1.9.1",
   "data": "25/10/2026",
   "notas": [
-    "Marcar PDF: marca-texto em 4 cores, sublinhado e notas, salvando um PDF com as marcações (editáveis ou fixas)",
-    "Atualização automática: o Aprova avisa quando tem versão nova e atualiza com um toque",
-    "Seus PDFs marcados ficam em Estudar → Marcar PDF para continuar depois"
+    "Visual novo: navegação em bolinhas do cartão-resposta, tela Início mais limpa e elegante",
+    "Sua semana num painel só, com as horas de cada dia em barras e a marca da meta",
+    "Layout que se ajusta melhor a janelas médias e ao celular"
   ],
   "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
 }

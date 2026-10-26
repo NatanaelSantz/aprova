@@ -83,10 +83,7 @@ class TelaPainel:
                 ],
                 spacing=1,
             ),
-            bgcolor=c["sup"],
-            border=ft.Border.all(1, c["borda"]),
-            border_radius=14,
-            padding=ft.Padding.symmetric(horizontal=18, vertical=14),
+            padding=ft.Padding.symmetric(horizontal=6, vertical=4),
             col={"um": 6, "quatro": 3},
         )
 
@@ -109,7 +106,8 @@ class TelaPainel:
             self._numero(str(r["semana_respondidas"]), "Nesta semana", var_txt or "questões corrigidas"),
             self._numero(str(len(r["fracas"])), "Pontos a melhorar", f"{len(r['fortes'])} pontos fortes"),
         ]
-        linha_numeros = ft.ResponsiveRow(numeros, spacing=12, run_spacing=12, breakpoints=metas.QUEBRAS_CARTOES)
+        # um bloco só com os quatro números (em vez de quatro cartões iguais)
+        linha_numeros = comp.bloco(ft.ResponsiveRow(numeros, spacing=18, run_spacing=14, breakpoints=metas.QUEBRAS_CARTOES), c, padding=18)
         blocos: list[ft.Control] = [linha_numeros, self._bloco_disciplinas(r), self._bloco_evolucao(r)]
         tabelas = [self._tabela("Por banca", r["bancas"]), self._tabela("Por concurso", r["concursos"])]
         blocos.append(_lado_a_lado(tabelas))
@@ -240,7 +238,7 @@ class TelaPainel:
     def _tempo(self) -> ft.Control:
         app, c = self.app, self.app.c
         r = metas.resumo(app)
-        blocos: list[ft.Control] = [metas.indicadores(app, r), metas.horas_por_dia(app, r)]
+        blocos: list[ft.Control] = [metas.painel_semana(app, r)]
         lado = [self._mapa_calor(r), self._dias_da_semana(r)]
         blocos.append(_lado_a_lado(lado))
         baixo = [self._por_disciplina(r), metas.cronometro(app)]

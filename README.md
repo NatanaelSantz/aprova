@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.9.0" src="https://img.shields.io/badge/vers%C3%A3o-1.9.0-2340A8">
+  <img alt="Versão 1.9.1" src="https://img.shields.io/badge/vers%C3%A3o-1.9.1-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -25,7 +25,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/img/inicio.png" width="880" alt="Tela inicial do Aprova com a meta da semana, horas por dia e o próximo estudo">
+  <img src="docs/img/inicio.png" width="880" alt="Tela inicial do Aprova com o painel Sua semana, as horas de cada dia em barras e o próximo estudo">
 </p>
 
 ---
@@ -237,7 +237,8 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
-| **1.9.0** | Marcar PDF (marca-texto, sublinhado, notas, salvar editável ou fixo) e atualização automática |
+| **1.9.1** | Visual novo (navegação em bolinhas do cartão-resposta, painel "Sua semana") e layout mais ajustável |
+| 1.9.0 | Marcar PDF (marca-texto, sublinhado, notas, salvar editável ou fixo) e atualização automática |
 | 1.8.0 | Convite por link (WhatsApp, Instagram, TikTok), página do convite, entrada sem cadastro |
 | 1.7.0 | Grupos de estudo com fórum, planos de estudo compartilhados e moderação |
 | 1.6.0 | Tela de login, conta de aluno e de administrador, comunicados, layout em 3 tamanhos |

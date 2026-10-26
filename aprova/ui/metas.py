@@ -44,176 +44,149 @@ def resumo(app) -> dict:
 # Os pontos de quebra do ResponsiveRow usam a largura da JANELA. No computador há
 # ~310 px de barra lateral e margens, por isso os valores abaixo já descontam isso.
 QUEBRAS_CARTOES = {"um": 0, "dois": 600, "quatro": 1430}
-QUEBRAS_DIAS = {"base": 0, "sete": 1090}
 
 
-def _cartao(conteudo: ft.Control, c: dict, **kw) -> ft.Container:
-    return ft.Container(
-        conteudo,
-        bgcolor=c["sup"],
-        border=ft.Border.all(1, c["borda"]),
-        border_radius=14,
-        padding=ft.Padding.symmetric(horizontal=18, vertical=16),
-        **kw,
-    )
-
-
-def anel(fracao: float, c: dict, tamanho: int = 58, cor: str | None = None) -> ft.Control:
-    pct = int(round(fracao * 100))
-    return ft.Stack(
-        [
-            ft.ProgressRing(value=max(0.001, min(1.0, fracao)), width=tamanho, height=tamanho, stroke_width=6, color=cor or c["tinta"], bgcolor=c["sup2"]),
-            ft.Container(ft.Text(f"{pct}%", size=14, weight=ft.FontWeight.W_700, color=c["texto"]), width=tamanho, height=tamanho, alignment=ft.Alignment.CENTER),
-        ],
-        width=tamanho,
-        height=tamanho,
-    )
-
-
-def _bolinha(icone, cor: str, fundo: str) -> ft.Container:
-    return ft.Container(ft.Icon(icone, color=cor, size=24), width=52, height=52, border_radius=26, bgcolor=fundo, alignment=ft.Alignment.CENTER)
-
-
-def _valor(c: dict, grande: str, pequeno: str = "", cor: str | None = None) -> ft.Text:
-    """Número grande + complemento pequeno; quebra linha sozinho se faltar espaço."""
-    spans = [ft.TextSpan(grande, ft.TextStyle(size=23, weight=ft.FontWeight.W_600, color=cor or c["texto"], font_family=FONTE_TITULO))]
-    if pequeno:
-        spans.append(ft.TextSpan("  " + pequeno, ft.TextStyle(size=13.5, color=c["texto2"])))
-    return ft.Text(spans=spans)
-
-
-def _indicador(c: dict, icone: ft.Control, rotulo: str, valor: ft.Control, rodape: ft.Control | None) -> ft.Container:
-    coluna = [comp.apagado(rotulo, c, 13), valor]
-    if rodape is not None:
-        coluna.append(rodape)
-    return _cartao(
-        ft.Row([icone, ft.Column(coluna, spacing=3, expand=True)], spacing=14, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-        c,
-        col={"um": 12, "dois": 6, "quatro": 3},
-    )
-
-
-def indicadores(app, r: dict) -> ft.Control:
-    """Meta da semana, ritmo, sequência e hoje — em grade que se ajusta à largura."""
-    c = app.c
-    meta = r["meta_segundos"]
-    cumpriu = r["progresso"] >= 1 and meta > 0
-    ajustar = ft.Container(
-        ft.Row([ft.Icon(ft.Icons.EDIT_OUTLINED, size=14, color=c["tinta"]), ft.Text("Ajustar meta", size=12.5, color=c["tinta"], weight=ft.FontWeight.W_600)], spacing=4, tight=True),
-        on_click=lambda e: dialogo_meta(app),
-        tooltip="Mudar horas por semana e dias de estudo",
-    )
-    if meta:
-        cart_meta = _indicador(
-            c,
-            anel(r["progresso"], c, cor=c["ok"] if cumpriu else c["tinta"]),
-            "Meta da semana",
-            _valor(c, fmt_hm_longo(r["total_semana"]), f"de {fmt_hm_longo(meta)}"),
-            ajustar,
-        )
-    else:
-        # começou num dia sem estudo planejado (ex.: sábado): a meta começa no próximo dia de estudo
-        planejados = analise.dias_planejados(app.aj["dias_planejados"])
-        hoje_d = date.today()
-        prox = next((hoje_d + timedelta(days=k) for k in range(1, 8) if (hoje_d + timedelta(days=k)).weekday() in planejados), None)
-        quando = f"começa {'no' if prox and prox.weekday() >= 5 else 'na'} {analise.DIAS_LONGOS[prox.weekday()]}" if prox else "sem meta"
-        cart_meta = _indicador(
-            c,
-            _bolinha(ft.Icons.EVENT_AVAILABLE_OUTLINED, c["tinta"], c["tinta_suave"]),
-            "Meta da semana",
-            _valor(c, fmt_hm_longo(r["total_semana"]), f"estudados · sua meta {quando}"),
-            ajustar,
-        )
-
-    # ritmo: nunca "vermelho". Atrás do plano mostra quanto falta para ficar em dia.
-    saldo = r["saldo"]
+def _ritmo(r: dict) -> tuple[str, str, str]:
+    """(rótulo, valor, explicação). Nunca "vermelho": atrás do plano mostra quanto falta."""
+    meta, saldo = r["meta_segundos"], r["saldo"]
     if (r["previsto_ate_ontem"] == 0 and saldo <= 0) or not meta:
-        cart_ritmo = _indicador(
-            c, _bolinha(ft.Icons.ROCKET_LAUNCH_OUTLINED, c["tinta"], c["tinta_suave"]), "Ritmo da semana",
-            _valor(c, "Em dia"),
-            comp.apagado("Começou agora: cada minuto de hoje já conta." if meta else "Sua meta ainda não começou: estudar agora é bônus.", c, 12.5),
-        )
-    elif saldo >= 0:
-        cart_ritmo = _indicador(
-            c, _bolinha(ft.Icons.TRENDING_UP, c["ok"], c["ok_suave"]), "Ritmo da semana",
-            _valor(c, "+" + fmt_hm(saldo), "adiantado", c["ok"]), comp.apagado("Você está à frente do plano. Siga assim!", c, 12.5),
-        )
-    else:
-        cart_ritmo = _indicador(
-            c, _bolinha(ft.Icons.FLAG_OUTLINED, c["tinta"], c["tinta_suave"]), "Para ficar em dia",
-            _valor(c, fmt_hm_longo(-saldo), "de estudo"), comp.apagado("Dá para recuperar ao longo da semana.", c, 12.5),
-        )
+        return "Ritmo", "Em dia", ("Cada minuto de hoje já conta." if meta else "A meta ainda não começou.")
+    if saldo >= 0:
+        return "Ritmo", "+" + fmt_hm(saldo), "à frente do plano"
+    return "Para ficar em dia", fmt_hm_longo(-saldo), "dá para recuperar na semana"
 
-    seq = r["sequencia"]
-    cart_seq = _indicador(
-        c,
-        _bolinha(ft.Icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, c["marca"] if seq else c["texto2"], c["marca_suave"] if seq else c["sup2"]),
-        "Sequência de estudo",
-        _valor(c, str(seq), "dia seguido" if seq == 1 else "dias seguidos"),
-        comp.apagado(
-            f"{r['dias_semana']} de {r['meta_dias']} dias de estudo nesta semana" if r["meta_dias"] else f"{r['dias_semana']} dia{'s' if r['dias_semana'] != 1 else ''} com estudo nesta semana",
-            c,
-            12.5,
-        ),
-    )
 
+def _quando_comeca(app) -> str:
+    planejados = analise.dias_planejados(app.aj["dias_planejados"])
+    hoje_d = date.today()
+    prox = next((hoje_d + timedelta(days=k) for k in range(1, 8) if (hoje_d + timedelta(days=k)).weekday() in planejados), None)
+    if not prox:
+        return "Sem dias de estudo marcados."
+    return f"Sua meta começa {'no' if prox.weekday() >= 5 else 'na'} {analise.DIAS_LONGOS[prox.weekday()]}."
+
+
+def largura_util(app) -> float:
+    """Largura que sobra para o conteúdo (janela menos a navegação e as margens)."""
+    w = app.page.width or 1200
+    modo = app.modo_nav
+    return w - (236 + 72 if modo == "lateral" else 88 + 48 if modo == "trilho" else 32)
+
+
+def painel_semana(app, r: dict) -> ft.Control:
+    """Um painel só para a semana: total estudado, ritmo, sequência, hoje e as barras dos 7 dias."""
+    c = app.c
+    meta, total = r["meta_segundos"], r["total_semana"]
+    cumpriu = r["progresso"] >= 1 and meta > 0
     hoje = next(x for x in r["semana"] if x["hoje"])
     meta_hoje = hoje["meta"]
     frac_hoje = min(1.0, hoje["segundos"] / meta_hoje) if meta_hoje else (1.0 if hoje["segundos"] else 0.0)
-    cart_hoje = _indicador(
-        c,
-        _bolinha(ft.Icons.WB_SUNNY_OUTLINED, c["ok"] if frac_hoje >= 1 and meta_hoje else c["tinta"], c["ok_suave"] if frac_hoje >= 1 and meta_hoje else c["tinta_suave"]),
-        "Hoje",
-        _valor(c, fmt_hm_longo(hoje["segundos"]), f"de {fmt_hm_longo(meta_hoje)}" if meta_hoje else "dia livre"),
-        ft.Column(
-            [comp.barra(frac_hoje, c, c["ok"] if frac_hoje >= 1 else c["tinta"], altura=6), comp.apagado(_frase_hoje(hoje, meta_hoje), c, 12.5)],
-            spacing=4,
-        ),
+
+    ajustar = ft.Container(
+        ft.Row([ft.Icon(ft.Icons.EDIT_OUTLINED, size=14, color=c["tinta"]), ft.Text("Ajustar meta", size=13, color=c["tinta"], weight=ft.FontWeight.W_600)], spacing=4, tight=True),
+        on_click=lambda e: dialogo_meta(app),
+        tooltip="Mudar horas por semana e dias de estudo",
+        padding=ft.Padding.symmetric(vertical=2),
     )
-    cartoes = [cart_meta, cart_ritmo, cart_seq, cart_hoje]
+    grande = ft.Text(
+        spans=[
+            ft.TextSpan(fmt_hm_longo(total), ft.TextStyle(size=44 if app.largo else 38, weight=ft.FontWeight.W_600, font_family=FONTE_TITULO, color=c["ok"] if cumpriu else c["texto"])),
+            ft.TextSpan(f"  de {fmt_hm_longo(meta)}" if meta else "  estudados", ft.TextStyle(size=15, color=c["texto2"])),
+        ]
+    )
+    linhas: list[ft.Control] = [comp.rotulo("Sua semana", c), grande]
+    if meta:
+        linhas.append(comp.barra(r["progresso"], c, c["ok"] if cumpriu else c["tinta"], altura=8))
+        nota = "Meta da semana cumprida!" if cumpriu else f"{int(round(r['progresso'] * 100))}% da meta"
+    else:
+        nota = _quando_comeca(app)
+    linhas.append(ft.Row([comp.apagado(nota, c, 13), ft.Container(expand=True), ajustar], vertical_alignment=ft.CrossAxisAlignment.CENTER))
+    principal = ft.Column(linhas, spacing=6)
+
+    rot_r, val_r, exp_r = _ritmo(r)
+    seq = r["sequencia"]
+    dias_txt = f"{r['dias_semana']} de {r['meta_dias']} dias nesta semana" if r["meta_dias"] else f"{r['dias_semana']} dia{'s' if r['dias_semana'] != 1 else ''} nesta semana"
+
+    def dado(rotulo: str, valor: str, detalhe: str, cor: str | None = None) -> ft.Control:
+        return ft.Column(
+            [comp.rotulo(rotulo, c), ft.Text(valor, size=24 if app.largo else 20, weight=ft.FontWeight.W_600, font_family=FONTE_TITULO, color=cor or c["texto"]), comp.apagado(detalhe, c, 12.5)],
+            spacing=2,
+            expand=True,
+        )
+
+    dados = [
+        dado(rot_r, val_r, exp_r, c["ok"] if val_r.startswith("+") else None),
+        dado("Sequência", f"{seq} dia{'s' if seq != 1 else ''}", dias_txt, c["marca"] if seq >= 3 else None),
+        dado("Hoje", fmt_hm_longo(hoje["segundos"]), _frase_hoje(hoje, meta_hoje), c["ok"] if frac_hoje >= 1 and meta_hoje else None),
+    ]
+
+    def separador(altura: int = 74):
+        # altura fixa: dentro de uma tela que rola, a linha não pode "esticar"
+        return ft.Container(width=1, height=altura, bgcolor=c["borda"], margin=ft.Margin.symmetric(horizontal=4))
+
+    grafico = barras_dias(app, r)
+    if largura_util(app) >= 880:
+        topo = ft.Row(
+            [
+                ft.Container(principal, expand=5),
+                separador(104),
+                ft.Container(ft.Row([dados[0], separador(), dados[1], separador(), dados[2]], spacing=14, vertical_alignment=ft.CrossAxisAlignment.CENTER), expand=7),
+            ],
+            spacing=22,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+        corpo = ft.Column([topo, comp.divisor(c), grafico], spacing=18)
+        padding = ft.Padding.symmetric(horizontal=26, vertical=22)
+    else:
+        # janela estreita: os três números vão para baixo do total
+        corpo = ft.Column([principal, comp.divisor(c), ft.Row(dados, spacing=10, vertical_alignment=ft.CrossAxisAlignment.START), comp.divisor(c), grafico], spacing=14)
+        padding = ft.Padding.symmetric(horizontal=22 if app.largo else 18, vertical=20 if app.largo else 18)
     filhos: list[ft.Control] = []
     if r["proporcional"] and r["inicio"]:
-        filhos.append(
-            comp.apagado(
-                f"Sua meta começou a contar em {r['inicio']:%d/%m}. Nesta primeira semana ela é proporcional aos dias que restam; os dias antes disso não contam.",
-                c,
-                12.5,
-            )
-        )
-    if not app.largo:
-        # celular: um cartão só, com o anel da meta e três números embaixo
-        def mini(titulo: str, valor: str, cor: str) -> ft.Control:
-            return ft.Column([comp.apagado(titulo, c, 12), ft.Text(valor, size=17, weight=ft.FontWeight.W_700, color=cor)], spacing=0, expand=True)
-
-        if (r["previsto_ate_ontem"] == 0 and saldo <= 0) or not meta:
-            ritmo = ("Ritmo", "Em dia", c["tinta"])
-        elif saldo >= 0:
-            ritmo = ("Ritmo", "+" + fmt_hm(saldo), c["ok"])
-        else:
-            ritmo = ("Para ficar em dia", fmt_hm_longo(-saldo), c["tinta"])
-        filhos.append(
-            _cartao(
-                ft.Column(
-                    [
-                        cart_meta.content,
-                        comp.divisor(c),
-                        ft.Row(
-                            [
-                                mini(*ritmo),
-                                mini("Sequência", f"{seq} dia{'s' if seq != 1 else ''}", c["texto"]),
-                                mini("Hoje", fmt_hm_longo(hoje["segundos"]), c["ok"] if frac_hoje >= 1 else c["texto"]),
-                            ],
-                            spacing=8,
-                        ),
-                    ],
-                    spacing=12,
-                ),
-                c,
-            )
-        )
-        return ft.Column(filhos, spacing=8)
-    filhos.append(ft.ResponsiveRow(cartoes, spacing=14, run_spacing=14, breakpoints=QUEBRAS_CARTOES))
+        filhos.append(comp.apagado(f"Sua meta começou a contar em {r['inicio']:%d/%m}: nesta primeira semana ela vale só para os dias que restam.", c, 12.5))
+    filhos.append(ft.Container(corpo, bgcolor=c["sup"], border=ft.Border.all(1, c["borda"]), border_radius=18, padding=padding))
     return ft.Column(filhos, spacing=8)
+
+
+def barras_dias(app, r: dict) -> ft.Control:
+    """As horas de cada dia em barras, com a marca da meta do dia. Cabe até no celular (7 colunas)."""
+    c = app.c
+    altura = 92 if app.largo else 76
+    maior = max([x["segundos"] for x in r["semana"]] + [x["meta"] for x in r["semana"]] + [3600])
+    cores = {"cumprida": c["ok"], "extra": ft.Colors.with_opacity(0.45, c["tinta"]), "abaixo": c["marca"], "hoje": c["tinta"]}
+    tem_extra = any(x["situacao"] == "extra" for x in r["semana"])
+    colunas = []
+    for x in r["semana"]:
+        seg, meta = x["segundos"], x["meta"]
+        h = max(4, altura * seg / maior) if seg else 3
+        cor = cores.get(x["situacao"], c["traco"]) if seg else c["borda"]
+        if x["hoje"] and seg and x["situacao"] not in ("cumprida", "extra"):
+            cor = c["tinta"]
+        pilha: list[ft.Control] = [ft.Container(height=h, bgcolor=cor, border_radius=ft.BorderRadius.only(top_left=6, top_right=6, bottom_left=2, bottom_right=2), width=26 if app.largo else 18, bottom=0)]
+        if meta:
+            # tracinho na altura da meta do dia
+            pilha.append(ft.Container(height=2, width=36 if app.largo else 26, bgcolor=c["texto2"], bottom=altura * meta / maior - 1, opacity=0.55))
+        barra = ft.Stack(pilha, height=altura, width=40 if app.largo else 28, alignment=ft.Alignment.BOTTOM_CENTER)
+        nome = comp.marca_texto("Hoje", c, 12.5) if x["hoje"] else ft.Text(x["rotulo"], size=12.5, color=c["texto2"])
+        valor = ft.Text(fmt_hm(seg) if seg else "–", size=12.5, weight=ft.FontWeight.W_600 if seg else None, color=c["texto"] if seg else c["texto2"])
+        colunas.append(
+            ft.Container(
+                ft.Column([valor, barra, nome], spacing=6, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                expand=True,
+                tooltip=f"{x['dia']:%d/%m}: {fmt_hm_longo(seg)}" + (f" (meta {fmt_hm_longo(meta)})" if meta else " (folga)" if not x["antes"] else " (antes do início)") + (f", {x['questoes']} questões" if x["questoes"] else ""),
+            )
+        )
+    legenda = ft.Row(
+        [
+            ft.Row([ft.Container(width=10, height=10, bgcolor=c["ok"], border_radius=3), comp.apagado("meta do dia cumprida", c, 12)], spacing=5, tight=True),
+            ft.Row([ft.Container(width=10, height=10, bgcolor=c["marca"], border_radius=3), comp.apagado("abaixo da meta", c, 12)], spacing=5, tight=True),
+            ft.Row([ft.Container(width=14, height=2, bgcolor=c["texto2"], opacity=0.55), comp.apagado("meta do dia", c, 12)], spacing=5, tight=True),
+        ]
+        + ([ft.Row([ft.Container(width=10, height=10, bgcolor=ft.Colors.with_opacity(0.45, c["tinta"]), border_radius=3), comp.apagado("estudo em dia sem meta", c, 12)], spacing=5, tight=True)] if tem_extra else []),
+        spacing=16,
+        wrap=True,
+        run_spacing=4,
+    )
+    return ft.Column([ft.Row(colunas, spacing=2, vertical_alignment=ft.CrossAxisAlignment.END), legenda], spacing=12)
 
 
 def _frase_hoje(hoje: dict, meta: int) -> str:
@@ -225,51 +198,6 @@ def _frase_hoje(hoje: dict, meta: int) -> str:
     if hoje["segundos"] == 0:
         return f"Que tal começar? A meta de hoje é {fmt_hm_longo(meta)}."
     return f"Faltam {fmt_hm_longo(falta)} para a meta do dia."
-
-
-def horas_por_dia(app, r: dict) -> ft.Control:
-    c = app.c
-    cores = {"cumprida": c["ok"], "abaixo": c["marca"], "hoje": c["tinta"], "extra": c["ok"], "futuro": c["sup2"], "folga": c["sup2"], "antes": c["sup2"]}
-    cards = []
-    for x in r["semana"]:
-        meta = x["meta"]
-        frac = min(1.0, x["segundos"] / meta) if meta else (1.0 if x["segundos"] else 0.0)
-        rotulo = x["rotulo"] + (" · hoje" if x["hoje"] else "")
-        sub = f"de {fmt_hm(meta)}" if meta else ("antes do início" if x["antes"] else "folga")
-        cards.append(
-            ft.Container(
-                ft.Column(
-                    [
-                        ft.Text(rotulo, size=12.5, color=c["tinta"] if x["hoje"] else c["texto2"], weight=ft.FontWeight.W_700 if x["hoje"] else None),
-                        ft.Text(fmt_hm(x["segundos"]), size=20, weight=ft.FontWeight.W_700, color=c["texto"] if x["segundos"] or not (x["futuro"] or x["antes"]) else c["texto2"]),
-                        comp.apagado(sub, c, 12, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
-                        ft.Container(comp.barra(frac, c, cores[x["situacao"]], altura=5), padding=ft.Padding.only(top=4)),
-                    ],
-                    spacing=1,
-                ),
-                bgcolor=c["tinta_suave"] if x["hoje"] else c["sup"],
-                border=ft.Border.all(1.4 if x["hoje"] else 1, c["tinta"] if x["hoje"] else c["borda"]),
-                border_radius=12,
-                padding=ft.Padding.symmetric(horizontal=12, vertical=10),
-                col={"base": 7, "sete": 4},
-                width=None if app.largo else 104,
-                tooltip=f"{x['dia']:%d/%m}: {fmt_hm_longo(x['segundos'])}" + (f", {x['questoes']} questões" if x["questoes"] else ""),
-            )
-        )
-    legenda = ft.Row(
-        [
-            ft.Row([ft.Container(width=10, height=10, bgcolor=c["ok"], border_radius=3), comp.apagado("meta do dia cumprida", c, 12)], spacing=5, tight=True),
-            ft.Row([ft.Container(width=10, height=10, bgcolor=c["marca"], border_radius=3), comp.apagado("abaixo da meta", c, 12)], spacing=5, tight=True),
-        ],
-        spacing=14,
-        wrap=True,
-    )
-    if app.largo:
-        # 7 por linha em telas largas, 4 por linha em janelas menores
-        linha = ft.ResponsiveRow(cards, columns=28, spacing=8, run_spacing=8, breakpoints=QUEBRAS_DIAS)
-        return comp.bloco(ft.Column([comp.subtitulo("Horas por dia", c, 18), linha, legenda], spacing=12), c, padding=16)
-    linha = ft.Row(cards, spacing=8, scroll=ft.ScrollMode.AUTO)
-    return comp.bloco(ft.Column([comp.subtitulo("Horas por dia", c, 18), linha, legenda], spacing=12), c, padding=16)
 
 
 def proximo_estudo(app) -> ft.Control | None:
@@ -287,8 +215,8 @@ def proximo_estudo(app) -> ft.Control | None:
 
     texto = ft.Column(
         [
-            ft.Text("SEU PRÓXIMO ESTUDO", size=11.5, weight=ft.FontWeight.W_700, color=c["tinta"]),
-            ft.Text(sug["titulo"], size=19, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["texto"]),
+            comp.rotulo("Seu próximo estudo", c, c["tinta"]),
+            ft.Text(sug["titulo"], size=21, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["texto"]),
             comp.apagado(sug["detalhe"], c, 13.5),
         ],
         spacing=3,
@@ -296,12 +224,13 @@ def proximo_estudo(app) -> ft.Control | None:
     )
     botao = comp.botao(sug["acao"], comecar, ft.Icons.PLAY_ARROW_ROUNDED)
     conteudo = ft.Row([texto, botao], spacing=16, vertical_alignment=ft.CrossAxisAlignment.CENTER) if app.largo else ft.Column([texto, botao], spacing=12)
+    # fio de tinta à esquerda, como a marcação na margem do caderno
     return ft.Container(
         conteudo,
         bgcolor=c["tinta_suave"],
-        border=ft.Border.all(1.2, c["tinta"]),
-        border_radius=14,
-        padding=ft.Padding.symmetric(horizontal=20, vertical=16),
+        border=ft.Border.only(left=ft.BorderSide(5, c["tinta"])),
+        border_radius=ft.BorderRadius.only(top_right=16, bottom_right=16, top_left=6, bottom_left=6),
+        padding=ft.Padding.only(left=22, right=18, top=16, bottom=16),
     )
 
 

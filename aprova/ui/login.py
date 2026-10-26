@@ -67,6 +67,26 @@ class TelaLogin:
             expand=True,
         )
 
+    def _bolinhas(self, branco: str) -> ft.Control:
+        """A, B, C, D, E do cartão-resposta, com a C marcada: a marca do Aprova."""
+        tinta = "#2340A8"
+        return ft.Row(
+            [
+                ft.Container(
+                    ft.Text(letra, size=13, weight=ft.FontWeight.W_700, color=tinta if letra == "C" else branco),
+                    width=30,
+                    height=30,
+                    shape=ft.BoxShape.CIRCLE,
+                    bgcolor=branco if letra == "C" else None,
+                    border=ft.Border.all(1.5, branco),
+                    alignment=ft.Alignment.CENTER,
+                    opacity=1 if letra == "C" else 0.75,
+                )
+                for letra in "ABCDE"
+            ],
+            spacing=10,
+        )
+
     def _apresentacao(self) -> ft.Control:
         branco, suave = "#FFFFFF", "#D8DFF7"
 
@@ -101,7 +121,8 @@ class TelaLogin:
                     [ft.Image(src="icon.png", width=56, height=56), ft.Text("Aprova", size=40, font_family=FONTE_TITULO, weight=ft.FontWeight.W_700, color=branco)],
                     spacing=14,
                 ),
-                ft.Container(height=24),
+                ft.Container(height=18),
+                self._bolinhas(branco),
                 ft.Text("Estude para o seu concurso com método.", size=28, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=branco),
                 ft.Text("Provas reais, simulados, revisão no dia certo e metas da semana. Tudo no seu ritmo.", size=15, color=suave),
                 ft.Container(height=16),
