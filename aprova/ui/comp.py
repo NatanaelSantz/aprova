@@ -8,6 +8,16 @@ import flet as ft
 
 from .tema import FONTE_TITULO
 
+# pontos de quebra padrão do ResponsiveRow (largura da janela, em px)
+QUEBRAS_PADRAO = {"xs": 0, "sm": 576, "md": 768, "lg": 992, "xl": 1200, "xxl": 1400}
+
+
+def quebras(app, d: dict | None = None) -> dict:
+    """Pontos de quebra ajustados ao zoom da interface (o ResponsiveRow mede a janela de verdade)."""
+    s = getattr(app, "_escala_usada", 1.0) or 1.0
+    return {k: v * s for k, v in (d or QUEBRAS_PADRAO).items()}
+
+
 MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
 
 

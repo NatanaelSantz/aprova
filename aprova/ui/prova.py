@@ -608,7 +608,7 @@ class TelaProva:
     def _imagem_pagina(self) -> ft.Control:
         c = self.c
         caminho = self._caminho_pagina(self.pagina_pdf)
-        largura_util = (self.app.page.width or 1200) - (300 + 90 if self.app.largo else 40)
+        largura_util = self.app.largura - (300 + 90 if self.app.largo else 40)
         largura = max(320, largura_util * self.zoom)
         if caminho and caminho.exists():
             img: ft.Control = ft.Column(

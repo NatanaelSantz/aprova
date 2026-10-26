@@ -89,7 +89,7 @@ class TelaMarcador:
 
     def _render(self):
         app, c = self.app, self.c
-        largura_tela = app.page.width or 1200
+        largura_tela = app.largura
         lateral = 330 if app.largo and self.painel else 0
         disponivel = max(280, min(920, largura_tela - lateral - (64 if app.largo else 24)))
         w_pt, h_pt = self.doc.tamanho(self.pagina)
@@ -197,7 +197,7 @@ class TelaMarcador:
             botoes.append(
                 ft.Container(
                     ft.Row(
-                        [ft.Icon(icone, size=18, color=c["sobre_tinta"] if sel else c["texto2"]), *( [ft.Text(rotulo, size=13.5, color=c["sobre_tinta"] if sel else c["texto"], weight=ft.FontWeight.W_600 if sel else None)] if app.largo or (app.page.width or 0) >= 560 else [])],
+                        [ft.Icon(icone, size=18, color=c["sobre_tinta"] if sel else c["texto2"]), *( [ft.Text(rotulo, size=13.5, color=c["sobre_tinta"] if sel else c["texto"], weight=ft.FontWeight.W_600 if sel else None)] if app.largo or app.largura >= 560 else [])],
                         spacing=6,
                         tight=True,
                     ),

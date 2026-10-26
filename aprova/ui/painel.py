@@ -18,12 +18,12 @@ NIVEL_COR = {"forte": ("ok_suave", "ok"), "atencao": ("marca_suave", "marca"), "
 QUEBRAS_BLOCOS = {"um": 0, "lado": 1180}  # largura da janela (já conta a barra lateral)
 
 
-def _lado_a_lado(blocos: list[ft.Control]) -> ft.Control:
+def _lado_a_lado(blocos: list[ft.Control], app=None) -> ft.Control:
     """Dois blocos lado a lado em janelas largas; um embaixo do outro nas menores."""
     for b in blocos:
         if getattr(b, "col", None) in (None, {}):
             b.col = {"um": 12, "lado": 6}
-    return ft.ResponsiveRow(blocos, spacing=14, run_spacing=14, breakpoints=QUEBRAS_BLOCOS)
+    return ft.ResponsiveRow(blocos, spacing=14, run_spacing=14, breakpoints=comp.quebras(app, QUEBRAS_BLOCOS))
 
 
 def _pct(x: float | None) -> str:
@@ -107,10 +107,10 @@ class TelaPainel:
             self._numero(str(len(r["fracas"])), "Pontos a melhorar", f"{len(r['fortes'])} pontos fortes"),
         ]
         # um bloco só com os quatro números (em vez de quatro cartões iguais)
-        linha_numeros = comp.bloco(ft.ResponsiveRow(numeros, spacing=18, run_spacing=14, breakpoints=metas.QUEBRAS_CARTOES), c, padding=18)
+        linha_numeros = comp.bloco(ft.ResponsiveRow(numeros, spacing=18, run_spacing=14, breakpoints=comp.quebras(self.app, metas.QUEBRAS_CARTOES)), c, padding=18)
         blocos: list[ft.Control] = [linha_numeros, self._bloco_disciplinas(r), self._bloco_evolucao(r)]
         tabelas = [self._tabela("Por banca", r["bancas"]), self._tabela("Por concurso", r["concursos"])]
-        blocos.append(_lado_a_lado(tabelas))
+        blocos.append(_lado_a_lado(tabelas, self.app))
         return ft.Column(blocos, spacing=16)
 
     def _bloco_disciplinas(self, r: dict) -> ft.Control:
@@ -240,9 +240,9 @@ class TelaPainel:
         r = metas.resumo(app)
         blocos: list[ft.Control] = [metas.painel_semana(app, r)]
         lado = [self._mapa_calor(r), self._dias_da_semana(r)]
-        blocos.append(_lado_a_lado(lado))
+        blocos.append(_lado_a_lado(lado, self.app))
         baixo = [self._por_disciplina(r), metas.cronometro(app)]
-        blocos.append(_lado_a_lado(baixo))
+        blocos.append(_lado_a_lado(baixo, self.app))
         blocos.append(comp.apagado("O tempo conta sozinho enquanto você resolve questões no app (para depois de 8 minutos sem mexer). Para estudo fora do app, use o cronômetro ou lance o tempo.", c, 12.5))
         return ft.Column(blocos, spacing=16)
 

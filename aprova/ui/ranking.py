@@ -185,7 +185,7 @@ class SecaoRanking:
             padding=ft.Padding.symmetric(horizontal=8, vertical=8),
             col={"um": 12, "lado": 6},
         )
-        return ft.ResponsiveRow([por_que, form], spacing=24, run_spacing=20, breakpoints={"um": 0, "lado": 1100})
+        return ft.ResponsiveRow([por_que, form], spacing=24, run_spacing=20, breakpoints=comp.quebras(self.app, {"um": 0, "lado": 1100}))
 
     def _pedir_apelido(self) -> ft.Control:
         app, c = self.app, self.app.c

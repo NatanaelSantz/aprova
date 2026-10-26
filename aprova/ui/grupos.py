@@ -119,7 +119,7 @@ class TelaGrupos:
 
     @property
     def duas_colunas(self) -> bool:
-        return (self.app.page.width or 0) >= LARGURA_DUAS_COLUNAS
+        return self.app.largura >= LARGURA_DUAS_COLUNAS
 
     @property
     def grupo(self) -> dict | None:
@@ -239,7 +239,7 @@ class TelaGrupos:
                     ],
                     spacing=16,
                     run_spacing=16,
-                    breakpoints={"um": 0, "dois": 820},
+                    breakpoints=comp.quebras(self.app, {"um": 0, "dois": 820}),
                 ),
                 msg,
             ],
@@ -280,7 +280,7 @@ class TelaGrupos:
             [ft.Container(lateral, col={"um": 12, "lado": 4, "largo": 3}), ft.Container(conteudo, col={"um": 12, "lado": 8, "largo": 9})],
             spacing=20,
             run_spacing=16,
-            breakpoints={"um": 0, "lado": LARGURA_DUAS_COLUNAS, "largo": 1600},
+            breakpoints=comp.quebras(self.app, {"um": 0, "lado": LARGURA_DUAS_COLUNAS, "largo": 1600}),
             vertical_alignment=ft.CrossAxisAlignment.START,
         )
 
@@ -411,7 +411,7 @@ class TelaGrupos:
         abas = [a for a in ABAS if not (a[0] == "membros" and self.duas_colunas)]
         if self.aba == "membros" and self.duas_colunas:
             self.aba = "conversa"
-        curto = (self.app.page.width or 0) < 700
+        curto = self.app.largura < 700
         botao = ft.SegmentedButton(
             selected=[self.aba],
             segments=[ft.Segment(value=k, label=ft.Text("Planos" if curto and k == "planos" else v)) for k, v in abas],
@@ -965,7 +965,7 @@ class TelaGrupos:
                     [ft.Container(self._cartao_plano(p, g, ativo), col={"um": 12, "dois": 6}) for p in posts],
                     spacing=14,
                     run_spacing=14,
-                    breakpoints={"um": 0, "dois": 1500},
+                    breakpoints=comp.quebras(self.app, {"um": 0, "dois": 1500}),
                 )
             )
         return ft.Column(filhos, spacing=14)

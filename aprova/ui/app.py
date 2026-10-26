@@ -105,6 +105,11 @@ class App:
         self._modo_nav: str | None = None
         self._baixa: bool | None = None
         self._tema_pintado: str | None = None
+        tela = self.sessao.get("maior_janela") or [0, 0]
+        self._maior_janela: tuple[float, float] = (float(tela[0]), float(tela[1])) if not self.modo_web else (0.0, 0.0)  # ≈ tamanho da tela (zoom automático)
+        self._raiz_zoom: ft.Container | None = None
+        self._janela_medida = False
+        self._escala_usada = 1.0
         self.conteudo = ft.Container(expand=True)
         self._moldura: ft.Container | None = None
         self._comunicados: tuple[float, list] = (0.0, [])
@@ -130,10 +135,55 @@ class App:
     def c(self) -> dict:
         return tema.paleta(self.aj["tema"])
 
+    # ------------------------------------------------------------ tamanho da interface (zoom)
+
+    @property
+    def escala(self) -> float:
+        """Zoom da interface. Em notebooks com o Windows em 125%/150%, tudo ficava grande demais.
+
+        "auto": usa o tamanho da tela (a maior janela vista nesta sessão) para caber mais coisa;
+        ou o valor que a pessoa escolheu em Ajustes (ou com Ctrl + e Ctrl −)."""
+        if self.modo_web:
+            return 1.0
+        w, h = self.page.width or 1200, self.page.height or 800
+        if w < 900:
+            return 1.0  # janela estreita (modo celular): sem zoom
+        escolha = str(self.sessao.get("escala_interface") or "auto")
+        if escolha != "auto":
+            try:
+                return min(1.25, max(0.75, float(escolha)))
+            except ValueError:
+                pass
+        mw, mh = self._maior_janela
+        s = min(max(mh, h) / 820, max(mw, w) / 1440)
+        return min(1.0, max(0.8, round(s * 20) / 20))
+
+    @property
+    def largura(self) -> float:
+        """Largura que o layout enxerga (com o zoom aplicado)."""
+        return (self.page.width or 1200) / self.escala
+
+    @property
+    def altura(self) -> float:
+        return (self.page.height or 800) / self.escala
+
+    def mudar_escala(self, valor: str) -> None:
+        self.sessao.set("escala_interface", valor)
+        self.telas.clear()
+        self.montar()
+
+    def _passo_escala(self, delta: int) -> None:
+        passos = [0.8, 0.85, 0.9, 0.95, 1.0, 1.1, 1.25]
+        atual = self.escala
+        i = min(range(len(passos)), key=lambda k: abs(passos[k] - atual))
+        novo = passos[max(0, min(len(passos) - 1, i + delta))]
+        self.mudar_escala(str(novo))
+        self.msg(f"Tamanho da interface: {int(round(novo * 100))}%")
+
     @property
     def modo_nav(self) -> str:
         """'lateral' (barra completa), 'trilho' (só ícones) ou 'inferior' (celular)."""
-        w = self.page.width or 1200
+        w = self.largura
         if w < LARGURA_TRILHO:
             return "inferior"
         return "trilho" if w < LARGURA_LATERAL else "lateral"
@@ -694,9 +744,27 @@ class App:
                 tela.dialogo_marcacao(m)
 
     def _ao_redimensionar(self, e) -> None:
-        if self._modo_nav is not None and (self._modo_nav != self.modo_nav or self._baixa != self.baixa):
+        w, h = self.page.width or 0, self.page.height or 0
+        mw, mh = self._maior_janela
+        if not self._janela_medida and w >= 900:
+            # primeira medida desta abertura (a janela acabou de maximizar): vale a tela de agora,
+            # não a de outra vez (ex.: um monitor grande que não está mais ligado)
+            self._janela_medida = True
+            mw, mh = 0.0, 0.0
+        if w > mw or h > mh:
+            self._maior_janela = (max(mw, w), max(mh, h))
+            if not self.modo_web:
+                self.sessao.set("maior_janela", list(self._maior_janela))
+        if self._modo_nav is not None and (self._modo_nav != self.modo_nav or self._baixa != self.baixa or abs(self._escala_usada - self.escala) > 0.001):
             self.montar()
             return
+        if self._raiz_zoom is not None:
+            self._raiz_zoom.width = w / self._escala_usada
+            self._raiz_zoom.height = h / self._escala_usada
+            try:
+                self._raiz_zoom.update()
+            except Exception:  # noqa: BLE001
+                pass
         if self._moldura is not None and not self.em_login and self.foco is None:
             try:
                 self._moldura.padding = self._margens()
@@ -708,6 +776,14 @@ class App:
 
     def _teclado(self, e: ft.KeyboardEvent) -> None:
         self.marcar_atividade()
+        k = (e.key or "").lower()
+        if (e.ctrl or e.meta) and not self.modo_web and k in ("=", "+", "numpad add", "-", "numpad subtract", "0", "numpad 0"):
+            if k in ("0", "numpad 0"):
+                self.mudar_escala("auto")
+                self.msg("Tamanho da interface: automático")
+            else:
+                self._passo_escala(1 if k in ("=", "+", "numpad add") else -1)
+            return
         tela = self.foco
         if tela is not None and hasattr(tela, "tecla"):
             tela.tecla(e)
@@ -720,6 +796,7 @@ class App:
         self._largo = self.largo
         self._modo_nav = self.modo_nav
         self._baixa = self.baixa
+        self._escala_usada = self.escala
         self.pintar_barra_windows()
         c = self.c
         p.bgcolor = c["bg"]
@@ -783,12 +860,32 @@ class App:
     # ------------------------------------------------------------ barra de título
 
     def _vestir_barra(self, modo: str) -> None:
-        """Põe a barra de título própria em cima do que já está na página."""
+        """Põe a barra de título própria em cima do que já está na página e aplica o zoom."""
+        self._aplicar_zoom()
         if not self.barra_propria:
             return
         corpo = list(self.page.controls)
         self.page.controls.clear()
         self.page.controls.append(ft.Column([self._barra_janela(modo), *corpo], spacing=0, expand=True))
+
+    def _aplicar_zoom(self) -> None:
+        """Zoom da interface: o layout é montado numa área maior e reduzido para caber na janela
+        (como o zoom do navegador). Janelas, menus e avisos por cima continuam no tamanho normal."""
+        s = self._escala_usada
+        self._raiz_zoom = None
+        if abs(s - 1.0) < 0.001:
+            return
+        corpo = list(self.page.controls)
+        self.page.controls.clear()
+        self._raiz_zoom = ft.Container(
+            ft.Column(corpo, spacing=0, expand=True),
+            left=0,
+            top=0,
+            width=(self.page.width or 1200) / s,
+            height=(self.page.height or 800) / s,
+            scale=ft.Scale(s, alignment=ft.Alignment.TOP_LEFT),
+        )
+        self.page.controls.append(ft.Stack([self._raiz_zoom], expand=True))
 
     def _barra_janela(self, modo: str) -> ft.Control:
         """Faixa de cima integrada ao app: continua a barra lateral, mostra a marca e os botões da janela."""
@@ -824,7 +921,7 @@ class App:
             ],
             spacing=0,
         )
-        if modo == "login" and (self.page.width or 0) >= 960:
+        if modo == "login" and self.largura >= 960:
             # tela de entrada larga: a faixa continua o painel azul da esquerda (mesma proporção 5:6)
             return ft.Container(
                 ft.Row(
@@ -889,7 +986,7 @@ class App:
 
     def _margens(self) -> ft.Padding:
         """Margens por tamanho; em telas muito largas o conteúdo fica centralizado (linhas não ficam longas demais)."""
-        w = self.page.width or 1200
+        w = self.largura
         modo = self.modo_nav
         topo_extra = 0 if self.barra_propria else 1  # a barra de título própria já dá o respiro de cima
         if modo == "inferior":
@@ -970,7 +1067,7 @@ class App:
     @property
     def baixa(self) -> bool:
         """Janela baixa (ex.: notebook com zoom de 125% ou 150% no Windows): menu mais compacto."""
-        return (self.page.height or 900) - (ALTURA_BARRA if self.barra_propria else 0) < 720
+        return self.altura - (ALTURA_BARRA if self.barra_propria else 0) < 720
 
     def _barra_lateral(self) -> ft.Container:
         c = self.c

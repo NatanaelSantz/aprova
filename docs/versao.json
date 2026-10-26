@@ -1,8 +1,10 @@
 {
-  "versao": "1.9.4",
+  "versao": "1.9.5",
   "data": "26/10/2026",
   "notas": [
-    "Barra de cima com as cores do Aprova no Windows 11 (claro, sépia ou escuro), sem o texto repetido"
+    "Tamanho da interface: no automático, tudo fica menor em notebooks com zoom do Windows e cabe mais coisa na tela",
+    "Escolha 80% a 125% em Ajustes, ou use Ctrl + e Ctrl − (Ctrl 0 volta ao automático)",
+    "Barra de rolagem fina e discreta, que engrossa ao passar o mouse"
   ],
   "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
 }

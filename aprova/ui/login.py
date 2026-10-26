@@ -29,7 +29,7 @@ class TelaLogin:
 
     def build(self) -> ft.Control:
         app, c = self.app, self.app.c
-        largo = (app.page.width or 1200) >= QUEBRAS["dois"]
+        largo = app.largura >= QUEBRAS["dois"]
         cartao = self._cartao()
         if largo:
             return ft.Row(

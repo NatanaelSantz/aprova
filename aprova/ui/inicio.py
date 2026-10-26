@@ -64,7 +64,8 @@ class TelaInicio:
         self.caixa_comunicados = ft.Column(topo, spacing=10, visible=bool(topo))
         if app.largo:
             corpo = ft.ResponsiveRow(
-                [
+                breakpoints=comp.quebras(app),
+                controls=[
                     ft.Column([foco], col={"md": 12, "lg": 7}, spacing=28, horizontal_alignment=ft.CrossAxisAlignment.STRETCH),
                     ft.Column([continuar, alarmes, prazos], col={"md": 12, "lg": 5}, spacing=28, horizontal_alignment=ft.CrossAxisAlignment.STRETCH),
                 ],
@@ -257,7 +258,7 @@ class TelaInicio:
             )
         if uma_linha:
             return ft.Row(blocos, spacing=0)
-        return ft.ResponsiveRow(blocos, run_spacing=16, spacing=0)
+        return ft.ResponsiveRow(blocos, run_spacing=16, spacing=0, breakpoints=comp.quebras(self.app))
 
     def _avisos(self) -> ft.Control:
         app, c = self.app, self.app.c

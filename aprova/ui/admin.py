@@ -134,7 +134,7 @@ class TelaAdmin:
             ],
             spacing=12,
             run_spacing=12,
-            breakpoints=QUEBRAS_NUM,
+            breakpoints=comp.quebras(self.app, QUEBRAS_NUM),
         )
         top = sorted(self.usuarios or [], key=lambda u: -u["segundos"])[:5]
         mais_ativos = comp.bloco(
@@ -177,7 +177,7 @@ class TelaAdmin:
         if vg["bloqueados"]:
             avisos.append(comp.apagado(f"{vg['bloqueados']} usuário(s) bloqueado(s) no ranking.", c, 12.5))
         return ft.Column(
-            [numeros, ft.ResponsiveRow([mais_ativos, concursos], spacing=14, run_spacing=14, breakpoints=QUEBRAS_NUM)] + avisos,
+            [numeros, ft.ResponsiveRow([mais_ativos, concursos], spacing=14, run_spacing=14, breakpoints=comp.quebras(self.app, QUEBRAS_NUM))] + avisos,
             spacing=16,
         )
 

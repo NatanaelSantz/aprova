@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.9.4" src="https://img.shields.io/badge/vers%C3%A3o-1.9.4-2340A8">
+  <img alt="Versão 1.9.5" src="https://img.shields.io/badge/vers%C3%A3o-1.9.5-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -237,7 +237,8 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
-| **1.9.4** | Barra de cima do Windows com as cores do tema do Aprova |
+| **1.9.5** | Tamanho da interface (zoom automático em telas com zoom do Windows, Ctrl + e Ctrl −) e barra de rolagem nova |
+| 1.9.4 | Barra de cima do Windows com as cores do tema do Aprova |
 | 1.9.3 | Menu que cabe em notebooks com zoom, janela que cabe na tela e abre em tela cheia |
 | 1.9.2 | Retirada: a barra de cima própria impedia o app de abrir no Windows |
 | 1.9.1 | Visual novo (navegação em bolinhas do cartão-resposta, painel "Sua semana") e layout mais ajustável |

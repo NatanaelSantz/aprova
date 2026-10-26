@@ -32,6 +32,10 @@ class TelaAjustes:
         secoes = [
             comp.titulo("Ajustes", c, 34 if app.largo else 28),
             self._conta(),
+        ]
+        if not app.modo_web:
+            secoes.append(self._tamanho())
+        secoes += [
             self._leitura(),
             self._pausa(),
         ]
@@ -44,6 +48,28 @@ class TelaAjustes:
             secoes.append(secao_ajustes(app, self))
         secoes += [self._geral(), ft.Container(height=30)]
         return ft.Column(secoes, spacing=22, scroll=ft.ScrollMode.AUTO, expand=True)
+
+    def _tamanho(self) -> ft.Control:
+        """Zoom da interface inteira (cabe mais coisa na tela, ou tudo fica maior)."""
+        app, c = self.app, self.app.c
+        escolha = str(app.sessao.get("escala_interface") or "auto")
+        opcoes = [("auto", "Automático"), ("0.8", "80%"), ("0.9", "90%"), ("1.0", "100%"), ("1.1", "110%"), ("1.25", "125%")]
+        if escolha not in {k for k, _ in opcoes}:
+            escolha = "auto"
+        seletor = ft.SegmentedButton(
+            selected=[escolha],
+            segments=[ft.Segment(value=k, label=ft.Text(v)) for k, v in opcoes],
+            show_selected_icon=False,
+            on_change=lambda e: app.mudar_escala(e.control.selected[0] if e.control.selected else "auto"),
+        )
+        agora = int(round(app.escala * 100))
+        return self._secao(
+            "Tamanho da interface",
+            f"Deixa tudo menor para caber mais coisa na tela, ou maior para ler melhor. Agora: {agora}%. "
+            "No automático, o Aprova diminui sozinho em notebooks com o zoom do Windows em 125% ou 150%. "
+            "Atalhos: Ctrl + e Ctrl − (Ctrl 0 volta ao automático).",
+            ft.Row([seletor], scroll=ft.ScrollMode.AUTO),
+        )
 
     def _secao(self, titulo: str, descricao: str, *filhos: ft.Control) -> ft.Control:
         c = self.app.c

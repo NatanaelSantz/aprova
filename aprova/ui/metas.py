@@ -67,7 +67,7 @@ def _quando_comeca(app) -> str:
 
 def largura_util(app) -> float:
     """Largura que sobra para o conteúdo (janela menos a navegação e as margens)."""
-    w = app.page.width or 1200
+    w = app.largura
     modo = app.modo_nav
     return w - (236 + 72 if modo == "lateral" else 88 + 48 if modo == "trilho" else 32)
 
