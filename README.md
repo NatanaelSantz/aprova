@@ -1,244 +1,215 @@
-# Aprova — estudo para concursos públicos (v1.8)
+<p align="center">
+  <img src="docs/icon.png" width="104" alt="Ícone do Aprova">
+</p>
 
-Site e download: https://natanaelsantz.github.io/aprova/
+<h1 align="center">Aprova</h1>
 
-App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolver as provas no próprio app e ver onde focar os estudos.
+<p align="center">
+  <b>Estude para o seu concurso com método, sozinho ou com a sua turma.</b><br>
+  Provas reais com gabarito, simulados, revisão no dia certo, metas da semana, grupos de estudo e ranking.<br>
+  Grátis, em português e feito para quem estuda depois do trabalho.
+</p>
 
-## O que ele faz
+<p align="center">
+  <a href="https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"><img alt="Baixar para Windows" src="https://img.shields.io/badge/Baixar%20para-Windows-2340A8?style=for-the-badge&logo=windows&logoColor=white"></a>
+  &nbsp;
+  <a href="https://natanaelsantz.github.io/aprova/"><img alt="Site do Aprova" src="https://img.shields.io/badge/Site-natanaelsantz.github.io%2Faprova-C98E12?style=for-the-badge"></a>
+</p>
 
-- **Concursos abertos** por região, com prazo de inscrição, vagas, salário e nível. A estrela acompanha o prazo na tela Início.
-- **Concursos já realizados**: busca por órgão ou cargo, abre o edital e leva às provas anteriores.
-- **Escolha um concurso e receba a prova** (aba *Provas*): digite o concurso (ex.: `Dataprev 2026`) ou cole o link da página dele no site da banca. O Aprova procura em vários lugares ao mesmo tempo:
-  - **site oficial da banca**: provas separadas por cargo e caderno, com o gabarito oficial. Toque no caderno da sua área e a prova já abre pronta, com o gabarito certo;
-  - **outros sites**: PDFs de prova, gabarito e prova comentada achados na internet;
-  - **PCI Concursos**: o acervo de provas anteriores.
-- **Encher a biblioteca**: escolha o concurso e o Aprova baixa de uma vez as provas das últimas edições, de todos os cargos, cada uma com o gabarito oficial. Você marca quais cargos quer.
-  - Entra um caderno por cargo (os outros tipos têm as mesmas questões em outra ordem).
-  - Questões iguais em vários cargos (como Português) aparecem uma vez só nos simulados.
-  - Onde fica: botão “Encher a biblioteca” na aba *Provas* depois da busca, em *Estudar* e em *Concursos → Nas bancas*.
-  - Na biblioteca, as provas do mesmo concurso ficam juntas numa pasta, com o botão “Simulado do concurso”.
-- **Nas bancas** (aba *Concursos*): a lista oficial de concursos da FGV, em andamento e realizados, com botão “Ver provas”.
-- **Aviso “Saiu a prova”**: os concursos que você acompanha (estrela) e cuja prova já passou são verificados uma vez por dia. Quando aparece a prova, surge um cartão na tela Início.
-- **Fazer a prova no app**:
-  - *Simulado*: cronômetro e correção só no final.
-  - *Modo estudo*: correção a cada questão.
-  - Cartão-resposta com bolinhas, marcar para revisar e resultado por disciplina.
-  - PDFs digitalizados (imagem) abrem com as páginas originais e um cartão-resposta ao lado.
-- **Ajuda em cada questão**: sempre pesquisa na internet e mostra as fontes. A *dica* não revela a resposta; a *explicação completa* revela. Com a chave da API do Claude (opcional), a explicação é escrita pela IA.
-- **Montar simulado**: você escolhe o número de questões e quantas de cada disciplina. Já vem o modelo da Dataprev 2026 (FGV, 70 questões).
-  - As questões saem das provas anteriores do mesmo concurso ou órgão; se faltar, de outras provas da biblioteca.
-  - Com a chave do Claude, a IA cria as que faltarem no estilo da banca, usando os assuntos do edital.
-  - Também dá para montar a partir do edital: botão “Montar simulado” na janela do concurso.
-- **Onde focar**: cruza quanto cada disciplina cai nas suas provas com quanto você ainda erra.
-- **Meta semanal (tela Início)**: anel com o progresso das horas da semana, saldo em relação ao previsto, sequência de dias, horas por dia com a meta de cada dia e o cartão “Seu próximo estudo” (revisão do dia ou treino do ponto fraco).
-- **Tempo de estudo**: conta sozinho enquanto você resolve questões (para depois de 8 minutos parado). Para estudo fora do app (livro, aula), use o **cronômetro** ou **lance o tempo** à mão.
-- **Painel**:
-  - *Desempenho*: acertos por disciplina com selo Forte / Atenção / Precisa melhorar, evolução nas últimas 8 semanas, acertos por banca e por concurso.
-  - *Tempo*: meta, horas por dia, mapa das últimas 12 semanas, em que dias da semana você estuda e tempo por disciplina.
-  - *Lembretes*: alarmes de atividades extras. Na hora, o app toca e leva você ao conteúdo: pesquisa na internet, vídeo-aulas, um link, a revisão, um treino ou um simulado.
-  - *Livros*: indicações por disciplina, das mais fracas para as mais fortes, com material oficial gratuito (leis no Planalto).
-- **Contas e login**: cada pessoa entra com e-mail e senha e tem seus estudos separados. Há dois tipos de conta: **aluno** e **administrador** (veja abaixo). Quem não quiser conta usa o app normalmente com “Usar sem conta”.
-- **Tela que se ajusta ao aparelho**: no celular, menu embaixo; em tela média, menu lateral compacto; em tela grande, menu lateral completo e o conteúdo centralizado.
-- **Grupos de estudo (fórum)**: cada grupo tem a sua conversa, onde a turma combina simulados, tira dúvidas, troca materiais e compartilha **planos de estudo**. Só quem tem o convite entra e só quem está no grupo vê as mensagens. Fica no menu **Grupos**.
-- **Convite por link**: em **Grupos → Convidar**, mande o link do grupo pelo WhatsApp, Telegram ou e-mail, ou salve uma imagem com QR code para os Stories do Instagram e o TikTok. Quem abre o link entra no grupo com um clique, sem digitar código nem preencher cadastro.
-- **Ranking**: crie uma conta com apelido e compare horas, questões, acerto e sequência da semana com outras pessoas, no geral ou em grupos com código (a turma do concurso, os amigos). Fica em Painel → Ranking.
-- **Revisão espaçada** (Estudar → Revisão): o que você erra ou marca com a bandeira volta no dia certo (1, 3, 7, 15 e 30 dias) até ficar dominado.
-- **Dúvidas**: no painel de Ajuda de cada questão, escreva sua dúvida; o Aprova pesquisa na internet para responder (com a chave do Claude, a resposta vem explicada). Todas ficam guardadas em Estudar → Dúvidas.
-- **Questões inéditas com IA**: a IA lê questões reais das provas do concurso na sua biblioteca, cria novas no mesmo estilo e confere o gabarito resolvendo cada uma de novo (precisa da chave do Claude). Também completa os simulados montados.
-- **Conforto para os olhos**:
-  - Temas claro, sépia (leitura) e escuro.
-  - Fonte Atkinson Hyperlegible, com tamanho e espaçamento ajustáveis.
-  - Leitura em voz alta da questão.
-  - Lembrete de pausa 20-20-20.
-- **Celular**: o mesmo app abre no navegador do celular, na mesma rede Wi-Fi.
+<p align="center">
+  <img alt="Versão 1.8.0" src="https://img.shields.io/badge/vers%C3%A3o-1.8.0-2340A8">
+  <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
+  <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
+  <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
+  <img alt="Testes com pytest" src="https://img.shields.io/badge/testes-pytest-1D7F53?logo=pytest&logoColor=white">
+</p>
 
-## Como abrir no Windows
+<p align="center">
+  <img src="docs/img/inicio.png" width="880" alt="Tela inicial do Aprova com a meta da semana, horas por dia e o próximo estudo">
+</p>
 
-1. Extraia este .zip numa pasta (ex.: `Documentos\Aprova`).
-2. Dê dois cliques em **`Abrir Aprova.bat`**. Na primeira vez aparece a janela **Preparando o Aprova**, com barra de progresso:
-   - se o computador não tiver Python, ele é instalado antes, numa janela própria;
-   - depois vêm as bibliotecas do app (de 5 a 10 minutos, precisa de internet).
-3. No fim, o Aprova abre sozinho e cria o atalho **Aprova** na área de trabalho. Dali em diante, abra por ele: o app abre direto, sem janela preta.
+---
 
-Se algo der errado, a janela mostra o motivo e o botão **Tentar de novo**. Os detalhes ficam em `C:\Users\<você>\.aprova\instalacao.log`.
-Se a instalação automática do Python falhar, instale o **Python 3.12 ou 3.13** em [python.org](https://www.python.org/downloads/), marque **“Add python.exe to PATH”** e abra o `.bat` de novo.
+## O que o Aprova faz
 
-No macOS/Linux: `./iniciar.sh` (ou `./iniciar.sh --web` para o modo navegador).
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>📄 Provas reais, prontas para resolver</h3>
+      Digite o concurso (ex.: <i>Dataprev 2026</i>) e o Aprova busca nas bancas, na internet e no PCI Concursos. As provas entram com o <b>gabarito oficial</b> e abrem no próprio app, em modo simulado ou estudo.
+    </td>
+    <td width="50%" valign="top">
+      <h3>🎯 Onde focar</h3>
+      Cruza quanto cada disciplina cai nas suas provas com quanto você ainda erra. O <b>Painel</b> mostra onde você está forte e onde precisa melhorar, com a evolução das últimas semanas.
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <h3>⏱️ Meta da semana sem culpa</h3>
+      Meta de horas por semana, cronômetro de estudo, horas por dia e o cartão <b>“Seu próximo estudo”</b>. A primeira semana conta só a partir do dia em que você começou.
+    </td>
+    <td valign="top">
+      <h3>🔁 Revisão no dia certo</h3>
+      O que você erra volta em 1, 3, 7, 15 e 30 dias até ficar dominado. Também dá para montar simulados por disciplina e tirar dúvidas em cada questão.
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <h3>👥 Grupos de estudo</h3>
+      Cada turma tem a sua conversa, com dúvidas, materiais e <b>planos de estudo</b> que dá para usar como meta com um clique. Quem cria o grupo modera.
+    </td>
+    <td valign="top">
+      <h3>🔗 Convite por link</h3>
+      Mande o link do grupo pelo <b>WhatsApp</b>, Telegram, e-mail, <b>Instagram</b> ou <b>TikTok</b> (imagem com QR code para os Stories). Quem abre entra no grupo com um clique, sem digitar código nem fazer cadastro.
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <h3>🏆 Ranking da semana</h3>
+      Compare horas, questões, acerto e sequência com outras pessoas, no geral ou só com o seu grupo. No ranking aparecem só o apelido e os números.
+    </td>
+    <td valign="top">
+      <h3>👁️ Conforto para os olhos</h3>
+      Temas claro, sépia e escuro, fonte Atkinson Hyperlegible com tamanho ajustável, leitura em voz alta e lembrete de pausa 20-20-20.
+    </td>
+  </tr>
+</table>
 
-## Usar no celular
+## Telas
 
-- Jeito mais fácil: no app, vá em **Ajustes → Usar no celular → Ligar acesso pelo celular** e aponte a câmera para o QR code.
-- Ou abra **`Abrir no celular.bat`** e digite no celular o endereço que aparece na janela (ex.: `http://192.168.0.10:8550`).
+<table>
+  <tr>
+    <td width="50%"><img src="docs/img/prova.png" alt="Prova em modo estudo com correção na hora"><br><sub><b>Prova em modo estudo:</b> correção a cada questão e cartão-resposta.</sub></td>
+    <td width="50%"><img src="docs/img/painel.png" alt="Painel de desempenho por disciplina"><br><sub><b>Painel:</b> onde você está bem e onde precisa melhorar.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/img/grupos.png" alt="Fórum do grupo de estudo"><br><sub><b>Grupos:</b> conversa da turma, dúvidas e materiais.</sub></td>
+    <td><img src="docs/img/planos.png" alt="Planos de estudo compartilhados no grupo"><br><sub><b>Planos de estudo:</b> use o plano da turma como a sua meta.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/img/convidar.png" alt="Janela para convidar pelo WhatsApp, Instagram e TikTok"><br><sub><b>Convidar:</b> WhatsApp, Instagram, TikTok, Telegram e e-mail.</sub></td>
+    <td><img src="docs/img/entrar-convite.png" alt="Entrada no grupo pelo convite, sem cadastro"><br><sub><b>Quem recebe o convite:</b> confere o apelido e já entra no grupo.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/img/pagina-convite.png" alt="Página do convite aberta pelo link"><br><sub><b>Página do convite:</b> o link abre o app ou leva ao download.</sub></td>
+    <td><img src="docs/img/admin.png" alt="Área do administrador"><br><sub><b>Administração:</b> usuários, grupos e comunicados para todos.</sub></td>
+  </tr>
+</table>
 
-O celular precisa estar no mesmo Wi-Fi. Se não abrir, permita o Python no firewall do Windows em redes privadas. Para colocar um ícone na tela inicial, use “Adicionar à tela inicial” no menu do navegador do celular.
+<p align="center">
+  <img src="docs/img/celular-inicio.png" height="480" alt="Tela inicial no celular">
+  &nbsp;&nbsp;
+  <img src="docs/img/celular-grupos.png" height="480" alt="Grupo de estudo no celular">
+  &nbsp;&nbsp;
+  <img src="docs/img/stories.png" height="480" alt="Imagem de convite com QR code para Stories">
+  <br>
+  <sub>A tela se ajusta ao tamanho da janela e também abre no navegador do celular, na mesma rede Wi-Fi. À direita, a imagem de convite para Stories e TikTok.</sub>
+</p>
 
-## De onde vêm as provas
+## Como instalar no Windows
 
-| Fonte | Como funciona |
-|---|---|
-| Site oficial da FGV | lista de concursos e PDFs direto do site; baixa e importa sozinho |
-| Página de qualquer banca | cole o link da página do concurso na aba Provas; o Aprova lê os PDFs que estiverem nela |
-| Internet | busca por PDFs de prova e gabarito em outros sites |
-| [PCI Concursos](https://www.pciconcursos.com.br) | acervo de provas anteriores e lista de concursos abertos |
+1. **[Baixe o Aprova](https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip)** e extraia o .zip numa pasta (ex.: `Documentos\Aprova`).
+2. Dê dois cliques em **`Abrir Aprova.bat`**. Na primeira vez abre a janela *Preparando o Aprova*: se faltar o Python, ele é instalado, e depois vêm as bibliotecas do app (de 5 a 10 minutos, com internet).
+3. Pronto: o Aprova abre sozinho e cria o atalho **Aprova** na área de trabalho. Dali em diante, abra por ele.
 
-Cebraspe e Vunesp montam as páginas com JavaScript, então o link colado nem sempre traz os PDFs; nesse caso use a busca na internet ou o PCI. O site da FCC não permite leitura automática e fica de fora.
+> [!TIP]
+> Recebeu um **convite de grupo**? Abra o link no computador e clique em **Entrar no grupo**. Se o Aprova ainda não estiver instalado, a página leva ao download e o convite aparece sozinho quando o app abrir.
 
-### PCI Concursos
+No macOS e no Linux: `./iniciar.sh` (ou `./iniciar.sh --web` para abrir no navegador).
 
-Hoje o PCI pede uma verificação de segurança antes de liberar os PDFs. Por isso o Aprova:
+## Contas: aluno e administrador
 
-1. abre a página da prova no seu navegador;
-2. você confirma a verificação e clica em “Baixar” na prova e no gabarito;
-3. o Aprova encontra os arquivos na pasta **Downloads** e importa sozinho.
+| | Sem conta | Aluno | Administrador |
+|---|:---:|:---:|:---:|
+| Provas, simulados, metas, revisão e painel | ✅ | ✅ | ✅ |
+| Grupos, planos de estudo e ranking | | ✅ | ✅ |
+| Comunicados na tela Início | | ✅ | ✅ |
+| Usuários, bloqueio, grupos e comunicados (tela **Admin**) | | | ✅ |
 
-Se a pasta de downloads for outra, ajuste em **Ajustes → Geral**. Também dá para usar **Estudar → Importar PDF** com qualquer prova que você já tenha.
+- A **primeira conta criada** no servidor vira administrador sozinha. Depois disso, só um administrador transforma outra conta em administrador.
+- Quem chega por um convite pode entrar com uma **conta rápida** (só o apelido). Ela fica naquele computador até a pessoa colocar e-mail e senha em *Minha conta → Proteger minha conta*. Conta rápida nunca vira administrador.
+- Cada conta tem os **próprios estudos**, então duas pessoas podem usar o mesmo computador.
 
-## Atalhos durante a prova (computador)
+## Privacidade
 
-| Tecla | Ação |
-|---|---|
-| A, B, C, D, E | responder |
-| ← → | questão anterior / próxima |
-| M | marcar para revisar |
-| H | abrir a ajuda |
+- Seus estudos (provas, respostas, metas, tempo) ficam **no seu computador**, na pasta `.aprova` da sua pasta de usuário.
+- No servidor vão só o **apelido**, o concurso, os **números da semana** e o que você escreve nos grupos. O e-mail nunca aparece para ninguém e a senha não fica no computador.
+- As regras de acesso ficam no próprio servidor ([`supabase/ranking.sql`](supabase/ranking.sql)): só quem está no grupo lê as mensagens dele, e um aluno não consegue se promover, mesmo mexendo no app.
+- Em *Minha conta* dá para **apagar a conta** e todos os dados do servidor.
 
-## Contas: login, aluno e administrador
+## Guia completo
 
-Ao abrir, o Aprova mostra a tela **Entrar / Criar conta**:
+O passo a passo de cada função (busca de provas, encher a biblioteca, montar simulado, lembretes, ranking, grupos, convite, chave do Claude, uso no celular e limites) está no **[Guia completo](docs/MANUAL.md)**.
 
-- **Entrar** ou **Criar conta** (e-mail, senha e apelido). Na próxima vez ele entra sozinho.
-- **Usar sem conta**: estuda normalmente no computador, sem ranking. Dá para criar a conta depois em **Ajustes → Conta**.
-- **Esqueci a senha**: o Supabase manda um e-mail para trocar a senha.
+<details>
+<summary><b>Para quem mantém o app: servidor grátis no Supabase</b></summary>
 
-Cada conta tem os **próprios estudos** (provas, respostas, metas, tempo), então duas pessoas podem usar o mesmo computador. Na primeira vez que alguém entra, se já existirem estudos feitos sem conta, o app pergunta se quer **levar esses estudos para a conta**.
+<br>
 
-Tipos de conta:
+Contas, ranking, grupos e convites usam um projeto do [Supabase](https://supabase.com) no plano grátis. O endereço e a chave pública do servidor oficial vêm em [`aprova/servidor.json`](aprova/servidor.json), então quem baixa o app já entra nele. Para usar um servidor seu:
 
-| | Aluno | Administrador |
-|---|---|---|
-| Estudar, provas, painel, ranking | sim | sim |
-| Ver comunicados na tela Início | sim | sim |
-| Tela **Admin** (no menu) | — | sim |
+1. Crie um projeto **Free** no Supabase.
+2. Em **SQL Editor**, cole todo o [`supabase/ranking.sql`](supabase/ranking.sql) e clique em **Run**. Pode rodar de novo a cada versão: ele acrescenta o que falta sem apagar nada.
+3. Em **Authentication → Sign In / Providers**: desligue **Confirm email** e ligue **Allow anonymous sign-ins** e **Allow manual linking** (conta rápida dos convites).
+4. No botão **Connect** (ou **Settings → API Keys**), copie a **Project URL** e a chave **publishable**.
+5. No Aprova, na tela de entrada: **Ligar as contas online**, cole os dois e salve (cria o `ranking.json`, que vale mais que o `servidor.json`).
+6. Crie a sua conta primeiro: ela vira a de administrador.
 
-A **primeira pessoa que cria conta** no servidor vira administrador sozinha. Depois disso, só um administrador transforma outra conta em administrador. Na tela **Admin**:
+Nunca coloque no app a chave **secret** / **service_role** (o Aprova recusa).
 
-- *Visão geral*: contas, quem estudou na semana, horas e questões somadas, quem mais estudou e os concursos mais estudados;
-- *Usuários*: procurar por apelido ou concurso, **tornar administrador**, voltar para aluno, **bloquear** (some do ranking) e desbloquear;
-- *Grupos*: ver e apagar grupos;
-- *Comunicados*: escrever um aviso que aparece na tela Início de todos (ex.: “Simulado coletivo no sábado”), ligar/desligar e apagar.
+A página do convite e a página do app ficam em [`docs/`](docs) e são publicadas pelo **GitHub Pages** (branch `main`, pasta `/docs`).
 
-As regras ficam no próprio servidor (`supabase/ranking.sql`): um aluno não consegue se promover nem se desbloquear, mesmo mexendo no app.
+</details>
 
-Sem o servidor configurado, a tela de entrada mostra **Começar a estudar** (o app funciona todo, só sem contas e ranking).
+<details>
+<summary><b>Para desenvolver</b></summary>
 
-## Grupos de estudo e fórum
-
-No menu **Grupos**:
-
-- **Criar grupo** (quem cria vira **moderador**) e **Convidar**: o botão abre o link do grupo para mandar pelo WhatsApp, Telegram, e-mail, Instagram ou TikTok (veja abaixo). Também dá para **Entrar com código**.
-- **Conversa**: escreva para a turma e escolha o tipo: *Conversa*, *Dúvida* ou *Material* (links viram o botão “Abrir link”). Cada mensagem tem **Útil** e **Responder**.
-- **Planos de estudo**: em **Compartilhar um plano**, coloque as horas por semana de cada disciplina, os dias de estudo e como usar. Quem gostar toca em **Usar este plano**: a meta semanal e os dias passam a ser os do plano, e a tela **Início** mostra quanto você já estudou de cada disciplina na semana.
-- **Ranking** do grupo (horas da semana) e **Membros**.
-- **Moderação**: quem criou o grupo (e o administrador) **fixa** recados no topo e **apaga** mensagens. Cada pessoa apaga as próprias. Conta bloqueada pelo admin não escreve.
-- Mensagens novas aparecem num aviso na tela **Início** (“Novidades nos seus grupos”).
-- O administrador vê o fórum de qualquer grupo em **Admin → Grupos → Ver fórum**, para moderar.
-
-### Convite por link
-
-Em **Grupos → Convidar**:
-
-- **WhatsApp**, **Telegram** e **E-mail** abrem a mensagem pronta com o link.
-- **Instagram** e **TikTok** não deixam compartilhar direto do computador. O Aprova salva na pasta Downloads uma **imagem 1080×1920 com QR code** para os Stories e o TikTok, e copia o link para você colar no adesivo de link, na bio ou no direct.
-- **Copiar link** e **Copiar mensagem pronta** servem para qualquer outro lugar.
-
-O link é assim: `https://natanaelsantz.github.io/aprova/convite/?g=CODIGO`. Quem abre:
-
-1. Vê o nome do grupo e quantas pessoas estudam nele.
-2. Clica em **Entrar no grupo**. Se já tem o Aprova, o app abre sozinho (endereço `aprova://`, registrado no Windows quando o Aprova abre pela primeira vez).
-3. Se tem conta, já entra no grupo. Se não tem, só confere o apelido sugerido e toca em **Entrar no grupo** (conta rápida, sem e-mail e senha).
-4. Se ainda não tem o Aprova: baixa pela própria página. O link fica copiado e, quando o app abre, ele encontra o convite e oferece entrar no grupo.
-
-No celular, a página explica que o Aprova é para computador e oferece copiar o link ou mandar para si mesmo no WhatsApp.
-
-A **conta rápida** fica só naquele computador. Para entrar de outro lugar, a pessoa coloca e-mail e senha em **Minha conta → Proteger minha conta**.
-
-No celular, a barra de baixo mostra Início, Concursos, Provas, Estudar, Grupos e Painel; **Ajustes** (e **Administração**, para o admin) ficam no menu do seu avatar, na tela Início.
-
-## Ranking (comparar com outras pessoas)
-
-O ranking e as contas precisam de um servidor na internet. Usamos o **Supabase**, que tem plano grátis. Quem cuida do app configura **uma vez** (uns 10 minutos):
-
-1. Crie uma conta em [supabase.com](https://supabase.com) e um projeto novo no plano **Free**.
-2. No projeto, abra **SQL Editor**, cole todo o arquivo `supabase/ranking.sql` (está na pasta do app) e clique em **Run**.
-3. Em **Authentication → Sign In / Providers**: desligue **Confirm email** (as pessoas entram sem confirmar o e-mail) e ligue **Allow anonymous sign-ins** e **Allow manual linking** (conta rápida dos convites e "Proteger minha conta").
-4. No botão **Connect** do projeto (ou em **Settings → API Keys**), copie a **Project URL** e a chave pública (**publishable** ou **anon**).
-5. No Aprova: na tela de entrada, **Ligar as contas online** (ou **Ajustes → Ranking → Servidor do ranking**), cole as duas e salve.
-6. Crie a sua conta primeiro: a primeira conta vira **administrador**.
-
-Se você já tinha rodado o `ranking.sql` de uma versão anterior, rode o arquivo novo de novo: ele acrescenta o que falta (papéis, comunicados, fórum dos grupos) sem apagar nada.
-
-O passo 5 cria o arquivo `ranking.json` na pasta do app. O servidor oficial do Aprova vem em `aprova/servidor.json` (endereço e chave pública), então quem baixa o app já entra nele; o `ranking.json`, quando existe, vale mais.
-
-Nunca coloque no app a chave **service_role** / **secret** (o Aprova recusa).
-
-Como funciona:
-- No ranking aparecem só o **apelido** e os **números da semana**. O e-mail fica escondido e a senha não fica no computador.
-- Os números são enviados pelo próprio app de cada pessoa (ao abrir, a cada 15 minutos e ao terminar uma prova). O servidor recusa valores absurdos, mas o ranking é de confiança, entre quem estuda junto.
-- Em **Minha conta** dá para mudar o apelido, sair ou **apagar a conta** e todos os dados do ranking.
-- Plano grátis do Supabase: 500 MB de banco e até 50 mil usuários por mês; o projeto pausa depois de 7 dias sem nenhum uso (reative no painel do Supabase).
-
-## Chave do Claude (opcional)
-
-Em **Ajustes → Explicações com IA**, cole uma chave da API do Claude (crie em [platform.claude.com](https://platform.claude.com)). Com ela:
-
-- a ajuda explica cada questão com fontes;
-- provas em PDF difíceis de ler são organizadas pela IA na importação.
-
-O uso da API é cobrado pela Anthropic. O modelo padrão é o Haiku, o mais barato.
-
-## Onde ficam seus dados
-
-Tudo fica no seu computador, na pasta `.aprova` dentro da sua pasta de usuário (`C:\Users\<você>\.aprova`): provas importadas, respostas, favoritos e ajustes. Os estudos de cada conta ficam em `.aprova\contas\<conta>`; os de quem usa sem conta, direto em `.aprova`. No servidor vão só o apelido, o concurso e os números da semana.
-
-## Limites
-
-- A leitura automática das questões depende do layout do PDF. Quando falha, a prova abre no modo cartão-resposta com as páginas originais. Figuras e tabelas aparecem pelo botão “Ver na prova original”.
-- Provas com vários tipos de caderno podem ter gabaritos diferentes. Confira em **⋮ → Gabarito**.
-- Se o PCI Concursos mudar o layout do site, a leitura das listas pode precisar de ajuste no arquivo `aprova/pci.py`.
-- A leitura em voz alta funciona no computador (vozes do Windows). No celular, use o recurso de leitura do próprio aparelho.
-- Os alarmes tocam com o Aprova aberto no computador (pode ficar minimizado).
-
-## Para desenvolver
+<br>
 
 ```
 aprova/
-  pci.py          leitura do PCI Concursos (concursos, editais, provas)
+  ui/             telas em Flet (início, provas, estudar, grupos, painel, admin, login…)
+  db.py           banco SQLite local de cada conta
+  ranking.py      cliente do servidor (login, papéis, ranking, grupos, fórum, convites)
+  convite.py      link de convite, endereço aprova://, imagem com QR code
   fontes.py       busca central: sites das bancas, internet e PCI
-  coleta.py       "Encher a biblioteca": baixa as provas de um concurso em lote
-  analise.py      números do Painel (tempo, dias da semana, desempenho)
-  sessoes.py      revisão espaçada, treino e "próximo estudo"
-  livros.py       indicações de livros e material oficial
-  ranking.py      cliente do servidor (Supabase: login, papéis, números da semana, grupos, admin)
-supabase/         ranking.sql: tabelas, papéis e regras de acesso do servidor
-  pdfprova.py     texto do PDF, questões, gabarito, imagens das páginas
-  importador.py   importa PDFs para o banco
-  ajuda.py        pesquisa na internet + dica
+  coleta.py       "Encher a biblioteca": provas de um concurso em lote
+  pdfprova.py     texto, questões e gabarito dos PDFs
+  analise.py      números do Painel e da meta da semana
+  sessoes.py      revisão espaçada e "próximo estudo"
   ia.py           recursos opcionais com a API do Claude
-  db.py           banco SQLite local
-  voz.py          leitura em voz alta
-  convite.py      link de convite, endereço aprova://, imagem com QR code para Stories
-  servidor.json   servidor padrão (endereço e chave pública do Supabase)
-  ui/             telas (Flet); login.py = entrada e conta, admin.py = administrador, grupos.py = grupos e fórum
-docs/             site no GitHub Pages: página inicial e página do convite (docs/convite)
-iniciar.pyw       abre o app sem console; instala o que faltar com uma janela de progresso
-ferramentas/      ajudantes do instalador (achar e instalar o Python)
-tests/            testes com páginas e PDFs de exemplo
+supabase/         ranking.sql: tabelas, papéis e regras de acesso do servidor
+docs/             site no GitHub Pages (página do app e do convite) e o guia completo
+iniciar.pyw       abre o app sem console e instala o que faltar
+tests/            testes, servidor falso do Supabase e capturas de tela
 ```
 
-Rodar os testes: `python -m pytest -q tests`
+```bash
+python -m pip install -r requirements.txt
+python main.py                      # abre o app
+python -m pytest -q tests           # testes (sem internet)
+python tests/servidor_falso.py 8788 # servidor falso com 6 pessoas e um grupo de exemplo
+```
 
-Testar as regras do servidor num PostgreSQL de verdade (opcional): `APROVA_PG="host=... port=... user=postgres dbname=postgres" python -m pytest tests/test_sql_supabase.py` (o banco é recriado do zero; use um só para testes).
+As regras do servidor também podem ser testadas num PostgreSQL de verdade:
+`APROVA_PG="host=… port=… user=postgres dbname=postgres" python -m pytest tests/test_sql_supabase.py` (o banco é recriado do zero).
 
-Testar contas sem internet: `python tests/servidor_falso.py 8788` sobe um servidor falso com 6 pessoas e o grupo `DATAPREV-7A2F` (com conversa e um plano de estudo de exemplo); aponte o app para `http://127.0.0.1:8788` com qualquer chave.
+</details>
 
-Versões: o projeto usa git, com uma etiqueta por versão (`git tag` lista; `git log --oneline` mostra o histórico).
+## Versões
+
+| Versão | O que chegou |
+|---|---|
+| **1.8.0** | Convite por link (WhatsApp, Instagram, TikTok), página do convite, entrada sem cadastro |
+| 1.7.0 | Grupos de estudo com fórum, planos de estudo compartilhados e moderação |
+| 1.6.0 | Tela de login, conta de aluno e de administrador, comunicados, layout em 3 tamanhos |
+| 1.5.1 | Base: provas, simulados, metas, revisão, painel e ranking |
+
+Cada versão tem a sua etiqueta no Git (`git tag`).
+
+---
+
+<p align="center">
+  Feito por <a href="https://github.com/NatanaelSantz">Natanael Santos</a>, para quem estuda para concursos públicos no Brasil.<br>
+  <sub>As provas e os gabaritos pertencem às bancas organizadoras; o Aprova só ajuda a encontrá-los e a estudar por eles.</sub>
+</p>

@@ -29,6 +29,7 @@
   .bt { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 700; padding: 15px 22px; border-radius: 12px; background: #fff; color: #2340A8; }
   .nota { font-size: 14px; color: #D8DFF7; margin-top: 12px; }
   main { padding: 40px 16px; }
+  .tela { display: block; width: 100%; height: auto; max-width: 920px; margin: -36px auto 32px; border-radius: 14px; border: 1px solid var(--borda); box-shadow: 0 18px 50px rgba(20, 33, 61, .18); }
   .grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
   .cartao { background: var(--sup); border: 1px solid var(--borda); border-radius: 16px; padding: 22px; }
   .cartao h2 { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 20px; margin: 0 0 6px; }
@@ -53,6 +54,7 @@
 </header>
 <main>
   <div class="caixa">
+    <img class="tela" src="img/inicio.png" alt="Tela inicial do Aprova: meta da semana, horas por dia e próximo estudo" width="1440" height="900">
     <div class="grade">
       <div class="cartao"><h2>Provas reais</h2><p>Busca nas bancas e importa as provas com o gabarito oficial, prontas para resolver.</p></div>
       <div class="cartao"><h2>Onde focar</h2><p>Mostra onde você está bem e onde precisa melhorar, por disciplina.</p></div>
@@ -69,6 +71,6 @@
     </div>
   </div>
 </main>
-<footer>Aprova · <a href="https://github.com/NatanaelSantz/aprova">código no GitHub</a></footer>
+<footer>Aprova · <a href="https://github.com/NatanaelSantz/aprova">código e guia completo no GitHub</a></footer>
 </body>
 </html>
