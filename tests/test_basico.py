@@ -1084,6 +1084,8 @@ def test_anexos_figurinhas_e_gifs_no_grupo(tmp_path, monkeypatch):
         assert pedidos[0][0].endswith("/gifs/search") and pedidos[0][1]["q"] == "estudar" and pedidos[0][1]["rating"] == "pg"
         aluno.buscar_gifs("", figurinhas=True)
         assert pedidos[1][0].endswith("/stickers/trending")
+        # a chave grátis tem 100 buscas por hora para o app todo: a mesma busca não vai de novo ao GIPHY
+        assert aluno.buscar_gifs("Estudar ") == achados and len(pedidos) == 2
         _json.dumps(achados)  # o anexo vai como JSON para o servidor
 
         # servidor antigo (sem o SQL da 1.10): o fórum continua funcionando, e o envio avisa o que fazer
@@ -1105,3 +1107,147 @@ def test_figurinhas_tem_desenho():
         assert legenda
         assert re.fullmatch(r"[a-z0-9-]{1,40}", ident)  # o mesmo formato que o servidor aceita
     assert figurinhas.caminho("nao-existe") is None
+
+
+def _figurinha_png(cor, lado=800, animada=False):
+    import io
+
+    from PIL import Image
+
+    saida = io.BytesIO()
+    if animada:
+        quadros = [Image.new("RGBA", (lado, lado), (*cor, 255)), Image.new("RGBA", (lado, lado), (0, 0, 0, 255))]
+        quadros[0].save(saida, "WEBP", save_all=True, append_images=quadros[1:], duration=100, loop=0)
+    else:
+        Image.new("RGBA", (lado, lado), (*cor, 200)).save(saida, "PNG")
+    return saida.getvalue()
+
+
+def test_minhas_figurinhas(tmp_path, monkeypatch):
+    import io
+    import zipfile
+
+    from PIL import Image
+
+    from aprova import minhas_figurinhas as mf
+
+    col = mf.Colecao(tmp_path / "conta")
+    assert col.lista() == []
+
+    # imagem grande vira WebP de até 512 px, com transparência
+    item, nova = col.adicionar(_figurinha_png((200, 30, 30)), "minha.png")
+    assert nova and item["arquivo"].endswith(".webp") and max(item["largura"], item["altura"]) == 512
+    im = Image.open(col.caminho(item))
+    assert im.format == "WEBP" and im.mode == "RGBA"
+    # a mesma de novo não duplica
+    assert col.adicionar(_figurinha_png((200, 30, 30)), "de novo")[1] is False
+    # animada fica como veio (WhatsApp manda WebP animado)
+    animada = _figurinha_png((30, 200, 30), 512, animada=True)
+    item_an, _ = col.adicionar(animada, "STK-20260101-WA0001.webp")
+    assert item_an["animada"] and col.caminho(item_an).read_bytes() == animada
+
+    # arquivos soltos, pacote .wastickers e conversa exportada do iPhone (.zip): só as .webp de dentro
+    solta = tmp_path / "solta.webp"
+    Image.new("RGBA", (512, 512), (10, 10, 200, 255)).save(solta, "WEBP")
+    pacote = tmp_path / "estudos.wastickers"
+    with zipfile.ZipFile(pacote, "w") as z:
+        for i in range(3):
+            b = io.BytesIO()
+            Image.new("RGBA", (512, 512), (i * 60, 120, 90, 255)).save(b, "WEBP")
+            z.writestr(f"{i}.webp", b.getvalue())
+        z.writestr("tray.png", _figurinha_png((1, 2, 3), 96))
+        z.writestr("author.txt", "alguém")
+    conversa = tmp_path / "Conversa do WhatsApp com Eu.zip"
+    with zipfile.ZipFile(conversa, "w") as z:
+        z.writestr("_chat.txt", "[01/01/26] Eu: <anexado: STK-1.webp>")
+        z.writestr("STK-1.webp", solta.read_bytes())  # a mesma da solta: conta como repetida
+        z.writestr("IMG-1.jpg", b"foto que nao e figurinha")
+    texto = tmp_path / "lista.txt"
+    texto.write_text("nada")
+    quebrada = tmp_path / "quebrada.png"
+    quebrada.write_bytes(b"isso nao e png")
+    res = col.importar([solta, pacote, conversa, texto, quebrada, tmp_path / "zip-quebrado.zip"])
+    assert res["novas"] == 4 and res["repetidas"] == 1, res
+    assert len(res["erros"]) == 3  # o .txt, a imagem quebrada e o zip que não abre
+    assert "4 figurinhas novas" in mf.resumo(res) and "1 que você já tinha" in mf.resumo(res)
+    assert len(col) == 6
+
+    # a usada por último aparece primeiro; apagar tira o arquivo
+    ultima = col.lista()[-1]
+    col.usada(ultima["id"])
+    assert col.lista()[0]["id"] == ultima["id"]
+    col.apagar(ultima["id"])
+    assert len(col) == 5 and not col.caminho(ultima).exists()
+    assert col.dados(ultima["id"]) is None
+
+    # limite por conta
+    monkeypatch.setattr(mf, "LIMITE", 5)
+    res = col.importar([pacote])
+    assert res["novas"] == 0
+    with pytest.raises(mf.ErroFigurinha, match="apague"):
+        col.adicionar(_figurinha_png((9, 9, 9)), "mais uma")
+    assert mf.resumo({"novas": 0, "repetidas": 0, "erros": []}).startswith("Nenhuma")
+
+    # cada conta tem as suas
+    assert mf.Colecao(tmp_path / "outra-conta").lista() == []
+
+
+def test_figurinha_propria_vai_para_o_grupo(tmp_path, monkeypatch):
+    sys.path.insert(0, str(Path(__file__).parent))
+    from servidor_falso import CHAVE, ServidorFalso
+
+    from aprova import config, minhas_figurinhas as mf, ranking
+
+    monkeypatch.setattr(config, "CACHE_DIR", tmp_path / "cache")
+    srv = ServidorFalso().iniciar()
+    try:
+        cfg = {"url": srv.url, "chave": CHAVE}
+        dono = ranking.Ranking(config.Ajustes(tmp_path / "dono.json"), cfg)
+        dono.criar_conta("dono@exemplo.com", "segredo1", "Camila")
+        aluno = ranking.Ranking(config.Ajustes(tmp_path / "aluno.json"), cfg)
+        aluno.criar_conta("aluno@exemplo.com", "segredo1", "Joana")
+        cod = dono.criar_grupo("Turma")
+        aluno.entrar_grupo(cod)
+
+        col = mf.Colecao(tmp_path / "aluno")
+        item, _ = col.adicionar(_figurinha_png((250, 200, 40), 512, animada=True), "STK.webp")
+        dados = col.dados(item["id"])[1]
+        anexo = aluno.enviar_figurinha(cod, dados, item)
+        assert anexo["figurinha"] is True and anexo["tipo"] == "imagem" and anexo["mime"] == "image/webp"
+        assert anexo["caminho"].startswith(f"{cod}/{aluno.usuario_id}/") and anexo["largura"] == 512
+        aluno.forum_publicar(cod, "", anexos=[anexo])
+        recebida = dono.forum(cod)[0]["anexos"][0]
+        assert recebida["figurinha"] is True
+        monkeypatch.setattr(config, "CACHE_DIR", tmp_path / "cache-dono")
+        baixada = dono.baixar_anexo(recebida)
+        assert baixada == dados  # animada chega igual
+        # quem recebe guarda nas dele
+        assert mf.Colecao(tmp_path / "dono").adicionar(baixada, "grupo")[0]["animada"]
+        # GIF de verdade também vale
+        item_gif, _ = col.adicionar(_gif_animado(), "pulando.gif")
+        assert aluno.enviar_figurinha(cod, col.dados(item_gif["id"])[1], item_gif)["tipo"] == "gif"
+    finally:
+        srv.parar()
+
+
+def _gif_animado() -> bytes:
+    import io
+
+    from PIL import Image
+
+    saida = io.BytesIO()
+    q = [Image.new("RGB", (200, 200), (i * 90, 40, 200 - i * 60)) for i in range(3)]
+    q[0].save(saida, "GIF", save_all=True, append_images=q[1:], duration=80, loop=0)
+    return saida.getvalue()
+
+
+def test_mensagem_de_servidor_sem_sql_novo():
+    from aprova import ranking
+
+    class R:
+        status_code = 404
+
+        def json(self):
+            return {"code": "PGRST205", "message": "Could not find the table 'public.config' in the schema cache"}
+
+    assert "SQL novo" in ranking._mensagem(R())

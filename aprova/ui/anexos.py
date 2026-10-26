@@ -10,7 +10,7 @@ from pathlib import Path
 
 import flet as ft
 
-from .. import figurinhas, ranking as rk
+from .. import figurinhas, minhas_figurinhas as mf, ranking as rk
 from . import comp
 from .tema import FONTE_TITULO
 
@@ -55,6 +55,90 @@ async def escolher_arquivos(app) -> list[Path]:
     return caminhos[: rk.MAX_ANEXOS]
 
 
+def colecao(app) -> mf.Colecao:
+    """As figurinhas de quem está usando o app (cada conta tem as suas)."""
+    return mf.Colecao(app.pasta_conta)
+
+
+async def conteudo_rapido(app, codigo: str, tipo: str, valor) -> dict:
+    """O que vai na mensagem quando alguém escolhe uma figurinha ou GIF (para forum_publicar/forum_responder)."""
+    if tipo == "figurinha":
+        return {"figurinha": valor}
+    if tipo == "minha":
+        achado = colecao(app).dados(valor)
+        if achado is None:
+            raise rk.ErroRanking("Essa figurinha não está mais na sua coleção.")
+        item, dados = achado
+        anexo = await app.em_segundo_plano(app.ranking.enviar_figurinha, codigo, dados, item)
+        colecao(app).usada(valor)
+        return {"anexos": [anexo]}
+    return {"anexos": [valor]}
+
+
+async def escolher_figurinhas(app) -> list[Path]:
+    """Seletor para importar figurinhas: imagens soltas ou pacotes do WhatsApp (.wastickers / .zip)."""
+    picker = getattr(app, "_picker", None)
+    if picker is None:
+        picker = ft.FilePicker()
+        app._picker = picker
+    arquivos = await picker.pick_files(
+        dialog_title="Escolha figurinhas (.webp, .png, .gif) ou um pacote do WhatsApp (.wastickers, .zip)",
+        file_type=ft.FilePickerFileType.CUSTOM,
+        allowed_extensions=list(mf.TIPOS) + list(mf.PACOTES),
+        allow_multiple=True,
+        with_data=app.modo_web,
+    )
+    caminhos: list[Path] = []
+    for f in arquivos or []:
+        if f.path:
+            caminhos.append(Path(f.path))
+        elif f.bytes:
+            destino = Path(tempfile.mkdtemp(prefix="aprova_fig_")) / (f.name or "figurinha.webp")
+            destino.write_bytes(f.bytes)
+            caminhos.append(destino)
+    return caminhos
+
+
+def _caminho_colado(texto: str) -> Path | None:
+    from urllib.parse import unquote, urlparse
+    from urllib.request import url2pathname
+
+    texto = (texto or "").strip()
+    if texto.startswith("file:"):
+        texto = url2pathname(unquote(urlparse(texto).path))
+    try:
+        p = Path(texto)
+        return p if p.is_file() else None
+    except (OSError, ValueError):
+        return None
+
+
+async def colar_figurinhas(app) -> dict | None:
+    """Pega do Ctrl+C: arquivos copiados no Explorador ou uma imagem copiada (WhatsApp Web: Copiar imagem)."""
+    cb = ft.Clipboard()
+    caminhos: list[Path] = []
+    try:
+        caminhos = [c for c in (_caminho_colado(t) for t in (await cb.get_files()) or []) if c]
+    except Exception:  # noqa: BLE001 - plataforma sem arquivos na área de transferência
+        caminhos = []
+    if caminhos:
+        return await app.em_segundo_plano(colecao(app).importar, caminhos)
+    try:
+        imagem = await cb.get_image()
+    except Exception:  # noqa: BLE001
+        imagem = None
+    if not imagem:
+        return None
+    res = {"novas": 0, "repetidas": 0, "erros": []}
+    try:
+        _, nova = await app.em_segundo_plano(colecao(app).adicionar, imagem, "colada")
+    except mf.ErroFigurinha as ex:
+        res["erros"].append(f"imagem colada: {ex}")
+    else:
+        res["novas" if nova else "repetidas"] += 1
+    return res
+
+
 # ---------------------------------------------------------------- mostrar nas mensagens
 
 class VisorAnexos:
@@ -78,9 +162,12 @@ class VisorAnexos:
     def anexos(self, anexos: list[dict], compacto: bool = False) -> ft.Control | None:
         if not anexos:
             return None
-        visuais = [a for a in anexos if a.get("tipo") in ("imagem", "gif")]
+        adesivos = [a for a in anexos if a.get("figurinha") and a.get("caminho")]
+        visuais = [a for a in anexos if a.get("tipo") in ("imagem", "gif") and a not in adesivos]
         arquivos = [a for a in anexos if a.get("tipo") == "arquivo"]
         filhos: list[ft.Control] = []
+        if adesivos:
+            filhos.append(ft.Row([self._adesivo(a, compacto) for a in adesivos], wrap=True, spacing=8))
         if visuais:
             sozinho = len(visuais) == 1
             filhos.append(ft.Row([self._visual(a, sozinho, compacto) for a in visuais], wrap=True, spacing=8, run_spacing=8))
@@ -125,6 +212,52 @@ class VisorAnexos:
                 self._baixando.add(chave)
                 self.app.page.run_task(self._carregar, a, caixa, w, h, ajuste)
         return caixa
+
+    def _adesivo(self, a: dict, compacto: bool) -> ft.Control:
+        """Figurinha de alguém (das "minhas figurinhas" dele): sem moldura, como no WhatsApp."""
+        lado = 110 if compacto else 150
+        caixa = ft.Container(width=lado, height=lado, alignment=ft.Alignment.CENTER, on_click=lambda e, a=a: self.abrir_adesivo(a), tooltip="Figurinha")
+        chave = a.get("caminho") or ""
+        if chave in self._bytes:
+            caixa.content = ft.Image(src=self._bytes[chave], width=lado, height=lado, fit=ft.BoxFit.CONTAIN, gapless_playback=True)
+        else:
+            caixa.content = ft.ProgressRing(width=22, height=22, stroke_width=2.4, color=self.app.c["tinta"])
+            if chave not in self._baixando:
+                self._baixando.add(chave)
+                self.app.page.run_task(self._carregar, a, caixa, lado, lado, ft.BoxFit.CONTAIN)
+        return caixa
+
+    def abrir_adesivo(self, a: dict):
+        """Ver a figurinha grande e guardar nas suas."""
+        app, c = self.app, self.app.c
+        dados = self._bytes.get(a.get("caminho") or "")
+        if dados is None:
+            return
+        import hashlib
+
+        ja_tenho = any(i["id"] == hashlib.sha1(dados).hexdigest()[:16] for i in colecao(app).lista())
+        guardar: ft.Control = (
+            ft.Row([ft.Icon(ft.Icons.FAVORITE, color=c["tinta"], size=18), comp.apagado("Já está nas suas figurinhas", c, 13)], spacing=6, tight=True)
+            if ja_tenho
+            else ft.FilledButton("Guardar nas minhas figurinhas", icon=ft.Icons.FAVORITE_BORDER, on_click=lambda e: self.guardar(dados, fechar=True))
+        )
+        app.page.show_dialog(
+            ft.AlertDialog(
+                content=ft.Container(ft.Image(src=dados, width=240, height=240, fit=ft.BoxFit.CONTAIN), width=260, height=250, alignment=ft.Alignment.CENTER),
+                actions=[ft.TextButton("Fechar", on_click=lambda e: app.page.pop_dialog()), guardar],
+                actions_alignment=ft.MainAxisAlignment.END,
+            )
+        )
+
+    def guardar(self, dados: bytes, fechar: bool = False):
+        try:
+            _, nova = colecao(self.app).adicionar(dados, "grupo")
+        except mf.ErroFigurinha as ex:
+            self.app.msg(f"Não deu para guardar: {ex}.")
+            return
+        if fechar:
+            self.app.page.pop_dialog()
+        self.app.msg("Guardada nas suas figurinhas (🙂 → Minhas)." if nova else "Você já tinha essa figurinha.")
 
     async def _carregar(self, a: dict, caixa: ft.Container, w: int, h: int, ajuste):
         chave = a.get("caminho") or ""
@@ -211,6 +344,8 @@ class VisorAnexos:
         acoes = [ft.TextButton("Fechar", on_click=lambda e: app.page.pop_dialog())]
         if a.get("caminho"):
             acoes.insert(0, ft.TextButton("Salvar", icon=ft.Icons.DOWNLOAD, on_click=lambda e: app.page.run_task(self.salvar_arquivo, a)))
+            if a["caminho"] in self._bytes:
+                acoes.insert(0, ft.TextButton("Virar figurinha", icon=ft.Icons.EMOJI_EMOTIONS_OUTLINED, on_click=lambda e: self.guardar(self._bytes[a["caminho"]], fechar=True)))
         app.page.show_dialog(
             ft.AlertDialog(
                 title=ft.Text(a.get("nome") or "Imagem", size=16, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
@@ -247,19 +382,35 @@ def _abrir_no_sistema(app, caminho: Path) -> None:
 
 # ---------------------------------------------------------------- figurinhas e GIFs
 
-def dialogo_figurinhas_gifs(app, ao_escolher) -> None:
-    """Escolher uma figurinha do Aprova, um GIF ou uma figurinha animada do GIPHY.
+COMO_TRAZER = [
+    ("No computador (WhatsApp Web)", "Clique com o botão direito na figurinha → Copiar imagem. Aqui, aperte Ctrl+V ou o botão Colar."),
+    ("Do celular Android", "As figurinhas ficam na pasta WhatsApp › Media › WhatsApp Stickers (no Android 11 ou mais novo, dentro de Android › media › com.whatsapp). Passe os arquivos .webp para o PC pelo cabo e clique em Importar."),
+    ("Do iPhone", "Mande as figurinhas para uma conversa sua, use Exportar conversa → Anexar mídia e traga o .zip para o PC. O Importar pega as figurinhas de dentro."),
+    ("Pacotes", "Arquivos .wastickers (de apps de figurinhas) também entram pelo Importar."),
+]
 
-    ao_escolher(tipo, valor): tipo "figurinha" (valor = id) ou "gif" (valor = anexo)."""
+
+def dialogo_figurinhas_gifs(app, ao_escolher) -> None:
+    """Escolher uma figurinha (do Aprova ou das suas), um GIF ou uma figurinha animada do GIPHY.
+
+    ao_escolher(tipo, valor): tipo "figurinha" (valor = id do Aprova), "minha" (valor = id da coleção)
+    ou "gif" (valor = anexo)."""
     c = app.c
-    estado = {"aba": app.aj.get("ultima_aba_figurinhas") or "aprova", "termo": ""}
+    aba_salva = app.aj.get("ultima_aba_figurinhas") or "aprova"
+    estado = {"aba": aba_salva if aba_salva in ("aprova", "minhas", "gifs", "animadas") else "aprova", "apagando": False, "ajuda": False}
     grade = ft.GridView(max_extent=118, spacing=8, run_spacing=8, height=330, expand=False)
     busca = ft.TextField(hint_text="Buscar no GIPHY (ex.: estudando, cansado, comemorando)", dense=True, border_radius=20, prefix_icon=ft.Icons.SEARCH, expand=True)
     linha_busca = ft.Row([busca], visible=False)
+    linha_minhas = ft.Row(visible=False, wrap=True, spacing=6, run_spacing=6)
     aviso = ft.Container()
     rodape = comp.apagado("GIFs: Powered by GIPHY", c, 11.5)
+    corpo = ft.Column(spacing=10, tight=True)
+
+    def fechar_colar(e=None):
+        app._ao_colar = None
 
     def escolher(tipo, valor):
+        fechar_colar()
         app.page.pop_dialog()
         ao_escolher(tipo, valor)
 
@@ -277,6 +428,112 @@ def dialogo_figurinhas_gifs(app, ao_escolher) -> None:
             if figurinhas.caminho(ident)
         ]
 
+    # ------------------------------------------------ minhas figurinhas
+
+    def ajuda() -> ft.Control:
+        return ft.Container(
+            ft.Column(
+                [comp.texto("Como trazer suas figurinhas do WhatsApp", c, 14, peso=ft.FontWeight.W_600)]
+                + [
+                    ft.Column([ft.Text(titulo, size=13, weight=ft.FontWeight.W_600, color=c["texto"]), comp.apagado(texto, c, 12.5)], spacing=1)
+                    for titulo, texto in COMO_TRAZER
+                ],
+                spacing=8,
+            ),
+            bgcolor=c["sup2"],
+            border_radius=12,
+            padding=12,
+        )
+
+    def mostrar_minhas():
+        itens = colecao(app).lista()
+        app._ao_colar = lambda: app.page.run_task(colar)
+        linha_minhas.controls = [
+            comp.botao("Importar", importar, ft.Icons.FILE_UPLOAD_OUTLINED),
+            ft.OutlinedButton("Colar", icon=ft.Icons.CONTENT_PASTE, on_click=lambda e: app.page.run_task(colar), tooltip="Cole uma figurinha copiada (Ctrl+V)"),
+            ft.TextButton("Como trazer do WhatsApp", icon=ft.Icons.HELP_OUTLINE, on_click=alternar_ajuda),
+        ]
+        if itens:
+            linha_minhas.controls.append(
+                ft.TextButton(
+                    "Pronto" if estado["apagando"] else "Apagar",
+                    icon=ft.Icons.CHECK if estado["apagando"] else ft.Icons.DELETE_OUTLINE,
+                    on_click=alternar_apagar,
+                    style=ft.ButtonStyle(color=c["erro"]) if not estado["apagando"] else None,
+                )
+            )
+        if not itens:
+            grade.controls = []
+            grade.height = 0
+            aviso.content = ft.Column(
+                [comp.apagado("Você ainda não tem figurinhas suas. Importe as do WhatsApp ou guarde as que aparecerem no grupo (clique nelas).", c, 13.5), ajuda()],
+                spacing=10,
+            )
+            return
+        grade.height = 210 if estado["ajuda"] else 330
+        if estado["ajuda"]:
+            aviso.content = ajuda()
+
+        def ladrilho(item):
+            imagem = ft.Image(src=str(colecao(app).caminho(item)), fit=ft.BoxFit.CONTAIN, gapless_playback=True)
+            if estado["apagando"]:
+                conteudo = ft.Stack(
+                    [
+                        ft.Container(imagem, opacity=0.55, padding=6),
+                        ft.Container(ft.Icon(ft.Icons.CLOSE, color="#FFFFFF", size=16), bgcolor=c["erro"], border_radius=12, width=24, height=24, alignment=ft.Alignment.CENTER, right=2, top=2),
+                    ]
+                )
+                return ft.Container(conteudo, border_radius=12, ink=True, tooltip="Apagar", on_click=lambda e, i=item["id"]: apagar(i))
+            return ft.Container(imagem, border_radius=12, padding=6, ink=True, on_click=lambda e, i=item["id"]: escolher("minha", i))
+
+        grade.controls = [ladrilho(i) for i in itens]
+
+    def depois_de_importar(res: dict | None, vazio: str):
+        estado["apagando"] = False
+        mostrar_minhas()
+        if res is None:
+            aviso.content = comp.aviso(vazio, c, "info")
+        elif res["novas"] or res["repetidas"]:
+            aviso.content = comp.aviso(mf.resumo(res), c, "ok")
+        else:
+            aviso.content = comp.aviso(mf.resumo(res), c, "erro")
+        app.page.update()
+
+    async def importar(e=None):
+        caminhos = await escolher_figurinhas(app)
+        if not caminhos:
+            return
+        aviso.content = comp.carregando("Importando…", c)
+        app.page.update()
+        res = await app.em_segundo_plano(colecao(app).importar, caminhos)
+        depois_de_importar(res, "")
+
+    async def colar():
+        if estado["aba"] != "minhas":
+            return
+        res = await colar_figurinhas(app)
+        depois_de_importar(res, "Nada para colar. No WhatsApp Web, clique com o botão direito na figurinha → Copiar imagem, e volte aqui.")
+
+    def alternar_ajuda(e):
+        estado["ajuda"] = not estado["ajuda"]
+        aviso.content = ajuda() if estado["ajuda"] else None
+        mostrar_minhas()
+        app.page.update()
+
+    def alternar_apagar(e):
+        estado["apagando"] = not estado["apagando"]
+        mostrar_minhas()
+        app.page.update()
+
+    def apagar(ident):
+        colecao(app).apagar(ident)
+        if not colecao(app).lista():
+            estado["apagando"] = False
+        mostrar_minhas()
+        app.page.update()
+
+    # ------------------------------------------------ GIPHY
+
     async def buscar(e=None):
         animadas = estado["aba"] == "animadas"
         grade.controls = [ft.Container(comp.carregando("Buscando…", c), padding=10)]
@@ -289,6 +546,8 @@ def dialogo_figurinhas_gifs(app, ao_escolher) -> None:
             aviso.content = comp.aviso(str(ex), c, "info")
             app.page.update()
             return
+        if estado["aba"] not in ("gifs", "animadas"):
+            return  # trocou de aba enquanto buscava
         grade.controls = [
             ft.Container(
                 ft.Image(src=g["previa"], fit=ft.BoxFit.COVER if not animadas else ft.BoxFit.CONTAIN, gapless_playback=True),
@@ -307,25 +566,31 @@ def dialogo_figurinhas_gifs(app, ao_escolher) -> None:
 
     def trocar(e):
         estado["aba"] = e.control.selected[0] if e.control.selected else "aprova"
+        estado["apagando"] = False
         app.aj.set("ultima_aba_figurinhas", estado["aba"])
         desenhar()
         app.page.update()
 
     def desenhar():
         aviso.content = None
+        grade.height = 330
+        linha_busca.visible = estado["aba"] in ("gifs", "animadas")
+        linha_minhas.visible = estado["aba"] == "minhas"
+        rodape.visible = estado["aba"] in ("gifs", "animadas")
+        if estado["aba"] != "minhas":
+            app._ao_colar = None
         if estado["aba"] == "aprova":
-            linha_busca.visible = False
-            rodape.visible = False
             mostrar_aprova()
+        elif estado["aba"] == "minhas":
+            mostrar_minhas()
         else:
-            linha_busca.visible = True
-            rodape.visible = True
             app.page.run_task(buscar)
 
     abas = ft.SegmentedButton(
         selected=[estado["aba"]],
         segments=[
-            ft.Segment(value="aprova", label=ft.Text("Figurinhas"), icon=ft.Icon(ft.Icons.EMOJI_EMOTIONS_OUTLINED)),
+            ft.Segment(value="aprova", label=ft.Text("Do Aprova"), icon=ft.Icon(ft.Icons.EMOJI_EMOTIONS_OUTLINED)),
+            ft.Segment(value="minhas", label=ft.Text("Minhas"), icon=ft.Icon(ft.Icons.FAVORITE_BORDER)),
             ft.Segment(value="gifs", label=ft.Text("GIFs"), icon=ft.Icon(ft.Icons.GIF_BOX_OUTLINED)),
             ft.Segment(value="animadas", label=ft.Text("Animadas"), icon=ft.Icon(ft.Icons.AUTO_AWESOME_OUTLINED)),
         ],
@@ -333,14 +598,14 @@ def dialogo_figurinhas_gifs(app, ao_escolher) -> None:
         on_change=trocar,
     )
     desenhar()
+    corpo.controls = [ft.Row([abas], scroll=ft.ScrollMode.AUTO), linha_busca, linha_minhas, aviso, grade, rodape]
     app.page.show_dialog(
         ft.AlertDialog(
             title=ft.Text("Figurinhas e GIFs", font_family=FONTE_TITULO, size=21),
-            content=ft.Container(
-                ft.Column([ft.Row([abas], scroll=ft.ScrollMode.AUTO), linha_busca, aviso, grade, rodape], spacing=10, tight=True),
-                width=min(560, (app.page.width or 600) - 48),
-            ),
-            actions=[ft.TextButton("Fechar", on_click=lambda e: app.page.pop_dialog())],
+            content=ft.Container(corpo, width=min(580, (app.page.width or 600) - 48)),
+            actions=[ft.TextButton("Fechar", on_click=lambda e: (fechar_colar(), app.page.pop_dialog()))],
+            on_dismiss=fechar_colar,
+            scrollable=True,
         )
     )
 

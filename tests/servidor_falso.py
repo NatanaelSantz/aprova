@@ -528,6 +528,29 @@ class ServidorFalso:
             im.save(saida, "PNG")
             return saida.getvalue()
 
+        def figurinha_propria() -> bytes:
+            """Uma figurinha "importada do WhatsApp" de alguém (desenho simples, só para o teste)."""
+            import io
+
+            from PIL import Image, ImageDraw, ImageFont
+
+            im = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
+            dr = ImageDraw.Draw(im)
+            dr.ellipse((36, 36, 476, 476), fill=(255, 255, 255, 255))
+            dr.ellipse((52, 52, 460, 460), fill=(255, 196, 46, 255))
+            dr.ellipse((170, 170, 210, 230), fill=(40, 30, 20, 255))
+            dr.ellipse((302, 170, 342, 230), fill=(40, 30, 20, 255))
+            dr.arc((150, 200, 362, 380), 15, 165, fill=(40, 30, 20, 255), width=16)
+            try:
+                fonte = ImageFont.load_default(size=58)
+            except TypeError:
+                fonte = ImageFont.load_default()
+            dr.rounded_rectangle((96, 380, 416, 470), radius=26, fill=(35, 64, 168, 255), outline=(255, 255, 255, 255), width=8)
+            dr.text((256, 425), "TÔ DENTRO", fill=(255, 255, 255, 255), font=fonte, anchor="mm")
+            saida = io.BytesIO()
+            im.save(saida, "WEBP", quality=90)
+            return saida.getvalue()
+
         def util(pid, *apelidos):
             for a in apelidos:
                 d.tabelas["forum_uteis"].append({"post_id": pid, "usuario_id": self.uid_de(a), "codigo": codigo})
@@ -555,6 +578,7 @@ class ServidorFalso:
         resposta(mapa, "Lia", 11, "", figurinha="valeu")
         util(mapa, "Camila R.", "Lia")
         post("Pedro M", 8, "conversa", "Alguém topa simulado completo no sábado às 9h? Cada um faz em casa e depois a gente compara aqui.")
+        post("Bruna.fiscal", 6, "conversa", "", anexos=[arquivo("Bruna.fiscal", "figurinha.webp", figurinha_propria(), "imagem", "image/webp", largura=512, altura=512, figurinha=True)])
         post("Lia", 5, "conversa", "", figurinha="bora-estudar")
 
 

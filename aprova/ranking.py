@@ -206,6 +206,8 @@ def _mensagem(resp: requests.Response) -> str:
         return "Sua sessão expirou. Entre de novo."
     if "bucket not found" in t:
         return "O servidor ainda não recebe arquivos. O administrador precisa rodar o SQL novo (supabase/ranking.sql)."
+    if "schema cache" in t or codigo in ("PGRST205", "PGRST202", "42P01"):
+        return "O servidor está numa versão antiga. O administrador precisa rodar o SQL novo (supabase/ranking.sql) no Supabase."
     if resp.status_code == 413 or "maximum allowed size" in t or "too large" in t:
         return f"O arquivo passa do limite de {LIMITE_ARQUIVO // (1024 * 1024)} MB."
     if "mime type" in t:
@@ -224,6 +226,7 @@ class Ranking:
         self._lock = threading.Lock()
         self.servidor_sem_anexos = False  # servidor ainda sem o SQL da 1.10 (fotos, arquivos, figurinhas)
         self._giphy: str | None = None
+        self._gifs_buscados: dict[tuple, tuple[float, list]] = {}
 
     # ---- estado
 
@@ -671,8 +674,6 @@ class Ranking:
 
     def enviar_anexo(self, codigo: str, caminho: Path | str) -> dict:
         """Envia um arquivo do computador para o grupo. Devolve o anexo para pôr na mensagem."""
-        import uuid
-
         caminho = Path(caminho)
         ext = caminho.suffix.lower().lstrip(".")
         if ext not in TIPOS_ARQUIVO:
@@ -697,6 +698,12 @@ class Ranking:
         if len(dados) > LIMITE_ARQUIVO:
             raise ErroRanking(f"“{caminho.name}” tem {tamanho_texto(len(dados))}; o limite é {LIMITE_ARQUIVO // (1024 * 1024)} MB.")
         nome = _nome_seguro(Path(caminho.stem + "." + ext).name)
+        anexo.update(caminho=self._subir(codigo, dados, nome, mime), tamanho=len(dados), mime=mime)
+        return anexo
+
+    def _subir(self, codigo: str, dados: bytes, nome: str, mime: str) -> str:
+        import uuid
+
         objeto = f"{codigo}/{self.usuario_id}/{uuid.uuid4().hex[:12]}-{nome}"
         self._pedir(
             "POST",
@@ -705,9 +712,26 @@ class Ranking:
             cabecalhos={"Content-Type": mime, "x-upsert": "false", "cache-control": "max-age=31536000"},
             tempo=120,
         )
-        anexo.update(caminho=objeto, tamanho=len(dados), mime=mime)
         _guardar_cache(objeto, dados)
-        return anexo
+        return objeto
+
+    def enviar_figurinha(self, codigo: str, dados: bytes, item: dict) -> dict:
+        """Sobe uma das "minhas figurinhas" para o grupo. Devolve o anexo (imagem marcada como figurinha)."""
+        ext = Path(item.get("arquivo") or "x.webp").suffix.lower().lstrip(".")
+        if ext not in ("webp", "png", "gif"):
+            raise ErroRanking("Figurinha em formato estranho.")
+        mime = TIPOS_ARQUIVO[ext][0]
+        objeto = self._subir(codigo, dados, f"figurinha.{ext}", mime)
+        return {
+            "tipo": "gif" if ext == "gif" else "imagem",
+            "figurinha": True,
+            "nome": "Figurinha",
+            "largura": int(item.get("largura") or 0),
+            "altura": int(item.get("altura") or 0),
+            "caminho": objeto,
+            "tamanho": len(dados),
+            "mime": mime,
+        }
 
     def baixar_anexo(self, anexo: dict) -> bytes:
         """Bytes de um anexo (foto, arquivo ou GIF do GIPHY), guardados em cache no computador."""
@@ -756,9 +780,10 @@ class Ranking:
         )
 
     def chave_giphy(self) -> str:
-        if self._giphy is None:
-            self._giphy = self.config_valor("giphy")
-        return self._giphy
+        # vazia não fica guardada: o admin pode ligar os GIFs com o app de todo mundo aberto
+        if not self._giphy:
+            self._giphy = self.config_valor("giphy") or None
+        return self._giphy or ""
 
     def buscar_gifs(self, termo: str = "", figurinhas: bool = False, limite: int = 24) -> list[dict]:
         """GIFs (ou figurinhas animadas) do GIPHY. Precisa da chave que o admin põe no app."""
@@ -767,6 +792,11 @@ class Ranking:
             raise ErroRanking("A busca de GIFs ainda não foi ligada. O administrador põe a chave do GIPHY em Admin → Configurações.")
         tipo = "stickers" if figurinhas else "gifs"
         termo = (termo or "").strip()
+        # a chave grátis do GIPHY aceita 100 buscas por hora para o app todo: repete o que já veio
+        lembranca = (tipo, termo.lower(), limite)
+        guardado = self._gifs_buscados.get(lembranca)
+        if guardado and time.time() - guardado[0] < 20 * 60:
+            return guardado[1]
         url = f"https://api.giphy.com/v1/{tipo}/{'search' if termo else 'trending'}"
         params = {"api_key": chave, "limit": limite, "rating": "pg", "lang": "pt"}
         if termo:
@@ -777,6 +807,8 @@ class Ranking:
             raise ErroRanking("Sem conexão com o GIPHY. Confira a internet.") from e
         if resp.status_code in (401, 403):
             raise ErroRanking("A chave do GIPHY não funcionou. Confira em Admin → Configurações.")
+        if resp.status_code == 429:
+            raise ErroRanking("Muitas buscas de GIF nesta hora (a chave grátis do GIPHY aceita 100 por hora). Use as figurinhas ou tente mais tarde.")
         if resp.status_code >= 400:
             raise ErroRanking("O GIPHY não respondeu agora. Tente de novo daqui a pouco.")
         saida = []
@@ -792,6 +824,10 @@ class Ranking:
                     "previa": url_previa,
                     "anexo": {"tipo": "gif", "url": url_envio, "largura": int(envio.get("width") or 0), "altura": int(envio.get("height") or 0), "nome": "GIF"},
                 })
+        if resp.status_code == 200:
+            if len(self._gifs_buscados) > 60:
+                self._gifs_buscados.clear()
+            self._gifs_buscados[lembranca] = (time.time(), saida)
         return saida
 
     def forum_util(self, post_id: int, marcar: bool) -> None:

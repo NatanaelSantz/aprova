@@ -806,6 +806,10 @@ class App:
             else:
                 self._passo_escala(1 if k in ("=", "+", "numpad add") else -1)
             return
+        colar = getattr(self, "_ao_colar", None)
+        if colar is not None and (e.ctrl or e.meta) and k == "v":
+            colar()
+            return
         tela = self.foco
         if tela is not None and hasattr(tela, "tecla"):
             tela.tecla(e)

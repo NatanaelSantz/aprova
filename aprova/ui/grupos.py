@@ -670,11 +670,11 @@ class TelaGrupos:
 
     async def _mandar_rapido(self, g: dict, tipo: str, valor):
         """Figurinha ou GIF vai na hora, como numa conversa."""
+        from .anexos import conteudo_rapido
+
         try:
-            if tipo == "figurinha":
-                await self.app.em_segundo_plano(lambda: self.r.forum_publicar(g["codigo"], "", figurinha=valor))
-            else:
-                await self.app.em_segundo_plano(lambda: self.r.forum_publicar(g["codigo"], "", anexos=[valor]))
+            extra = await conteudo_rapido(self.app, g["codigo"], tipo, valor)
+            await self.app.em_segundo_plano(lambda: self.r.forum_publicar(g["codigo"], "", **extra))
         except rk.ErroRanking as ex:
             self.app.msg(str(ex))
             return
@@ -856,11 +856,11 @@ class TelaGrupos:
                 await recarregar()
 
             async def rapido(tipo, valor):
+                from .anexos import conteudo_rapido
+
                 try:
-                    if tipo == "figurinha":
-                        await app.em_segundo_plano(lambda: self.r.forum_responder(p["id"], "", figurinha=valor))
-                    else:
-                        await app.em_segundo_plano(lambda: self.r.forum_responder(p["id"], "", anexos=[valor]))
+                    extra = await conteudo_rapido(app, g["codigo"], tipo, valor)
+                    await app.em_segundo_plano(lambda: self.r.forum_responder(p["id"], "", **extra))
                 except rk.ErroRanking as ex:
                     app.msg(str(ex))
                     return

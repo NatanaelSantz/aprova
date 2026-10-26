@@ -342,7 +342,7 @@ class TelaAdmin:
     def _config(self) -> ft.Control:
         """Chave do GIPHY (busca de GIFs e figurinhas animadas nos grupos)."""
         app, c = self.app, self.app.c
-        atual = self.r.chave_giphy() if self.r._giphy is not None else ""
+        atual = self.r._giphy or ""
         campo = ft.TextField(
             label="Chave da API do GIPHY",
             value=atual,
@@ -368,16 +368,16 @@ class TelaAdmin:
             except rk.ErroRanking as ex:
                 app.msg(str(ex))
                 return
-            self.r._giphy = (campo.value or "").strip()
+            self.r._giphy = (campo.value or "").strip() or None
             app.msg("Chave salva. A busca de GIFs já funciona para todo mundo." if self.r._giphy else "Chave removida: a busca de GIFs foi desligada.")
 
-        if self.r._giphy is None:
+        if not self.r._giphy:
             app.page.run_task(carregar_atual)
         passos = ft.Column(
             [
                 comp.texto("Como pegar a chave (grátis, uns 3 minutos):", c, 14, peso=ft.FontWeight.W_600),
                 comp.apagado("1. Entre em developers.giphy.com e crie uma conta (ou entre na sua).", c, 13.5),
-                comp.apagado("2. Clique em Create an App, escolha API (não SDK) e dê um nome, como Aprova.", c, 13.5),
+                comp.apagado("2. Clique em Create an API Key, escolha API (não SDK), dê o nome Aprova e aceite os termos.", c, 13.5),
                 comp.apagado("3. Copie a API Key que aparece e cole aqui.", c, 13.5),
                 comp.botao_texto("Abrir developers.giphy.com", url="https://developers.giphy.com/dashboard/", icone=ft.Icons.OPEN_IN_NEW),
             ],

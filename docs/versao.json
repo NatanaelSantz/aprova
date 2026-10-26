@@ -1,10 +1,10 @@
 {
-  "versao": "1.10.0",
+  "versao": "1.11.0",
   "data": "26/10/2026",
   "notas": [
-    "Grupos: mande fotos e arquivos do computador (PDF, Word, Excel, imagens, áudio, até 20 MB)",
-    "Figurinhas do Aprova: Bora estudar!, Passei!, Gabaritei, Café + lei seca e mais",
-    "GIFs e figurinhas animadas do GIPHY (o administrador liga em Admin → Configurações)"
+    "Minhas figurinhas: traga as suas do WhatsApp (arquivos .webp, pacotes .wastickers/.zip ou Ctrl+V)",
+    "Clique numa figurinha que chegou no grupo para guardar nas suas; foto ampliada vira figurinha",
+    "GIFs mais rápidos e com menos limite (a mesma busca não repete)"
   ],
   "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
 }
