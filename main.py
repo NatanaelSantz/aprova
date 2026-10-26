@@ -41,11 +41,10 @@ def principal(modo_web: bool):
         finally:
             if not modo_web:
                 # a janela nasce escondida (sem a tela preta do Flet) e aparece já com o app desenhado
-                if not page.window.maximized:
-                    try:
-                        await page.window.center()
-                    except Exception:  # noqa: BLE001
-                        pass
+                try:
+                    await page.window.center()
+                except Exception:  # noqa: BLE001
+                    pass
                 page.window.visible = True
                 page.update()
                 _fechar_abertura()

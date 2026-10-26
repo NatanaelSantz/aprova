@@ -1,10 +1,10 @@
 {
-  "versao": "1.9.2",
-  "data": "26/10/2026",
+  "versao": "1.9.1",
+  "data": "25/10/2026",
   "notas": [
-    "O Aprova abre em tela cheia e o menu cabe em notebooks com zoom de 125% ou 150%",
-    "Barra de cima nova, com a cor do app, a marca e os botões de minimizar, maximizar e fechar",
-    "Menu lateral mais compacto em telas baixas: Leitura e Iniciar estudo sempre à vista"
+    "Visual novo: navegação em bolinhas do cartão-resposta, tela Início mais limpa e elegante",
+    "Sua semana num painel só, com as horas de cada dia em barras e a marca da meta",
+    "Layout que se ajusta melhor a janelas médias e ao celular"
   ],
   "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
 }
