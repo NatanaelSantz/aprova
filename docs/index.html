@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Aprova · estudo para concursos</title>
-<meta name="description" content="App grátis para estudar para concursos: provas reais com gabarito oficial, revisão no dia certo, meta da semana, PDFs marcados e grupos de estudo.">
+<meta name="description" content="App grátis para estudar para concursos: provas reais com gabarito oficial, simulados sem repetir questão, resultado comentado, revisão no dia certo, PDFs marcados e grupos de estudo.">
 <meta property="og:title" content="Aprova · estudo para concursos">
-<meta property="og:description" content="Provas reais com gabarito oficial, revisão no dia certo, meta da semana, PDFs marcados e grupos de estudo. Grátis.">
+<meta property="og:description" content="Provas reais com gabarito oficial, simulados sem repetição e comentados, revisão no dia certo, grupos de estudo. Grátis.">
 <meta property="og:image" content="https://natanaelsantz.github.io/aprova/convite/og.png">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#2340A8">
@@ -306,7 +306,7 @@ footer a { color: var(--tinta2); }
           <a class="bt bt-azul" href="https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-baixar"/></svg>Baixar para Windows</a>
           <a class="bt bt-linha" href="#recursos">Ver o que ele faz<svg aria-hidden="true"><use href="#i-seta"/></svg></a>
         </div>
-        <p class="miudo">Versão 1.11.0 · atualiza sozinho dentro do app · também roda no macOS e no Linux</p>
+        <p class="miudo">Versão 1.13.1 · se atualiza sozinho toda vez que abre · também roda no macOS e no Linux</p>
       </div>
 
       <div class="vitrine">
@@ -332,7 +332,7 @@ footer a { color: var(--tinta2); }
     <div class="caixa"><ul>
       <li><strong>Gabarito oficial</strong><span>nas provas que o app encontra para você</span></li>
       <li><strong>1 · 3 · 7 · 15 · 30</strong><span>dias até a revisão de cada erro</span></li>
-      <li><strong>Meta em horas</strong><span>por semana, com cronômetro de estudo</span></li>
+      <li><strong>Sem repetir questão</strong><span>as que você nunca fez vêm primeiro</span></li>
       <li><strong>Convite por link</strong><span>a turma entra com um clique</span></li>
     </ul></div>
   </section>
@@ -350,9 +350,32 @@ footer a { color: var(--tinta2); }
           <h3>Digite o concurso. A prova chega com o gabarito.</h3>
           <p>Escreva, por exemplo, <em>Dataprev 2026</em>. O Aprova procura nas bancas, na internet e no PCI Concursos e traz as provas com o gabarito oficial, prontas para abrir no próprio app.</p>
           <p>Faça em modo simulado, com cartão-resposta, ou em modo estudo, com a correção a cada questão e a explicação logo abaixo.</p>
-          <ul class="chips"><li>Modo simulado</li><li>Modo estudo</li><li>Atalhos de A a E</li><li>Questões marcadas para revisar</li></ul>
+          <p>Cada simulado traz primeiro as questões que você nunca fez. Questão com texto quebrado ou alternativa faltando fica de fora.</p>
+          <ul class="chips"><li>Sem repetir questão</li><li>Modo simulado</li><li>Modo estudo</li><li>Atalhos de A a E</li></ul>
         </div>
         <figure class="tela"><img src="img/prova.png" width="1440" height="900" alt="Questão de Língua Portuguesa em modo estudo, com a alternativa B certa e a explicação da crase" loading="lazy"></figure>
+      </article>
+
+      <article class="recurso inverte">
+        <div class="recurso-texto">
+          <span class="rotulo">Resultado comentado</span>
+          <h3>No fim do simulado, um professor comenta com você.</h3>
+          <p>O Aprova diz o que foi bem, em que matéria dá para ganhar mais pontos e qual o próximo passo, com um botão para treinar essa matéria na hora.</p>
+          <p>Embaixo vem o que você errou, matéria por matéria: o que você marcou, a resposta certa e o porquê. Cada erro já entra na sua Revisão.</p>
+          <ul class="chips"><li>Ponto forte</li><li>Onde ganhar pontos</li><li>Treinar a matéria</li></ul>
+        </div>
+        <figure class="tela"><img src="img/resultado.webp" width="840" height="640" alt="Resultado de 13 de 16 com o comentário Bom resultado, o ponto forte em Língua Portuguesa e o botão Treinar Raciocínio Lógico" loading="lazy"></figure>
+      </article>
+
+      <article class="recurso">
+        <div class="recurso-texto">
+          <span class="rotulo">Dúvida com IA</span>
+          <h3>Travou numa questão? Pergunte ao Claude ou ao ChatGPT.</h3>
+          <p>Na ajuda de cada questão, um toque abre o chat com a questão já escrita: enunciado, alternativas e o que você marcou. Funciona com a sua conta grátis.</p>
+          <p>No resultado, leve todos os seus erros para a IA e receba o que revisar e um plano de 3 dias. Com a chave do Claude, a IA trabalha dentro do app e cria questões novas para os seus simulados.</p>
+          <ul class="chips"><li>Claude</li><li>ChatGPT</li><li>Plano de 3 dias</li></ul>
+        </div>
+        <figure class="tela"><img src="img/ia-ajuda.webp" width="1440" height="900" alt="Ajuda da questão de crase com a explicação, as fontes e os botões Perguntar ao Claude e Perguntar ao ChatGPT" loading="lazy"></figure>
       </article>
 
       <article class="recurso inverte">
@@ -417,7 +440,7 @@ footer a { color: var(--tinta2); }
           <li><svg aria-hidden="true"><use href="#i-carinha"/></svg><div><strong>Figurinhas e GIFs</strong><span>As figurinhas do Aprova, GIFs do GIPHY e até as suas figurinhas do WhatsApp.</span></div></li>
           <li><svg aria-hidden="true"><use href="#i-plano"/></svg><div><strong>Planos de estudo</strong><span>Um clique e o plano da turma vira a sua meta da semana.</span></div></li>
           <li><svg aria-hidden="true"><use href="#i-trofeu"/></svg><div><strong>Ranking da semana</strong><span>Horas, questões, acerto e sequência. No ranking aparecem só o apelido e os números.</span></div></li>
-          <li><svg aria-hidden="true"><use href="#i-link"/></svg><div><strong>Convite por link</strong><span>Quem recebe confere o apelido e entra no grupo, sem digitar código.</span></div></li>
+          <li><svg aria-hidden="true"><use href="#i-link"/></svg><div><strong>Convite por link</strong><span>Quem recebe confere o apelido e entra no grupo com um clique, sem digitar código.</span></div></li>
         </ul>
         <div class="convite" aria-label="Onde mandar o convite"><span>WhatsApp</span><span>Telegram</span><span>Instagram</span><span>TikTok</span><span>E-mail</span></div>
       </div>
@@ -463,7 +486,7 @@ footer a { color: var(--tinta2); }
       </ol>
       <div class="aviso-atualiza">
         <svg aria-hidden="true"><use href="#i-atualiza"/></svg>
-        <p><b>Você instala uma vez.</b> Quando sai uma versão nova, o aviso aparece no Início: toque em Atualizar e depois em Reiniciar agora. Seus estudos, contas e PDFs marcados continuam como estão.</p>
+        <p><b>Você instala uma vez.</b> Toda vez que abre, o Aprova confere se saiu versão nova e já abre atualizado. Seus estudos, contas e PDFs marcados continuam como estão.</p>
       </div>
     </div>
   </section>
@@ -478,6 +501,7 @@ footer a { color: var(--tinta2); }
         <details><summary>Quanto custa?</summary><p>Nada. O Aprova é grátis para baixar e usar.</p></details>
         <details><summary>Preciso criar conta?</summary><p>Não. Dá para estudar como visitante, e quem recebe um convite entra no grupo sem fazer cadastro.</p></details>
         <details><summary>Funciona no celular?</summary><p>A tela se ajusta ao tamanho da janela e o Aprova também abre no navegador do celular, quando o celular está na mesma rede Wi-Fi do computador.</p></details>
+        <details><summary>Preciso pagar pela IA?</summary><p>Não. Os botões Perguntar ao Claude e Perguntar ao ChatGPT usam a sua própria conta, que pode ser a grátis. Se quiser a IA trabalhando dentro do app, dá para colocar uma chave do Claude, paga à parte com crédito pré-pago; o app tem o passo a passo.</p></details>
         <details><summary>Onde ficam os meus estudos?</summary><p>No seu computador, numa pasta só do Aprova. O ranking e os grupos ficam no servidor, e no ranking aparecem só o seu apelido e os números.</p></details>
         <details><summary>Recebi um convite de grupo. E agora?</summary><p>Abra o link no computador e clique em Entrar no grupo. Se o Aprova ainda não estiver instalado, a página leva ao download e o convite aparece sozinho quando o app abrir.</p></details>
         <details><summary>E no Mac ou no Linux?</summary><p>Também roda. Na pasta do Aprova, use <code>./iniciar.sh</code> no Terminal.</p></details>
@@ -519,7 +543,7 @@ footer a { color: var(--tinta2); }
 <footer>
   <div class="caixa">
     <a class="marca-app" href="#inicio"><img src="icon.png" alt="" width="30" height="30"><span>Aprova</span></a>
-    <span>Estudo para concursos · versão 1.11.0 · feito no Brasil</span>
+    <span>Estudo para concursos · versão 1.13.1 · feito no Brasil</span>
     <nav aria-label="Links">
       <a href="https://github.com/NatanaelSantz/aprova" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/NatanaelSantz/aprova/blob/main/docs/MANUAL.md" target="_blank" rel="noopener">Manual</a>
