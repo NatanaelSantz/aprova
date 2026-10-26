@@ -103,6 +103,11 @@ class TelaGrupos:
         self.carregando = False
         self.tipo_novo = "conversa"
         self._rascunho = ""
+        from .anexos import VisorAnexos
+
+        self.visor = VisorAnexos(app)
+        self._pendentes: list[dict] = []  # fotos/arquivos já enviados, esperando o "Publicar"
+        self._enviando: list[str] = []  # nomes dos arquivos subindo agora
 
     @property
     def r(self) -> rk.Ranking:
@@ -562,19 +567,40 @@ class TelaGrupos:
             app.page.update()
 
         async def publicar(e):
+            if self._enviando:
+                app.msg("Espere os arquivos terminarem de subir.")
+                return
             botao.disabled = True
             app.page.update()
             try:
-                await app.em_segundo_plano(self.r.forum_publicar, g["codigo"], texto.value or "", self.tipo_novo, assunto.value or "")
+                await app.em_segundo_plano(
+                    lambda: self.r.forum_publicar(g["codigo"], texto.value or "", self.tipo_novo, assunto.value or "", anexos=list(self._pendentes) or None)
+                )
             except rk.ErroRanking as ex:
                 botao.disabled = False
                 msg.content = comp.aviso(str(ex), c, "erro")
                 app.page.update()
                 return
             self._rascunho = ""
+            self._pendentes = []
             self.tipo_novo = "conversa"
             self.posts.pop((g["codigo"], "conversa"), None)
             await self.carregar_grupo()
+
+        async def anexar(e):
+            from .anexos import escolher_arquivos
+
+            await self._anexar_caminhos(g, await escolher_arquivos(app))
+
+        def tirar(anexo):
+            self._pendentes = [a for a in self._pendentes if a is not anexo]
+            self.app.page.run_task(app.em_segundo_plano, self.r.apagar_anexos, [anexo])
+            self._redesenhar()
+
+        def figurinhas_gifs(e):
+            from .anexos import dialogo_figurinhas_gifs
+
+            dialogo_figurinhas_gifs(app, lambda tipo, valor: app.page.run_task(self._mandar_rapido, g, tipo, valor))
 
         tipos = ft.SegmentedButton(
             selected=[self.tipo_novo],
@@ -587,21 +613,73 @@ class TelaGrupos:
             on_change=trocar_tipo,
         )
         botao = comp.botao("Publicar", publicar, ft.Icons.SEND_ROUNDED)
+        ferramentas = ft.Row(
+            [
+                ft.IconButton(ft.Icons.ATTACH_FILE, tooltip="Anexar foto ou arquivo do computador (até 20 MB)", icon_color=c["texto2"], on_click=anexar),
+                ft.IconButton(ft.Icons.EMOJI_EMOTIONS_OUTLINED, tooltip="Figurinhas e GIFs", icon_color=c["texto2"], on_click=figurinhas_gifs),
+            ],
+            spacing=0,
+            tight=True,
+        )
+        from .anexos import chip_pendente
+
+        pendentes = [chip_pendente(app, a, tirar) for a in self._pendentes] + [
+            ft.Container(
+                ft.Row([ft.ProgressRing(width=16, height=16, stroke_width=2, color=c["tinta"]), comp.apagado(f"Enviando {n}…", c, 12.5)], spacing=8, tight=True),
+                bgcolor=c["sup2"],
+                border_radius=10,
+                padding=ft.Padding.symmetric(horizontal=10, vertical=8),
+            )
+            for n in self._enviando
+        ]
         return comp.bloco(
             ft.Column(
                 [
                     ft.Row([avatar(self.r.apelido or "?", 34), ft.Container(texto, expand=True)], spacing=12, vertical_alignment=ft.CrossAxisAlignment.START),
                     assunto,
+                    ft.Row(pendentes, wrap=True, spacing=8, run_spacing=8) if pendentes else ft.Container(height=0),
                     msg,
-                    ft.Row([ft.Row([tipos], scroll=ft.ScrollMode.AUTO, expand=True), botao], spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER)
+                    ft.Row([ferramentas, ft.Row([tipos], scroll=ft.ScrollMode.AUTO, expand=True), botao], spacing=6, vertical_alignment=ft.CrossAxisAlignment.CENTER)
                     if self.app.largo
-                    else ft.Column([ft.Row([tipos], scroll=ft.ScrollMode.AUTO), ft.Row([botao], alignment=ft.MainAxisAlignment.END)], spacing=10),
+                    else ft.Column([ft.Row([tipos], scroll=ft.ScrollMode.AUTO), ft.Row([ferramentas, ft.Container(expand=True), botao])], spacing=6),
                 ],
                 spacing=10,
             ),
             c,
             padding=16,
         )
+
+    async def _anexar_caminhos(self, g: dict, caminhos: list[Path]):
+        """Sobe os arquivos escolhidos; eles ficam esperando o "Publicar" (com o texto, se tiver)."""
+        app = self.app
+        vagas = rk.MAX_ANEXOS - len(self._pendentes)
+        if len(caminhos) > vagas:
+            app.msg(f"Dá para mandar até {rk.MAX_ANEXOS} arquivos por mensagem.")
+        for cam in caminhos[: max(0, vagas)]:
+            self._enviando.append(cam.name)
+            self._redesenhar()
+            try:
+                anexo = await app.em_segundo_plano(self.r.enviar_anexo, g["codigo"], cam)
+            except rk.ErroRanking as ex:
+                app.msg(str(ex))
+            else:
+                self._pendentes.append(anexo)
+            finally:
+                self._enviando.remove(cam.name)
+            self._redesenhar()
+
+    async def _mandar_rapido(self, g: dict, tipo: str, valor):
+        """Figurinha ou GIF vai na hora, como numa conversa."""
+        try:
+            if tipo == "figurinha":
+                await self.app.em_segundo_plano(lambda: self.r.forum_publicar(g["codigo"], "", figurinha=valor))
+            else:
+                await self.app.em_segundo_plano(lambda: self.r.forum_publicar(g["codigo"], "", anexos=[valor]))
+        except rk.ErroRanking as ex:
+            self.app.msg(str(ex))
+            return
+        self.posts.pop((g["codigo"], "conversa"), None)
+        await self.carregar_grupo()
 
     def _cartao_post(self, p: dict, g: dict) -> ft.Control:
         app, c = self.app, self.app.c
@@ -649,6 +727,11 @@ class TelaGrupos:
                         wrap=True,
                     )
                 )
+        if p.get("figurinha"):
+            corpo.append(self.visor.figurinha(p["figurinha"]))
+        visuais = self.visor.anexos(p.get("anexos") or [])
+        if visuais is not None:
+            corpo.append(visuais)
         corpo.append(self._acoes_post(p, g))
         if p["id"] in self.abertos:
             corpo.append(self._respostas(p, g))
@@ -711,9 +794,11 @@ class TelaGrupos:
                                             [ft.Text(r.get("apelido") or "?", size=13.5, weight=ft.FontWeight.W_700, color=c["texto"]), comp.apagado(quando_texto(r.get("criado_em")), c, 12)],
                                             spacing=8,
                                         ),
-                                        ft.Text(r.get("texto") or "", size=14, color=c["texto"], selectable=True),
-                                    ],
-                                    spacing=2,
+                                    ]
+                                    + ([ft.Text(r["texto"], size=14, color=c["texto"], selectable=True)] if r.get("texto") else [])
+                                    + ([self.visor.figurinha(r["figurinha"], 110)] if r.get("figurinha") else [])
+                                    + ([v] if (v := self.visor.anexos(r.get("anexos") or [], compacto=True)) is not None else []),
+                                    spacing=4,
                                 ),
                                 bgcolor=c["sup2"],
                                 border_radius=12,
@@ -743,8 +828,62 @@ class TelaGrupos:
                 p["respostas"] = len(self.respostas[p["id"]])
                 self._redesenhar()
 
+            async def recarregar():
+                self.respostas[p["id"]] = await app.em_segundo_plano(self.r.forum_respostas, p["id"])
+                p["respostas"] = len(self.respostas[p["id"]])
+                self._redesenhar()
+
+            async def anexar(e):
+                from .anexos import escolher_arquivos
+
+                caminhos = await escolher_arquivos(app)
+                if not caminhos:
+                    return
+                app.msg(f"Enviando {len(caminhos)} arquivo{'s' if len(caminhos) > 1 else ''}…")
+                lista = []
+                for cam in caminhos:
+                    try:
+                        lista.append(await app.em_segundo_plano(self.r.enviar_anexo, g["codigo"], cam))
+                    except rk.ErroRanking as ex:
+                        app.msg(str(ex))
+                if not lista:
+                    return
+                try:
+                    await app.em_segundo_plano(lambda: self.r.forum_responder(p["id"], campo.value or "", anexos=lista))
+                except rk.ErroRanking as ex:
+                    app.msg(str(ex))
+                    return
+                await recarregar()
+
+            async def rapido(tipo, valor):
+                try:
+                    if tipo == "figurinha":
+                        await app.em_segundo_plano(lambda: self.r.forum_responder(p["id"], "", figurinha=valor))
+                    else:
+                        await app.em_segundo_plano(lambda: self.r.forum_responder(p["id"], "", anexos=[valor]))
+                except rk.ErroRanking as ex:
+                    app.msg(str(ex))
+                    return
+                await recarregar()
+
+            def figurinhas_gifs(e):
+                from .anexos import dialogo_figurinhas_gifs
+
+                dialogo_figurinhas_gifs(app, lambda tipo, valor: app.page.run_task(rapido, tipo, valor))
+
             campo.on_submit = enviar
-            filhos.append(ft.Row([avatar(self.r.apelido or "?", 28), campo, ft.IconButton(ft.Icons.SEND_ROUNDED, tooltip="Enviar", icon_color=c["tinta"], on_click=enviar)], spacing=10))
+            filhos.append(
+                ft.Row(
+                    [
+                        avatar(self.r.apelido or "?", 28),
+                        campo,
+                        ft.IconButton(ft.Icons.ATTACH_FILE, tooltip="Anexar foto ou arquivo", icon_size=20, icon_color=c["texto2"], on_click=anexar),
+                        ft.IconButton(ft.Icons.EMOJI_EMOTIONS_OUTLINED, tooltip="Figurinhas e GIFs", icon_size=20, icon_color=c["texto2"], on_click=figurinhas_gifs),
+                        ft.IconButton(ft.Icons.SEND_ROUNDED, tooltip="Enviar", icon_color=c["tinta"], on_click=enviar),
+                    ],
+                    spacing=4,
+                )
+            )
         return ft.Container(ft.Column(filhos, spacing=10), padding=ft.Padding.only(left=8, top=4), border=ft.Border.only(left=ft.BorderSide(2, c["borda"])))
 
     # ------------------------------------------------------------------ ações
@@ -796,6 +935,8 @@ class TelaGrupos:
             except rk.ErroRanking as ex:
                 app.msg(str(ex))
                 return
+            if p.get("anexos"):
+                await app.em_segundo_plano(self.r.apagar_anexos, p["anexos"])
             app.msg("Mensagem apagada.")
             self._atualizar()
 

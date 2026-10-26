@@ -23,8 +23,10 @@ class Dados:
         self.usuarios: dict[str, dict] = {}  # id -> {email, senha}
         self.tabelas: dict[str, list[dict]] = {
             "perfis": [], "estatisticas": [], "grupos": [], "membros": [], "comunicados": [],
-            "forum_posts": [], "forum_respostas": [], "forum_uteis": [],
+            "forum_posts": [], "forum_respostas": [], "forum_uteis": [], "config": [],
         }
+        self.arquivos: dict[str, tuple[bytes, str]] = {}  # Storage: caminho na pasta "anexos" -> (dados, tipo)
+        self.sem_anexos = False  # finge um servidor sem o SQL da 1.10
         self._seq = 0
         self.anonimo_ligado = True
         self.confirmar_email = False
@@ -80,6 +82,22 @@ class Dados:
 
     def post(self, pid) -> dict | None:
         return next((f for f in self.tabelas["forum_posts"] if str(f["id"]) == str(pid)), None)
+
+
+def _conteudo_valido(n: dict, codigo: str) -> bool:
+    anexos, figurinha = n.get("anexos"), n.get("figurinha")
+    if not ((n.get("titulo") or "") + (n.get("texto") or "")) and not anexos and not figurinha:
+        return False
+    if figurinha is not None and not re.fullmatch(r"[a-z0-9-]{1,40}", str(figurinha)):
+        return False
+    for a in anexos or []:
+        if a.get("tipo") not in ("imagem", "gif", "arquivo"):
+            return False
+        ok_caminho = str(a.get("caminho") or "").startswith(codigo + "/") and ".." not in str(a.get("caminho"))
+        ok_gif = a.get("tipo") == "gif" and re.match(r"^https://media[0-9]?\.giphy\.com/", str(a.get("url") or ""))
+        if not (ok_caminho or ok_gif):
+            return False
+    return True
 
 
 def agora_iso(minutos_atras: float = 0) -> str:
@@ -142,12 +160,56 @@ class Manipulador(BaseHTTPRequestHandler):
         return {"access_token": f"tok-{uid}", "refresh_token": f"ref-{uid}", "expires_in": 3600,
                 "user": {"id": uid, "email": u["email"], "is_anonymous": not u["email"]}}
 
+    def _storage(self, metodo: str, caminho: str):
+        """Pasta privada "anexos" do Storage, com as regras do ranking.sql."""
+        d, uid = self.dados, self._uid()
+        negado = (403, {"statusCode": "403", "error": "Unauthorized", "message": "new row violates row-level security policy"})
+        if d.sem_anexos:
+            return self._json(400, {"statusCode": "404", "error": "Bucket not found", "message": "Bucket not found"})
+        if metodo == "DELETE" and caminho == "/storage/v1/object/anexos":
+            pedidos = (self._corpo() or {}).get("prefixes") or []
+            apagados = []
+            for c in pedidos:
+                partes = c.split("/")
+                if c in d.arquivos and uid and (partes[1] == uid or d.modera(uid, partes[0])):
+                    d.arquivos.pop(c)
+                    apagados.append({"name": c})
+            return self._json(200, apagados)
+        m = re.match(r"/storage/v1/object/(authenticated/)?anexos/(.+)$", caminho)
+        if not m or not uid:
+            return self._json(400, {"statusCode": "404", "error": "not_found", "message": "Object not found"})
+        nome = unquote(m.group(2))
+        partes = nome.split("/")
+        if metodo == "POST":
+            n = int(self.headers.get("Content-Length") or 0)
+            dados = self.rfile.read(n)
+            if len(partes) < 3 or partes[1] != uid or not d.pode_escrever(uid, partes[0]):
+                return self._json(*negado)
+            if n > 20 * 1024 * 1024:
+                return self._json(413, {"statusCode": "413", "error": "Payload too large", "message": "The object exceeded the maximum allowed size"})
+            d.arquivos[nome] = (dados, self.headers.get("Content-Type", "application/octet-stream"))
+            return self._json(200, {"Key": "anexos/" + nome})
+        if metodo == "GET":
+            if nome not in d.arquivos or not d.ve(uid, partes[0]):
+                return self._json(400, {"statusCode": "404", "error": "not_found", "message": "Object not found"})
+            dados, tipo = d.arquivos[nome]
+            self.send_response(200)
+            self.send_header("Content-Type", tipo)
+            self.send_header("Content-Length", str(len(dados)))
+            self.end_headers()
+            self.wfile.write(dados)
+            return None
+        return self._json(405, {"message": "método não suportado"})
+
     def _rota(self, metodo: str):
         if self.headers.get("apikey") != CHAVE:
             return self._json(401, {"message": "Invalid API key"})
         partes = urlsplit(self.path)
         caminho, query = partes.path, parse_qsl(partes.query, keep_blank_values=True)
         d = self.dados
+        if caminho.startswith("/storage/v1/"):
+            with d.lock:
+                return self._storage(metodo, caminho)
         with d.lock:
             if caminho == "/rest/v1/rpc/convite_info":
                 cod = str((self._corpo() or {}).get("cod") or "").strip().upper()
@@ -220,6 +282,10 @@ class Manipulador(BaseHTTPRequestHandler):
                 return self._json(404, {"message": "not found"})
             tabela = m.group(1)
             filtros = [(k, unquote(v)) for k, v in query if k not in ("select", "order", "limit", "on_conflict")]
+            selecao = dict(query).get("select", "")
+            if d.sem_anexos and ("anexos" in selecao or "figurinha" in selecao or tabela == "config"):
+                coluna = "anexos" if tabela != "config" else "config"
+                return self._json(400, {"code": "42703", "message": f"column {tabela}.{coluna} does not exist"})
             if metodo == "GET":
                 if tabela == "ranking_semana":
                     linhas = d.ranking_semana()
@@ -252,6 +318,15 @@ class Manipulador(BaseHTTPRequestHandler):
                         erro = self._forum_inserir(tabela, dict(n), uid)
                         if erro:
                             return self._json(*erro)
+                        continue
+                    if tabela == "config":
+                        if not d.eh_admin(uid):
+                            return self._json(403, {"code": "42501", "message": "new row violates row-level security policy"})
+                        existente = next((l for l in d.tabelas["config"] if l["chave"] == n.get("chave")), None)
+                        if existente:
+                            existente.update(n)
+                        else:
+                            d.tabelas["config"].append(dict(n))
                         continue
                     if tabela == "comunicados":
                         if not d.eh_admin(uid):
@@ -335,11 +410,14 @@ class Manipulador(BaseHTTPRequestHandler):
         """Insere no fórum com as regras do ranking.sql. Devolve (código, corpo) se recusar."""
         d = self.dados
         negado = (403, {"code": "42501", "message": "new row violates row-level security policy"})
+        checagem = (400, {"code": "23514", "message": f'new row for relation "{tabela}" violates check constraint'})
         if tabela == "forum_posts":
             if n.get("autor") != uid or not d.pode_escrever(uid, n.get("codigo", "")):
                 return negado
+            if not _conteudo_valido(n, n.get("codigo", "")):
+                return checagem
             d._seq += 1
-            linha = {"id": d._seq, "tipo": "conversa", "titulo": "", "texto": "", "plano": None, "editado_em": None, **n}
+            linha = {"id": d._seq, "tipo": "conversa", "titulo": "", "texto": "", "plano": None, "editado_em": None, "anexos": None, "figurinha": None, **n}
             linha["fixado"] = bool(n.get("fixado")) and d.modera(uid, n["codigo"])
             linha["criado_em"] = agora_iso()
             d.tabelas["forum_posts"].append(linha)
@@ -352,8 +430,10 @@ class Manipulador(BaseHTTPRequestHandler):
         if dono != uid or not d.pode_escrever(uid, post["codigo"]):
             return negado
         if tabela == "forum_respostas":
+            if not _conteudo_valido(n, post["codigo"]):
+                return checagem
             d._seq += 1
-            d.tabelas["forum_respostas"].append({"id": d._seq, **n, "criado_em": agora_iso()})
+            d.tabelas["forum_respostas"].append({"id": d._seq, "texto": "", "anexos": None, "figurinha": None, **n, "criado_em": agora_iso()})
             return None
         if any(u["post_id"] == n["post_id"] and u["usuario_id"] == uid for u in d.tabelas["forum_uteis"]):
             return (409, {"code": "23505", "message": 'duplicate key value violates unique constraint "forum_uteis_pkey"'})
@@ -412,17 +492,41 @@ class ServidorFalso:
         """Conversa de exemplo num grupo (para testar e tirar capturas de tela)."""
         d = self.dados
 
-        def post(apelido, minutos, tipo, texto, titulo="", plano=None, fixado=False):
+        def post(apelido, minutos, tipo, texto, titulo="", plano=None, fixado=False, anexos=None, figurinha=None):
             d._seq += 1
             d.tabelas["forum_posts"].append({
                 "id": d._seq, "codigo": codigo, "autor": self.uid_de(apelido), "tipo": tipo, "titulo": titulo, "texto": texto,
-                "plano": plano, "fixado": fixado, "criado_em": agora_iso(minutos), "editado_em": None,
+                "plano": plano, "fixado": fixado, "criado_em": agora_iso(minutos), "editado_em": None, "anexos": anexos, "figurinha": figurinha,
             })
             return d._seq
 
-        def resposta(pid, apelido, minutos, texto):
+        def resposta(pid, apelido, minutos, texto, figurinha=None):
             d._seq += 1
-            d.tabelas["forum_respostas"].append({"id": d._seq, "post_id": pid, "codigo": codigo, "autor": self.uid_de(apelido), "texto": texto, "criado_em": agora_iso(minutos)})
+            d.tabelas["forum_respostas"].append({"id": d._seq, "post_id": pid, "codigo": codigo, "autor": self.uid_de(apelido), "texto": texto,
+                                                 "criado_em": agora_iso(minutos), "anexos": None, "figurinha": figurinha})
+
+        def arquivo(apelido, nome, dados, tipo, mime, **extra):
+            caminho = f"{codigo}/{self.uid_de(apelido)}/{d._seq:04d}-{nome.replace(' ', '-')}"
+            d.arquivos[caminho] = (dados, mime)
+            return {"tipo": tipo, "caminho": caminho, "nome": nome, "tamanho": len(dados), "mime": mime, **extra}
+
+        def mapa_mental() -> bytes:
+            import io
+
+            from PIL import Image, ImageDraw
+
+            im = Image.new("RGB", (1200, 760), (250, 248, 242))
+            dr = ImageDraw.Draw(im)
+            dr.rounded_rectangle((470, 300, 730, 440), radius=30, fill=(35, 64, 168))
+            dr.text((520, 355), "ATOS ADMINISTRATIVOS", fill=(255, 255, 255))
+            for (x, y, cor, rot) in ((120, 90, (29, 127, 83), "Competência"), (880, 90, (232, 96, 76), "Finalidade"),
+                                     (120, 560, (201, 142, 18), "Forma"), (880, 560, (122, 79, 48), "Motivo"), (500, 600, (90, 60, 160), "Objeto")):
+                dr.line((600, 370, x + 100, y + 50), fill=(150, 156, 170), width=6)
+                dr.rounded_rectangle((x, y, x + 200, y + 100), radius=24, fill=cor)
+                dr.text((x + 40, y + 42), rot, fill=(255, 255, 255))
+            saida = io.BytesIO()
+            im.save(saida, "PNG")
+            return saida.getvalue()
 
         def util(pid, *apelidos):
             for a in apelidos:
@@ -445,7 +549,13 @@ class ServidorFalso:
         resposta(duvida, "Joao_TI", 70, "Ahh, agora fez sentido. Valeu!")
         util(duvida, "Lia")
         post("Lia", 25, "material", "Resumo de LGPD em uma página que ajudou muito: https://www.gov.br/anpd", "Resumo de LGPD")
+        mapa = post("Joao_TI", 14, "material", "Fiz esse mapa mental dos elementos do ato administrativo. E a lei comentada que o professor passou:", "Mapa mental: atos administrativos",
+                    anexos=[arquivo("Joao_TI", "mapa atos administrativos.png", mapa_mental(), "imagem", "image/png", largura=1200, altura=760),
+                            arquivo("Joao_TI", "Lei 8.112 comentada.pdf", b"%PDF-1.4 " + b"x" * 240_000, "arquivo", "application/pdf")])
+        resposta(mapa, "Lia", 11, "", figurinha="valeu")
+        util(mapa, "Camila R.", "Lia")
         post("Pedro M", 8, "conversa", "Alguém topa simulado completo no sábado às 9h? Cada um faz em casa e depois a gente compara aqui.")
+        post("Lia", 5, "conversa", "", figurinha="bora-estudar")
 
 
 if __name__ == "__main__":

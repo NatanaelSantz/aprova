@@ -10,7 +10,7 @@ from .. import ranking as rk
 from . import comp, metas
 from .tema import FONTE_TITULO
 
-ABAS = [("geral", "Visão geral"), ("usuarios", "Usuários"), ("grupos", "Grupos"), ("comunicados", "Comunicados")]
+ABAS = [("geral", "Visão geral"), ("usuarios", "Usuários"), ("grupos", "Grupos"), ("comunicados", "Comunicados"), ("config", "Configurações")]
 QUEBRAS_NUM = {"um": 0, "tres": 1000}
 
 
@@ -75,7 +75,7 @@ class TelaAdmin:
         elif self.usuarios is None:
             corpo = comp.carregando("Buscando os dados do servidor…", c)
         else:
-            corpo = {"geral": self._geral, "usuarios": self._usuarios, "grupos": self._grupos, "comunicados": self._comunicados}[self.aba]()
+            corpo = {"geral": self._geral, "usuarios": self._usuarios, "grupos": self._grupos, "comunicados": self._comunicados, "config": self._config}[self.aba]()
         return ft.Column([topo, ft.ListView([corpo, ft.Container(height=30)], expand=True)], spacing=16, expand=True)
 
     def _trocar(self, e):
@@ -338,6 +338,70 @@ class TelaAdmin:
         )
 
     # ------------------------------------------------------------------ comunicados
+
+    def _config(self) -> ft.Control:
+        """Chave do GIPHY (busca de GIFs e figurinhas animadas nos grupos)."""
+        app, c = self.app, self.app.c
+        atual = self.r.chave_giphy() if self.r._giphy is not None else ""
+        campo = ft.TextField(
+            label="Chave da API do GIPHY",
+            value=atual,
+            password=True,
+            can_reveal_password=True,
+            dense=True,
+            border_radius=10,
+            expand=True,
+        )
+
+        async def carregar_atual():
+            valor = await app.em_segundo_plano(self.r.chave_giphy)
+            if valor and not campo.value:
+                campo.value = valor
+                try:
+                    campo.update()
+                except Exception:  # noqa: BLE001
+                    pass
+
+        async def salvar(e):
+            try:
+                await app.em_segundo_plano(self.r.config_salvar, "giphy", campo.value or "")
+            except rk.ErroRanking as ex:
+                app.msg(str(ex))
+                return
+            self.r._giphy = (campo.value or "").strip()
+            app.msg("Chave salva. A busca de GIFs já funciona para todo mundo." if self.r._giphy else "Chave removida: a busca de GIFs foi desligada.")
+
+        if self.r._giphy is None:
+            app.page.run_task(carregar_atual)
+        passos = ft.Column(
+            [
+                comp.texto("Como pegar a chave (grátis, uns 3 minutos):", c, 14, peso=ft.FontWeight.W_600),
+                comp.apagado("1. Entre em developers.giphy.com e crie uma conta (ou entre na sua).", c, 13.5),
+                comp.apagado("2. Clique em Create an App, escolha API (não SDK) e dê um nome, como Aprova.", c, 13.5),
+                comp.apagado("3. Copie a API Key que aparece e cole aqui.", c, 13.5),
+                comp.botao_texto("Abrir developers.giphy.com", url="https://developers.giphy.com/dashboard/", icone=ft.Icons.OPEN_IN_NEW),
+            ],
+            spacing=4,
+        )
+        return comp.bloco(
+            ft.Column(
+                [
+                    comp.subtitulo("Busca de GIFs nos grupos", c, 18),
+                    comp.apagado(
+                        "As figurinhas do Aprova e o envio de fotos e arquivos funcionam sem nada. Para buscar GIFs e figurinhas animadas, "
+                        "o Aprova usa o GIPHY, que pede uma chave. Ela vale para todos e fica guardada no servidor; só administradores mudam.",
+                        c,
+                        13.5,
+                    ),
+                    ft.Row([campo, comp.botao("Salvar", salvar, ft.Icons.SAVE_OUTLINED)], spacing=10),
+                    passos,
+                ],
+                spacing=12,
+            ),
+            c,
+            padding=20,
+            width=760 if app.largo else None,
+        )
 
     def _comunicados(self) -> ft.Control:
         app, c = self.app, self.app.c

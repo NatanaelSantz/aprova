@@ -35,6 +35,21 @@ create function auth.jwt() returns jsonb language sql stable as $f$
 $f$;
 grant usage on schema auth to anon, authenticated;
 grant usage on schema public to anon, authenticated;
+-- Storage: só as peças que o ranking.sql usa (pastas e arquivos com regras por linha)
+create schema storage;
+create table storage.buckets (id text primary key, name text not null, public boolean default false,
+    file_size_limit bigint, allowed_mime_types text[]);
+create table storage.objects (id bigserial primary key, bucket_id text references storage.buckets (id), name text not null,
+    owner uuid default auth.uid(), unique (bucket_id, name));
+create function storage.foldername(name text) returns text[] language plpgsql immutable as $f$
+declare partes text[] := string_to_array(name, '/');
+begin
+    return partes[1:array_length(partes, 1) - 1];
+end $f$;
+alter table storage.objects enable row level security;
+grant usage on schema storage to authenticated;
+grant select, insert, delete on storage.objects to authenticated;
+grant usage, select on all sequences in schema storage to authenticated;
 -- sem "expor tabelas novas": o ranking.sql precisa dar o acesso sozinho
 """
 
@@ -73,7 +88,7 @@ class Banco:
 @pytest.fixture(scope="module")
 def db():
     con = psycopg.connect(DSN, autocommit=True)
-    con.execute("drop schema if exists public cascade; drop schema if exists auth cascade; create schema public; grant all on schema public to public;")
+    con.execute("drop schema if exists public cascade; drop schema if exists auth cascade; drop schema if exists storage cascade; create schema public; grant all on schema public to public;")
     con.execute(SUPABASE)
     con.execute(SQL)
     con.execute(SQL)  # rodar de novo não pode dar erro (o README manda rodar de novo nas atualizações)
@@ -176,3 +191,56 @@ def test_ranking_e_comunicados(db):
     assert "row-level security" in db.como(B).falha("insert into comunicados (titulo, texto) values ('Oi gente', 'teste')")
     db.como(A).q("insert into comunicados (titulo, texto) values ('Simulado sábado', 'Às 9h')")
     assert db.como(B).q("select titulo from comunicados") == [("Simulado sábado",)]
+
+
+def test_anexos_figurinhas_e_arquivos(db):
+    db.como(B).q("insert into grupos (codigo, nome, criado_por) values ('ANEXO-0001', 'Turma', %s)", (B,))
+    for uid in (B, C):
+        db.como(uid).q("insert into membros (codigo, usuario_id) values ('ANEXO-0001', %s)", (uid,))
+    foto = json.dumps([{"tipo": "imagem", "caminho": f"ANEXO-0001/{C}/a1-resumo.png", "nome": "resumo.png", "tamanho": 1000}])
+    gif = json.dumps([{"tipo": "gif", "url": "https://media1.giphy.com/media/abc/giphy.gif", "largura": 200, "altura": 150}])
+    # só figurinha, só foto ou só GIF (sem texto) valem
+    db.como(C).q("insert into forum_posts (codigo, autor, figurinha) values ('ANEXO-0001', %s, 'bora-estudar')", (C,))
+    db.como(C).q("insert into forum_posts (codigo, autor, anexos) values ('ANEXO-0001', %s, %s)", (C, foto))
+    db.como(C).q("insert into forum_posts (codigo, autor, anexos) values ('ANEXO-0001', %s, %s)", (C, gif))
+    assert db.como(B).q("select figurinha, anexos is not null from forum_feed where codigo = 'ANEXO-0001' order by id") == [("bora-estudar", False), (None, True), (None, True)]
+    # mensagem vazia, anexo de outro grupo, link qualquer e figurinha esquisita são recusados
+    assert "check" in db.como(C).falha("insert into forum_posts (codigo, autor) values ('ANEXO-0001', %s)", (C,))
+    alheio = json.dumps([{"tipo": "imagem", "caminho": f"OUTRO-GRUPO/{C}/x.png"}])
+    assert "check" in db.como(C).falha("insert into forum_posts (codigo, autor, anexos) values ('ANEXO-0001', %s, %s)", (C, alheio))
+    link = json.dumps([{"tipo": "gif", "url": "https://site-estranho.com/x.gif"}])
+    assert "check" in db.como(C).falha("insert into forum_posts (codigo, autor, anexos) values ('ANEXO-0001', %s, %s)", (C, link))
+    assert "check" in db.como(C).falha("insert into forum_posts (codigo, autor, figurinha) values ('ANEXO-0001', %s, '<script>')", (C,))
+    # resposta só com figurinha ou só com foto
+    pid = db.como(C).q("select id from forum_posts where figurinha is not null")[0][0]
+    db.como(B).q("insert into forum_respostas (post_id, figurinha) values (%s, 'valeu')", (pid,))
+    db.como(B).q("insert into forum_respostas (post_id, anexos) values (%s, %s)", (pid, json.dumps([{"tipo": "arquivo", "caminho": f"ANEXO-0001/{B}/b2-lei.pdf"}])))
+    assert db.como(C).q("select figurinha from forum_respostas_v where post_id = %s order by id", (pid,)) == [("valeu",), (None,)]
+    assert "check" in db.como(B).falha("insert into forum_respostas (post_id) values (%s)", (pid,))
+    # quem modera não troca a figurinha nem os anexos de outra pessoa
+    db.como(B).q("update forum_posts set figurinha = 'kkk' where id = %s", (pid,))
+    assert db.como(C).q("select figurinha from forum_posts where id = %s", (pid,)) == [("bora-estudar",)]
+
+    # arquivos: a pasta "anexos" existe, privada, até 20 MB
+    assert db.como(None).q("select public, file_size_limit from storage.buckets where id = 'anexos'") == [(False, 20971520)]
+    db.como(C).q("insert into storage.objects (bucket_id, name) values ('anexos', %s)", (f"ANEXO-0001/{C}/a1-resumo.png",))
+    # não envia na pasta de outra pessoa nem em grupo que não é seu
+    assert "row-level security" in db.como(C).falha("insert into storage.objects (bucket_id, name) values ('anexos', %s)", (f"ANEXO-0001/{B}/x.png",))
+    assert "row-level security" in db.como(D).falha("insert into storage.objects (bucket_id, name) values ('anexos', %s)", (f"ANEXO-0001/{D}/x.png",))
+    # quem é do grupo vê; quem não é, não
+    assert db.como(B).q("select count(*) from storage.objects") == [(1,)]
+    assert db.como(D).q("select count(*) from storage.objects") == [(0,)]
+    # quem enviou ou quem modera apaga; outro membro não
+    db.como(B).q("insert into storage.objects (bucket_id, name) values ('anexos', %s)", (f"ANEXO-0001/{B}/b2-lei.pdf",))
+    db.como(C).q("delete from storage.objects where name like %s", (f"ANEXO-0001/{B}/%",))
+    assert db.como(B).q("select count(*) from storage.objects") == [(2,)]
+    db.como(B).q("delete from storage.objects where name like %s", (f"ANEXO-0001/{C}/%",))
+    assert db.como(B).q("select count(*) from storage.objects") == [(1,)]
+
+
+def test_config_so_admin_muda(db):
+    assert "row-level security" in db.como(C).falha("insert into config (chave, valor) values ('giphy', 'abc')")
+    db.como(A).q("insert into config (chave, valor) values ('giphy', 'chave-publica-123')")
+    assert db.como(C).q("select valor from config where chave = 'giphy'") == [("chave-publica-123",)]
+    db.como(C).q("update config set valor = 'hack' where chave = 'giphy'")
+    assert db.como(C).q("select valor from config where chave = 'giphy'") == [("chave-publica-123",)]

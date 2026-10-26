@@ -39,6 +39,67 @@ class ErroRanking(Exception):
     pass
 
 
+# arquivos que dá para mandar nos grupos: extensão -> (tipo MIME, como aparece)
+TIPOS_ARQUIVO = {
+    "png": ("image/png", "imagem"), "jpg": ("image/jpeg", "imagem"), "jpeg": ("image/jpeg", "imagem"),
+    "webp": ("image/webp", "imagem"), "gif": ("image/gif", "gif"),
+    "pdf": ("application/pdf", "arquivo"), "txt": ("text/plain", "arquivo"), "csv": ("text/csv", "arquivo"),
+    "rtf": ("application/rtf", "arquivo"), "zip": ("application/zip", "arquivo"),
+    "doc": ("application/msword", "arquivo"),
+    "docx": ("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "arquivo"),
+    "xls": ("application/vnd.ms-excel", "arquivo"),
+    "xlsx": ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "arquivo"),
+    "ppt": ("application/vnd.ms-powerpoint", "arquivo"),
+    "pptx": ("application/vnd.openxmlformats-officedocument.presentationml.presentation", "arquivo"),
+    "odt": ("application/vnd.oasis.opendocument.text", "arquivo"),
+    "ods": ("application/vnd.oasis.opendocument.spreadsheet", "arquivo"),
+    "odp": ("application/vnd.oasis.opendocument.presentation", "arquivo"),
+    "mp3": ("audio/mpeg", "arquivo"), "m4a": ("audio/mp4", "arquivo"), "ogg": ("audio/ogg", "arquivo"),
+    "wav": ("audio/wav", "arquivo"), "mp4": ("video/mp4", "arquivo"),
+}
+LIMITE_ARQUIVO = 20 * 1024 * 1024  # o mesmo do servidor (supabase/ranking.sql)
+MAX_ANEXOS = 10
+GIPHY = re.compile(r"^https://media[0-9]?\.giphy\.com/")
+
+
+def tamanho_texto(n: int) -> str:
+    if n < 1024 * 1024:
+        return f"{max(1, round(n / 1024))} KB"
+    return f"{n / (1024 * 1024):.1f} MB".replace(".", ",")
+
+
+def _nome_seguro(nome: str) -> str:
+    import unicodedata
+
+    base = unicodedata.normalize("NFKD", nome).encode("ascii", "ignore").decode()
+    base = re.sub(r"[^A-Za-z0-9._-]+", "-", base).strip("-.") or "arquivo"
+    stem, _, ext = base.rpartition(".")
+    if not stem:
+        stem, ext = ext, ""
+    return (stem[:50] + ("." + ext.lower()[:5] if ext else "")).strip("-") or "arquivo"
+
+
+def _imagem_leve(dados: bytes, ext: str) -> tuple[bytes, str, int, int]:
+    """Foto grande demais (de celular, 4000 px) vira uma versão de até 1600 px. Devolve (dados, ext, largura, altura)."""
+    import io
+
+    from PIL import Image
+
+    with Image.open(io.BytesIO(dados)) as im:
+        largura, altura = im.size
+        if ext == "gif" or (max(largura, altura) <= 1920 and len(dados) <= 1_500_000):
+            return dados, ext, largura, altura
+        im.thumbnail((1600, 1600))
+        saida = io.BytesIO()
+        if im.mode in ("RGBA", "LA", "P") and ext == "png":
+            im.save(saida, "PNG", optimize=True)
+            novo_ext = "png"
+        else:
+            im.convert("RGB").save(saida, "JPEG", quality=85, optimize=True)
+            novo_ext = "jpg"
+        return saida.getvalue(), novo_ext, im.size[0], im.size[1]
+
+
 def _ler_config(caminho: Path) -> dict:
     try:
         dados = json.loads(caminho.read_text(encoding="utf-8"))
@@ -143,6 +204,12 @@ def _mensagem(resp: requests.Response) -> str:
         return "Muitas tentativas seguidas. Espere um minuto e tente de novo."
     if "jwt" in t and "expired" in t:
         return "Sua sessão expirou. Entre de novo."
+    if "bucket not found" in t:
+        return "O servidor ainda não recebe arquivos. O administrador precisa rodar o SQL novo (supabase/ranking.sql)."
+    if resp.status_code == 413 or "maximum allowed size" in t or "too large" in t:
+        return f"O arquivo passa do limite de {LIMITE_ARQUIVO // (1024 * 1024)} MB."
+    if "mime type" in t:
+        return "Esse tipo de arquivo não é aceito."
     return texto or f"erro {resp.status_code}"
 
 
@@ -155,6 +222,8 @@ class Ranking:
         self._token = ""
         self._expira = 0.0
         self._lock = threading.Lock()
+        self.servidor_sem_anexos = False  # servidor ainda sem o SQL da 1.10 (fotos, arquivos, figurinhas)
+        self._giphy: str | None = None
 
     # ---- estado
 
@@ -211,14 +280,15 @@ class Ranking:
         if not self.configurado:
             raise ErroRanking("O ranking ainda não foi configurado neste app.")
         extra = kw.pop("cabecalhos", None)
+        espera = kw.pop("tempo", 20)
         try:
-            resp = requests.request(metodo, self._url(caminho), headers=self._cab(autenticado, extra), timeout=20, **kw)
+            resp = requests.request(metodo, self._url(caminho), headers=self._cab(autenticado, extra), timeout=espera, **kw)
         except requests.RequestException as e:
             raise ErroRanking("Sem conexão com o servidor do ranking. Confira a internet.") from e
         if resp.status_code == 401 and autenticado:
             # token venceu no meio do caminho: renova uma vez
             self._expira = 0
-            resp = requests.request(metodo, self._url(caminho), headers=self._cab(True, extra), timeout=20, **kw)
+            resp = requests.request(metodo, self._url(caminho), headers=self._cab(True, extra), timeout=espera, **kw)
         if resp.status_code >= 400:
             raise ErroRanking(_mensagem(resp))
         return resp
@@ -507,9 +577,9 @@ class Ranking:
 
     def forum(self, codigo: str, tipo: str | None = None, limite: int = 60) -> list[dict]:
         """Mensagens do grupo, fixadas primeiro. tipo='plano' traz só os planos; 'conversa', o resto."""
+        colunas = "id,codigo,autor,apelido,tipo,titulo,texto,plano,fixado,criado_em,editado_em,respostas,uteis"
         filtros = [
             f"codigo=eq.{codigo}",
-            "select=id,codigo,autor,apelido,tipo,titulo,texto,plano,fixado,criado_em,editado_em,respostas,uteis",
             "order=fixado.desc,criado_em.desc",
             f"limit={limite}",
         ]
@@ -517,7 +587,7 @@ class Ranking:
             filtros.append("tipo=eq.plano")
         elif tipo == "conversa":
             filtros.append("tipo=neq.plano")
-        posts = self._pedir("GET", "/rest/v1/forum_feed?" + "&".join(filtros)).json()
+        posts = self._ler_com_anexos("/rest/v1/forum_feed?" + "&".join(filtros), colunas)
         meus: set[int] = set()
         if posts:
             ids = ",".join(str(p["id"]) for p in posts)
@@ -532,9 +602,22 @@ class Ranking:
             p["util_meu"] = p["id"] in meus
             p["respostas"] = int(p.get("respostas") or 0)
             p["uteis"] = int(p.get("uteis") or 0)
+            p["anexos"] = _lista_anexos(p.get("anexos"))
         return posts
 
-    def forum_publicar(self, codigo: str, texto: str, tipo: str = "conversa", titulo: str = "", plano: dict | None = None) -> None:
+    def _ler_com_anexos(self, caminho: str, colunas: str) -> list[dict]:
+        """Lê pedindo as colunas novas (anexos, figurinha); se o servidor ainda não tem, lê sem elas."""
+        if not self.servidor_sem_anexos:
+            try:
+                return self._pedir("GET", f"{caminho}&select={colunas},anexos,figurinha").json()
+            except ErroRanking as e:
+                if "anexos" not in str(e) and "figurinha" not in str(e):
+                    raise
+                self.servidor_sem_anexos = True
+        return self._pedir("GET", f"{caminho}&select={colunas}").json()
+
+    def forum_publicar(self, codigo: str, texto: str, tipo: str = "conversa", titulo: str = "", plano: dict | None = None,
+                       anexos: list[dict] | None = None, figurinha: str | None = None) -> None:
         if tipo not in TIPOS_FORUM:
             raise ErroRanking("Tipo de mensagem inválido.")
         texto, titulo = (texto or "").strip(), re.sub(r"\s+", " ", (titulo or "").strip())
@@ -548,22 +631,168 @@ class Ranking:
                 raise ErroRanking("Dê um nome ao plano (ex.: Plano 12h para a Dataprev).")
         else:
             plano = None
-            if not texto:
+            if not texto and not anexos and not figurinha:
                 raise ErroRanking("Escreva a mensagem.")
         corpo = {"codigo": codigo, "autor": self.usuario_id, "tipo": tipo, "titulo": titulo, "texto": texto, "plano": plano}
+        corpo.update(self._extras(anexos, figurinha))
         self._pedir("POST", "/rest/v1/forum_posts", json=corpo, cabecalhos={"Prefer": "return=minimal"})
 
+    def _extras(self, anexos: list[dict] | None, figurinha: str | None) -> dict:
+        extra: dict = {}
+        if anexos:
+            if len(anexos) > MAX_ANEXOS:
+                raise ErroRanking(f"Dá para mandar até {MAX_ANEXOS} arquivos por mensagem.")
+            extra["anexos"] = anexos
+        if figurinha:
+            if not re.fullmatch(r"[a-z0-9-]{1,40}", figurinha):
+                raise ErroRanking("Figurinha inválida.")
+            extra["figurinha"] = figurinha
+        if extra and self.servidor_sem_anexos:
+            raise ErroRanking("O servidor do grupo ainda não recebe fotos, arquivos, GIFs e figurinhas. O administrador precisa rodar o SQL novo (supabase/ranking.sql).")
+        return extra
+
     def forum_respostas(self, post_id: int) -> list[dict]:
-        linhas = self._pedir("GET", f"/rest/v1/forum_respostas_v?post_id=eq.{int(post_id)}&select=id,post_id,autor,apelido,texto,criado_em&order=criado_em.asc&limit=200").json()
+        linhas = self._ler_com_anexos(f"/rest/v1/forum_respostas_v?post_id=eq.{int(post_id)}&order=criado_em.asc&limit=200", "id,post_id,autor,apelido,texto,criado_em")
         for l in linhas:
             l["meu"] = l.get("autor") == self.usuario_id
+            l["anexos"] = _lista_anexos(l.get("anexos"))
         return linhas
 
-    def forum_responder(self, post_id: int, texto: str) -> None:
+    def forum_responder(self, post_id: int, texto: str, anexos: list[dict] | None = None, figurinha: str | None = None) -> None:
         texto = (texto or "").strip()
-        if not 1 <= len(texto) <= 2000:
-            raise ErroRanking("A resposta deve ter de 1 a 2000 letras.")
-        self._pedir("POST", "/rest/v1/forum_respostas", json={"post_id": int(post_id), "autor": self.usuario_id, "texto": texto}, cabecalhos={"Prefer": "return=minimal"})
+        if len(texto) > 2000:
+            raise ErroRanking("A resposta pode ter até 2000 letras.")
+        if not texto and not anexos and not figurinha:
+            raise ErroRanking("Escreva a resposta.")
+        corpo = {"post_id": int(post_id), "autor": self.usuario_id, "texto": texto, **self._extras(anexos, figurinha)}
+        self._pedir("POST", "/rest/v1/forum_respostas", json=corpo, cabecalhos={"Prefer": "return=minimal"})
+
+    # ---- arquivos dos grupos (Storage do Supabase, pasta privada "anexos")
+
+    def enviar_anexo(self, codigo: str, caminho: Path | str) -> dict:
+        """Envia um arquivo do computador para o grupo. Devolve o anexo para pôr na mensagem."""
+        import uuid
+
+        caminho = Path(caminho)
+        ext = caminho.suffix.lower().lstrip(".")
+        if ext not in TIPOS_ARQUIVO:
+            raise ErroRanking(f"“{caminho.name}” não pode ser enviado. Dá para mandar PDF, Word, Excel, PowerPoint, fotos, GIF, áudio, vídeo MP4, TXT e ZIP.")
+        try:
+            dados = caminho.read_bytes()
+        except OSError as e:
+            raise ErroRanking(f"Não consegui ler “{caminho.name}”.") from e
+        if not dados:
+            raise ErroRanking(f"“{caminho.name}” está vazio.")
+        mime, tipo = TIPOS_ARQUIVO[ext]
+        anexo: dict = {"tipo": tipo, "nome": caminho.name[:120]}
+        if tipo in ("imagem", "gif"):
+            try:
+                dados, ext, largura, altura = _imagem_leve(dados, ext)
+                mime = TIPOS_ARQUIVO[ext][0]
+                anexo.update(largura=largura, altura=altura)
+            except ImportError:
+                pass  # sem Pillow: manda como está
+            except Exception as e:  # noqa: BLE001 - imagem quebrada
+                raise ErroRanking(f"“{caminho.name}” não parece ser uma imagem válida.") from e
+        if len(dados) > LIMITE_ARQUIVO:
+            raise ErroRanking(f"“{caminho.name}” tem {tamanho_texto(len(dados))}; o limite é {LIMITE_ARQUIVO // (1024 * 1024)} MB.")
+        nome = _nome_seguro(Path(caminho.stem + "." + ext).name)
+        objeto = f"{codigo}/{self.usuario_id}/{uuid.uuid4().hex[:12]}-{nome}"
+        self._pedir(
+            "POST",
+            f"/storage/v1/object/anexos/{quote(objeto)}",
+            data=dados,
+            cabecalhos={"Content-Type": mime, "x-upsert": "false", "cache-control": "max-age=31536000"},
+            tempo=120,
+        )
+        anexo.update(caminho=objeto, tamanho=len(dados), mime=mime)
+        _guardar_cache(objeto, dados)
+        return anexo
+
+    def baixar_anexo(self, anexo: dict) -> bytes:
+        """Bytes de um anexo (foto, arquivo ou GIF do GIPHY), guardados em cache no computador."""
+        chave = anexo.get("caminho") or anexo.get("url") or ""
+        guardado = _ler_cache(chave)
+        if guardado is not None:
+            return guardado
+        if anexo.get("caminho"):
+            dados = self._pedir("GET", f"/storage/v1/object/authenticated/anexos/{quote(anexo['caminho'])}", tempo=120).content
+        elif GIPHY.match(anexo.get("url") or ""):
+            try:
+                resp = requests.get(anexo["url"], timeout=30)
+                resp.raise_for_status()
+            except requests.RequestException as e:
+                raise ErroRanking("Não consegui baixar o GIF.") from e
+            dados = resp.content
+        else:
+            raise ErroRanking("Anexo inválido.")
+        _guardar_cache(chave, dados)
+        return dados
+
+    def apagar_anexos(self, anexos: list[dict]) -> None:
+        """Apaga do servidor os arquivos (melhor esforço: se falhar, fica só o arquivo sem a mensagem)."""
+        caminhos = [a["caminho"] for a in anexos or [] if a.get("caminho")]
+        if caminhos:
+            try:
+                self._pedir("DELETE", "/storage/v1/object/anexos", json={"prefixes": caminhos})
+            except ErroRanking:
+                pass
+
+    # ---- configurações do app (admin) e GIFs
+
+    def config_valor(self, chave: str) -> str:
+        try:
+            linhas = self._pedir("GET", f"/rest/v1/config?chave=eq.{quote(chave)}&select=valor").json()
+        except ErroRanking:
+            return ""
+        return str(linhas[0].get("valor") or "") if linhas else ""
+
+    def config_salvar(self, chave: str, valor: str) -> None:
+        self._pedir(
+            "POST",
+            "/rest/v1/config?on_conflict=chave",
+            json={"chave": chave, "valor": (valor or "").strip()},
+            cabecalhos={"Prefer": "resolution=merge-duplicates,return=minimal"},
+        )
+
+    def chave_giphy(self) -> str:
+        if self._giphy is None:
+            self._giphy = self.config_valor("giphy")
+        return self._giphy
+
+    def buscar_gifs(self, termo: str = "", figurinhas: bool = False, limite: int = 24) -> list[dict]:
+        """GIFs (ou figurinhas animadas) do GIPHY. Precisa da chave que o admin põe no app."""
+        chave = self.chave_giphy()
+        if not chave:
+            raise ErroRanking("A busca de GIFs ainda não foi ligada. O administrador põe a chave do GIPHY em Admin → Configurações.")
+        tipo = "stickers" if figurinhas else "gifs"
+        termo = (termo or "").strip()
+        url = f"https://api.giphy.com/v1/{tipo}/{'search' if termo else 'trending'}"
+        params = {"api_key": chave, "limit": limite, "rating": "pg", "lang": "pt"}
+        if termo:
+            params["q"] = termo[:50]
+        try:
+            resp = requests.get(url, params=params, timeout=15)
+        except requests.RequestException as e:
+            raise ErroRanking("Sem conexão com o GIPHY. Confira a internet.") from e
+        if resp.status_code in (401, 403):
+            raise ErroRanking("A chave do GIPHY não funcionou. Confira em Admin → Configurações.")
+        if resp.status_code >= 400:
+            raise ErroRanking("O GIPHY não respondeu agora. Tente de novo daqui a pouco.")
+        saida = []
+        for g in resp.json().get("data") or []:
+            imgs = g.get("images") or {}
+            envio = imgs.get("fixed_height") or imgs.get("downsized") or {}
+            previa = imgs.get("fixed_width_small") or imgs.get("fixed_height_small") or envio
+            url_envio, url_previa = envio.get("url") or "", previa.get("url") or ""
+            if GIPHY.match(url_envio) and GIPHY.match(url_previa):
+                saida.append({
+                    "id": g.get("id"),
+                    "titulo": g.get("title") or "",
+                    "previa": url_previa,
+                    "anexo": {"tipo": "gif", "url": url_envio, "largura": int(envio.get("width") or 0), "altura": int(envio.get("height") or 0), "nome": "GIF"},
+                })
+        return saida
 
     def forum_util(self, post_id: int, marcar: bool) -> None:
         if marcar:
@@ -703,6 +932,41 @@ class Ranking:
 
     def apagar_grupo(self, codigo: str) -> None:
         self._pedir("DELETE", f"/rest/v1/grupos?codigo=eq.{codigo}")
+
+
+def _lista_anexos(valor) -> list[dict]:
+    if isinstance(valor, str):
+        try:
+            valor = json.loads(valor)
+        except ValueError:
+            return []
+    return [a for a in valor if isinstance(a, dict)] if isinstance(valor, list) else []
+
+
+def _pasta_cache() -> Path:
+    p = config.CACHE_DIR / "anexos"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def _arquivo_cache(chave: str) -> Path:
+    import hashlib
+
+    return _pasta_cache() / hashlib.sha1(chave.encode("utf-8")).hexdigest()
+
+
+def _ler_cache(chave: str) -> bytes | None:
+    try:
+        return _arquivo_cache(chave).read_bytes()
+    except OSError:
+        return None
+
+
+def _guardar_cache(chave: str, dados: bytes) -> None:
+    try:
+        _arquivo_cache(chave).write_bytes(dados)
+    except OSError:
+        pass
 
 
 TIPOS_FORUM = {

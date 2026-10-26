@@ -1,10 +1,10 @@
 {
-  "versao": "1.9.5",
+  "versao": "1.10.0",
   "data": "26/10/2026",
   "notas": [
-    "Tamanho da interface: no automático, tudo fica menor em notebooks com zoom do Windows e cabe mais coisa na tela",
-    "Escolha 80% a 125% em Ajustes, ou use Ctrl + e Ctrl − (Ctrl 0 volta ao automático)",
-    "Barra de rolagem fina e discreta, que engrossa ao passar o mouse"
+    "Grupos: mande fotos e arquivos do computador (PDF, Word, Excel, imagens, áudio, até 20 MB)",
+    "Figurinhas do Aprova: Bora estudar!, Passei!, Gabaritei, Café + lei seca e mais",
+    "GIFs e figurinhas animadas do GIPHY (o administrador liga em Admin → Configurações)"
   ],
   "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
 }

@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.9.5" src="https://img.shields.io/badge/vers%C3%A3o-1.9.5-2340A8">
+  <img alt="Versão 1.10.0" src="https://img.shields.io/badge/vers%C3%A3o-1.10.0-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -56,7 +56,7 @@
   <tr>
     <td valign="top">
       <h3>👥 Grupos de estudo</h3>
-      Cada turma tem a sua conversa, com dúvidas, materiais e <b>planos de estudo</b> que dá para usar como meta com um clique. Quem cria o grupo modera.
+      Cada turma tem a sua conversa, com dúvidas, <b>fotos e arquivos do computador</b>, <b>GIFs e figurinhas</b> e <b>planos de estudo</b> que dá para usar como meta com um clique. Quem cria o grupo modera.
     </td>
     <td valign="top">
       <h3>🔗 Convite por link</h3>
@@ -178,6 +178,8 @@ Contas, ranking, grupos e convites usam um projeto do [Supabase](https://supabas
 
 Nunca coloque no app a chave **secret** / **service_role** (o Aprova recusa).
 
+Fotos e arquivos dos grupos ficam no **Storage** do mesmo projeto, numa pasta privada chamada `anexos` (criada pelo próprio `ranking.sql`, com as regras de acesso). A busca de GIFs usa o GIPHY: o administrador cola a chave grátis em **Admin → Configurações**.
+
 A página do convite e a página do app ficam em [`docs/`](docs) e são publicadas pelo **GitHub Pages** (branch `main`, pasta `/docs`).
 
 </details>
@@ -237,7 +239,8 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
-| **1.9.5** | Tamanho da interface (zoom automático em telas com zoom do Windows, Ctrl + e Ctrl −) e barra de rolagem nova |
+| **1.10.0** | Fotos, arquivos, GIFs e figurinhas nos grupos (figurinhas próprias do Aprova; GIFs pelo GIPHY) |
+| 1.9.5 | Tamanho da interface (zoom automático em telas com zoom do Windows, Ctrl + e Ctrl −) e barra de rolagem nova |
 | 1.9.4 | Barra de cima do Windows com as cores do tema do Aprova |
 | 1.9.3 | Menu que cabe em notebooks com zoom, janela que cabe na tela e abre em tela cheia |
 | 1.9.2 | Retirada: a barra de cima própria impedia o app de abrir no Windows |

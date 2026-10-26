@@ -969,3 +969,139 @@ def test_barra_do_windows_so_pinta_no_windows():
     assert janela.colorref("FFFFFF") == 0xFFFFFF
     if sys.platform != "win32":
         assert janela.pintar_barra("Aprova", "#FFFFFF", "#141C33", "#E0E4ED", False) is False
+
+
+def test_anexos_figurinhas_e_gifs_no_grupo(tmp_path, monkeypatch):
+    import io
+    import json as _json
+
+    from PIL import Image
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from servidor_falso import CHAVE, ServidorFalso
+
+    from aprova import config, ranking
+
+    monkeypatch.setattr(config, "CACHE_DIR", tmp_path / "cache")
+    srv = ServidorFalso().iniciar()
+    try:
+        cfg = {"url": srv.url, "chave": CHAVE}
+        adm = ranking.Ranking(config.Ajustes(tmp_path / "adm.json"), cfg)
+        adm.criar_conta("adm@exemplo.com", "segredo1", "Natan")
+        dono = ranking.Ranking(config.Ajustes(tmp_path / "dono.json"), cfg)
+        dono.criar_conta("dono@exemplo.com", "segredo1", "Camila")
+        aluno = ranking.Ranking(config.Ajustes(tmp_path / "aluno.json"), cfg)
+        aluno.criar_conta("aluno@exemplo.com", "segredo1", "Joana")
+        fora = ranking.Ranking(config.Ajustes(tmp_path / "fora.json"), cfg)
+        fora.criar_conta("fora@exemplo.com", "segredo1", "Pedro")
+        cod = dono.criar_grupo("Turma Dataprev")
+        aluno.entrar_grupo(cod)
+
+        # foto enorme (de celular) chega leve; PDF chega igual
+        foto = tmp_path / "Resumo da Lei 8.112 (versão final).png"
+        Image.new("RGB", (4000, 3000), (40, 60, 160)).save(foto)
+        pdf = tmp_path / "lei.pdf"
+        pdf.write_bytes(b"%PDF-1.4 conteudo de teste")
+        a_foto = aluno.enviar_anexo(cod, foto)
+        a_pdf = aluno.enviar_anexo(cod, pdf)
+        assert a_foto["tipo"] == "imagem" and max(a_foto["largura"], a_foto["altura"]) == 1600
+        assert a_foto["caminho"].startswith(f"{cod}/{aluno.usuario_id}/") and " " not in a_foto["caminho"]
+        assert a_foto["nome"] == "Resumo da Lei 8.112 (versão final).png"
+        assert a_pdf["tipo"] == "arquivo" and a_pdf["tamanho"] == len(b"%PDF-1.4 conteudo de teste")
+
+        # mensagem só com anexos (sem texto), só com figurinha e com GIF do GIPHY
+        aluno.forum_publicar(cod, "", anexos=[a_foto, a_pdf])
+        aluno.forum_publicar(cod, "", figurinha="bora-estudar")
+        gif = {"tipo": "gif", "url": "https://media2.giphy.com/media/abc/200.gif", "largura": 200, "altura": 150, "nome": "GIF"}
+        dono.forum_publicar(cod, "kkk", anexos=[gif])
+        posts = dono.forum(cod)
+        assert [p.get("figurinha") for p in posts].count("bora-estudar") == 1
+        com_arquivos = next(p for p in posts if len(p["anexos"]) == 2)
+        # quem é do grupo baixa (vem do servidor, sem cache); quem não é, não
+        monkeypatch.setattr(config, "CACHE_DIR", tmp_path / "cache-dono")
+        assert dono.baixar_anexo(com_arquivos["anexos"][1]) == b"%PDF-1.4 conteudo de teste"
+        assert Image.open(io.BytesIO(dono.baixar_anexo(com_arquivos["anexos"][0]))).size == (1600, 1200)
+        monkeypatch.setattr(config, "CACHE_DIR", tmp_path / "cache-fora")
+        with pytest.raises(ranking.ErroRanking):
+            fora.baixar_anexo(com_arquivos["anexos"][1])
+
+        # respostas com figurinha ou anexo
+        pid = com_arquivos["id"]
+        dono.forum_responder(pid, "", figurinha="valeu")
+        dono.forum_responder(pid, "Olha esse", anexos=[dono.enviar_anexo(cod, pdf)])
+        resp = aluno.forum_respostas(pid)
+        assert resp[0]["figurinha"] == "valeu" and resp[1]["anexos"][0]["tipo"] == "arquivo"
+
+        # o que não pode: tipo perigoso, vazio, grande demais, mensagem vazia, link qualquer, grupo dos outros
+        exe = tmp_path / "virus.exe"
+        exe.write_bytes(b"MZ")
+        for ruim in (exe,):
+            with pytest.raises(ranking.ErroRanking, match="não pode ser enviado"):
+                aluno.enviar_anexo(cod, ruim)
+        vazio = tmp_path / "vazio.txt"
+        vazio.write_bytes(b"")
+        with pytest.raises(ranking.ErroRanking, match="vazio"):
+            aluno.enviar_anexo(cod, vazio)
+        monkeypatch.setattr(ranking, "LIMITE_ARQUIVO", 10)
+        with pytest.raises(ranking.ErroRanking, match="limite"):
+            aluno.enviar_anexo(cod, pdf)
+        monkeypatch.setattr(ranking, "LIMITE_ARQUIVO", 20 * 1024 * 1024)
+        with pytest.raises(ranking.ErroRanking):
+            aluno.forum_publicar(cod, "")
+        with pytest.raises(ranking.ErroRanking):
+            aluno.forum_publicar(cod, "", anexos=[{"tipo": "gif", "url": "https://site-estranho.com/x.gif"}])
+        with pytest.raises(ranking.ErroRanking):
+            fora.enviar_anexo(cod, pdf)
+
+        # apagar a mensagem leva os arquivos junto
+        n = len(srv.dados.arquivos)
+        aluno.apagar_anexos(com_arquivos["anexos"])
+        assert len(srv.dados.arquivos) == n - 2
+
+        # busca de GIFs: precisa da chave do GIPHY, que só o admin põe
+        with pytest.raises(ranking.ErroRanking, match="GIPHY"):
+            aluno.buscar_gifs("estudar")
+        with pytest.raises(ranking.ErroRanking):
+            aluno.config_salvar("giphy", "chave-falsa")
+        adm.config_salvar("giphy", "chave-publica")
+        aluno._giphy = None
+        assert aluno.chave_giphy() == "chave-publica"
+
+        class Resp:
+            status_code = 200
+
+            def json(self):
+                return {"data": [
+                    {"id": "1", "title": "estudando", "images": {"fixed_height": {"url": "https://media0.giphy.com/media/1/200.gif", "width": "267", "height": "200"},
+                                                                  "fixed_width_small": {"url": "https://media0.giphy.com/media/1/100w.gif"}}},
+                    {"id": "2", "title": "fora", "images": {"fixed_height": {"url": "https://outro-site.com/x.gif"}}},
+                ]}
+
+        pedidos = []
+        monkeypatch.setattr(ranking.requests, "get", lambda url, params=None, timeout=0: (pedidos.append((url, params)), Resp())[1])
+        achados = aluno.buscar_gifs("estudar")
+        assert [g["id"] for g in achados] == ["1"] and achados[0]["anexo"]["largura"] == 267
+        assert pedidos[0][0].endswith("/gifs/search") and pedidos[0][1]["q"] == "estudar" and pedidos[0][1]["rating"] == "pg"
+        aluno.buscar_gifs("", figurinhas=True)
+        assert pedidos[1][0].endswith("/stickers/trending")
+        _json.dumps(achados)  # o anexo vai como JSON para o servidor
+
+        # servidor antigo (sem o SQL da 1.10): o fórum continua funcionando, e o envio avisa o que fazer
+        srv.dados.sem_anexos = True
+        velho = ranking.Ranking(config.Ajustes(tmp_path / "aluno.json"), cfg)
+        assert velho.forum(cod) and velho.servidor_sem_anexos
+        velho.forum_publicar(cod, "só texto ainda funciona")
+        with pytest.raises(ranking.ErroRanking, match="SQL novo"):
+            velho.forum_publicar(cod, "", figurinha="valeu")
+    finally:
+        srv.parar()
+
+
+def test_figurinhas_tem_desenho():
+    from aprova import figurinhas
+
+    for ident, legenda in figurinhas.FIGURINHAS:
+        assert figurinhas.caminho(ident) is not None, ident
+        assert legenda
+        assert re.fullmatch(r"[a-z0-9-]{1,40}", ident)  # o mesmo formato que o servidor aceita
+    assert figurinhas.caminho("nao-existe") is None
