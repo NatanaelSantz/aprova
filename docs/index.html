@@ -251,7 +251,7 @@ em.it { font-style: italic; font-weight: 500; }
 .diario td { padding: 9px 6px; border-bottom: 1px dotted var(--linha); white-space: nowrap; }
 .diario td.num { font-family: var(--f-mono); color: var(--tinta2); }
 .diario tr.voce td { font-weight: 700; }
-.diario tr.voce td.nome span { background: var(--marca); color: var(--sobre-marca); padding: 2px 6px; border-radius: 3px; }
+.diario tr.voce td.nome .eu { background: var(--marca); color: var(--sobre-marca); padding: 2px 6px; border-radius: 3px; }
 .diario .rodape-diario { margin-top: 12px; font-size: 0.76rem; color: var(--tinta2); font-style: italic; }
 @media (max-width: 860px) { .final .caixa { grid-template-columns: minmax(0, 1fr); } .diario { transform: none; } }
 
@@ -262,6 +262,77 @@ footer .marca-app span { font-size: 1.2rem; }
 footer .marca-app img { width: 30px; height: 30px; border-radius: 8px; }
 footer nav { display: flex; flex-wrap: wrap; gap: 18px; }
 footer a { color: var(--tinta2); }
+
+/* ---------------------------------------------------------------- movimento
+   Tudo começa visível: as animações da rolagem só mexem em posição, escala e no traço do
+   marca-texto, nunca escondem texto. Quem pede menos movimento no sistema não vê nada disso. */
+.vitrine { perspective: 1400px; }
+.janela { transform: rotate(0.6deg) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .5s cubic-bezier(.2, .7, .2, 1); }
+.gabarito { translate: calc(var(--px, 0px) * -1.4) calc(var(--py, 0px) * -1.4); transition: translate .5s cubic-bezier(.2, .7, .2, 1); }
+.vitrine .adesivo { translate: calc(var(--px, 0px) * 1.8) calc(var(--py, 0px) * 1.8); transition: translate .5s cubic-bezier(.2, .7, .2, 1); }
+.turma { --traco: rgba(255, 216, 77, .34); }
+.diario td.nome { position: relative; }
+.carimbo { position: absolute; left: 64px; top: 50%; translate: 0 -50%; transform: rotate(-11deg); z-index: 1; font-family: var(--f-mono); font-weight: 600; font-size: 0.9rem;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--certo); border: 3px solid currentColor; border-radius: 6px; padding: 3px 10px; opacity: .88; pointer-events: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .janela { animation: entrar .9s .1s cubic-bezier(.2, .7, .2, 1) backwards; }
+  .gabarito { animation: entrar-gab .9s .35s cubic-bezier(.2, .7, .2, 1) backwards; }
+  @keyframes entrar { from { translate: 0 34px; } }
+  @keyframes entrar-gab { from { translate: -34px 26px; } }
+
+  /* figurinhas flutuando na faixa da turma */
+  .turma .adesivo { animation: boiar 5.5s ease-in-out infinite; }
+  .turma .adesivo.a2 { animation-duration: 6.3s; animation-delay: -1.6s; }
+  .turma .adesivo.a3 { animation-duration: 5s; animation-delay: -2.9s; }
+  .turma .adesivo.a4 { animation-duration: 6.8s; animation-delay: -4.1s; }
+  @keyframes boiar { 0%, 100% { translate: 0 0; } 50% { translate: 0 -11px; } }
+  .adesivo { transition: scale .25s cubic-bezier(.3, 1.6, .5, 1), translate .5s cubic-bezier(.2, .7, .2, 1); }
+  .adesivo:hover { scale: 1.12; }
+
+  /* botões */
+  .bt-azul:hover svg { animation: quicar .7s ease-in-out infinite; }
+  @keyframes quicar { 0%, 100% { translate: 0 0; } 50% { translate: 0 3px; } }
+  .bt-linha svg { transition: translate .2s ease; }
+  .bt-linha:hover svg { translate: 3px 0; }
+  .chips li { transition: translate .2s ease, background-color .2s ease; }
+  .chips li:hover { translate: 0 -2px; }
+
+  @supports (animation-timeline: view()) {
+    /* telas e cartões sobem (e vêm de lado) quando entram na tela */
+    .recurso .tela, .turma-vitrine .tela, .temas figure, .passos li, .revisao, .duas .mini, .conforto .mini, .perguntas details, .aviso-atualiza, .diario {
+      animation: subir linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 75%;
+    }
+    .recurso .tela { animation-name: vir-direita; }
+    .recurso.inverte .tela { animation-name: vir-esquerda; }
+    .passos li:nth-child(2), .temas figure:nth-child(2), .conforto .mini:nth-child(2) { animation-range: entry 8% entry 85%; }
+    .passos li:nth-child(3), .temas figure:nth-child(3), .conforto .mini:nth-child(3) { animation-range: entry 16% entry 95%; }
+    @keyframes subir { from { translate: 0 56px; scale: .96; } to { translate: 0 0; scale: 1; } }
+    @keyframes vir-direita { from { translate: 64px 40px; scale: .95; } to { translate: 0 0; scale: 1; } }
+    @keyframes vir-esquerda { from { translate: -64px 40px; scale: .95; } to { translate: 0 0; scale: 1; } }
+
+    /* marca-texto passando nos títulos */
+    .marcado.rolar { animation: passar linear both; animation-timeline: view(); animation-range: entry 60% cover 42%; }
+
+    /* linha da revisão: o traço cresce e as bolinhas estalam em ordem */
+    .trilha { view-timeline-name: --trilha; }
+    .trilha::before { transform-origin: left center; animation: crescer linear both; animation-timeline: --trilha; animation-range: cover 18% cover 48%; }
+    .parada i { animation: estalar linear both; animation-timeline: --trilha;
+      animation-range: cover calc(18% + var(--d) * 1%) cover calc(26% + var(--d) * 1%); }
+    @keyframes crescer { from { scale: 0 1; } to { scale: 1 1; } }
+    @keyframes estalar { from { scale: .35; } 70% { scale: 1.3; } to { scale: 1; } }
+
+    /* lista de aprovados: o seu nome é marcado e o carimbo desce */
+    .diario { view-timeline-name: --diario; }
+    .diario tr.voce td.nome .eu { background: linear-gradient(var(--marca), var(--marca)) no-repeat 0 0 / 100% 100%;
+      animation: marcar-nome linear both; animation-timeline: --diario; animation-range: cover 30% cover 42%; }
+    @keyframes marcar-nome { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
+    .carimbo { animation: carimbar linear both; animation-timeline: --diario; animation-range: cover 40% cover 50%; }
+    @keyframes carimbar { from { scale: 2.4; opacity: 0; } 75% { scale: .92; opacity: .9; } to { scale: 1; opacity: .88; } }
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
@@ -341,7 +412,7 @@ footer a { color: var(--tinta2); }
     <div class="caixa">
       <div class="cabeca">
         <span class="rotulo">O que o Aprova faz</span>
-        <h2>Menos tempo procurando material, mais tempo resolvendo questão.</h2>
+        <h2>Menos tempo procurando material, mais tempo <span class="marcado rolar">resolvendo questão</span>.</h2>
       </div>
 
       <article class="recurso">
@@ -432,7 +503,7 @@ footer a { color: var(--tinta2); }
     <div class="caixa turma-grade">
       <div class="turma-texto">
         <span class="rotulo">Grupos de estudo</span>
-        <h2>Ninguém passa sozinho. Traga a sua turma.</h2>
+        <h2>Ninguém passa sozinho. <span class="marcado rolar">Traga a sua turma.</span></h2>
         <p class="texto-grande">Cada grupo tem a sua conversa. Combinem simulados, tirem dúvidas, troquem material e usem o plano da semana de quem organiza.</p>
         <ul class="itens">
           <li><svg aria-hidden="true"><use href="#i-conversa"/></svg><div><strong>Dúvidas e materiais</strong><span>Mensagens por tipo (conversa, dúvida, material) e respostas em cada uma. Quem cria o grupo modera.</span></div></li>
@@ -458,7 +529,7 @@ footer a { color: var(--tinta2); }
     <div class="caixa">
       <div class="cabeca">
         <span class="rotulo">Conforto para os olhos</span>
-        <h2>Feito para quem estuda à noite, depois de um dia inteiro de tela.</h2>
+        <h2>Feito para quem estuda à noite, depois de <span class="marcado rolar">um dia inteiro de tela</span>.</h2>
       </div>
       <div class="temas">
         <figure><div class="tela"><img src="img/tema-claro.webp" width="960" height="507" alt="Início no tema claro"></div><figcaption><b>Claro</b><span>para o dia</span></figcaption></figure>
@@ -477,7 +548,7 @@ footer a { color: var(--tinta2); }
     <div class="caixa">
       <div class="cabeca">
         <span class="rotulo">Como instalar no Windows</span>
-        <h2>Três passos e você já está estudando.</h2>
+        <h2><span class="marcado rolar">Três passos</span> e você já está estudando.</h2>
       </div>
       <ol class="passos">
         <li><h3>Baixe e extraia</h3><p><a href="https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip" target="_blank" rel="noopener">Baixe o Aprova</a> e extraia o .zip numa pasta, por exemplo <code>Documentos\Aprova</code>.</p></li>
@@ -513,7 +584,7 @@ footer a { color: var(--tinta2); }
     <div class="caixa">
       <div class="final-texto">
         <span class="rotulo">O próximo resultado final</span>
-        <h2>Um dia o seu nome está nessa lista. <em class="it">O método começa hoje.</em></h2>
+        <h2>Um dia o seu nome está <span class="marcado rolar">nessa lista</span>. <em class="it">O método começa hoje.</em></h2>
         <p class="texto-grande">Baixe o Aprova, escolha o seu concurso e faça a primeira prova ainda hoje.</p>
         <div class="acoes">
           <a class="bt bt-azul" href="https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-baixar"/></svg>Baixar grátis para Windows</a>
@@ -528,7 +599,7 @@ footer a { color: var(--tinta2); }
             <tbody>
               <tr><td class="num">1º</td><td class="num">0041872</td><td>Candidata A. S. Lima</td><td>88,50</td></tr>
               <tr><td class="num">2º</td><td class="num">0039105</td><td>Candidato R. M. Souza</td><td>86,25</td></tr>
-              <tr class="voce"><td class="num">3º</td><td class="num">0052260</td><td class="nome"><span>Você</span></td><td>85,75</td></tr>
+              <tr class="voce"><td class="num">3º</td><td class="num">0052260</td><td class="nome"><span class="eu">Você</span><span class="carimbo" aria-hidden="true">Aprovado</span></td><td>85,75</td></tr>
               <tr><td class="num">4º</td><td class="num">0017734</td><td>Candidata J. P. Rocha</td><td>84,00</td></tr>
               <tr><td class="num">5º</td><td class="num">0060018</td><td>Candidato F. G. Alves</td><td>83,50</td></tr>
             </tbody>
@@ -551,5 +622,24 @@ footer a { color: var(--tinta2); }
     </nav>
   </div>
 </footer>
+
+<script>
+  // herói: a janela do app inclina de leve seguindo o mouse (só com mouse, e só se o sistema permite movimento)
+  (function () {
+    var v = document.querySelector(".vitrine");
+    if (!v || !window.matchMedia || !matchMedia("(prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine)").matches) return;
+    v.addEventListener("pointermove", function (e) {
+      var r = v.getBoundingClientRect();
+      var x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
+      v.style.setProperty("--rx", (-y * 5).toFixed(2) + "deg");
+      v.style.setProperty("--ry", (x * 7).toFixed(2) + "deg");
+      v.style.setProperty("--px", (x * 10).toFixed(1) + "px");
+      v.style.setProperty("--py", (y * 10).toFixed(1) + "px");
+    });
+    v.addEventListener("pointerleave", function () {
+      ["--rx", "--ry", "--px", "--py"].forEach(function (k) { v.style.removeProperty(k); });
+    });
+  })();
+</script>
 </body>
 </html>
