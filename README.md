@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.13.0" src="https://img.shields.io/badge/vers%C3%A3o-1.13.0-2340A8">
+  <img alt="Versão 1.13.1" src="https://img.shields.io/badge/vers%C3%A3o-1.13.1-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -80,7 +80,7 @@
     </td>
     <td valign="top">
       <h3>🔄 Sempre atualizado</h3>
-      O Aprova avisa no Início quando sai uma versão nova e <b>atualiza com um toque</b>, sem baixar nada à mão. Estudos, contas e PDFs marcados continuam como estão.
+      Toda vez que abre, o Aprova confere se saiu versão nova e <b>já abre atualizado</b>. Com o app aberto, ele baixa sozinho e avisa por notificação. Estudos, contas e PDFs marcados continuam como estão.
     </td>
   </tr>
 </table>
@@ -239,6 +239,7 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
+| **1.13.1** | Atualiza sozinho ao abrir (e baixa a versão nova em segundo plano com o app aberto) |
 | **1.13.0** | Perguntar ao Claude ou ao ChatGPT (abre o chat com a questão ou os erros do simulado, sem chave) e passo a passo para conseguir a chave da IA |
 | **1.12.0** | Simulados sem repetição e sem questão quebrada, resultado comentado por matéria, aviso de atualização por notificação e reforço de segurança (grupos só com convite, arquivos perigosos bloqueados, acesso pelo celular com código) |
 | **1.11.0** | Minhas figurinhas: importe as do WhatsApp (arquivos, pacotes .wastickers/.zip ou Ctrl+V) e guarde as que chegam no grupo |

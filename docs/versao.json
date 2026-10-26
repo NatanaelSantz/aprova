@@ -1,10 +1,9 @@
 {
-  "versao": "1.13.0",
+  "versao": "1.13.1",
   "data": "26/10/2026",
   "notas": [
-    "Perguntar ao Claude ou ao ChatGPT: abre o chat com a questão pronta, sem precisar de chave",
-    "No resultado do simulado: leve seus erros para a IA e receba o que revisar e um plano de 3 dias",
-    "Passo a passo para conseguir a chave da IA (Ajustes → Explicações com IA)"
+    "O Aprova agora se atualiza sozinho toda vez que abre",
+    "Com o app aberto, a versão nova é baixada em segundo plano e avisa para reiniciar"
   ],
   "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
 }

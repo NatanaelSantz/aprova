@@ -1555,3 +1555,91 @@ def test_pergunta_pronta_para_o_chat_de_ia():
     res = chat_ia.pergunta_resultado({"acertos": 7, "total": 10, "por_disc": {"RL": [1, 3]}},
                                      {"RL": [{"enunciado": "Negação de todo", "sua": "A", "certa": "E"}]}, "Simulado Dataprev")
     assert "acertei 7 de 10 (70%)" in res and "marquei A, a certa era E" in res and "3 dias" in res
+
+
+def test_iniciar_atualiza_ao_abrir(tmp_path, monkeypatch):
+    """Ao abrir, o iniciar.pyw confere o site e, se tem versão nova, aplica antes de mostrar o app."""
+    import http.server
+    import importlib.machinery
+    import importlib.util
+    import json
+    import shutil
+    import threading
+
+    app_dir, dados, site = tmp_path / "Aprova", tmp_path / "dados", tmp_path / "site"
+    (app_dir / "aprova").mkdir(parents=True)
+    site.mkdir()
+    shutil.copy(RAIZ / "iniciar.pyw", app_dir / "iniciar.pyw")
+    shutil.copy(RAIZ / "aprova" / "atualizar.py", app_dir / "aprova" / "atualizar.py")
+    (app_dir / "aprova" / "__init__.py").write_text('__version__ = "1.12.0"\n')
+    (app_dir / "main.py").write_text("print('velho')\n")
+    (site / "main.zip").write_bytes(_zip_do_aprova("1.13.0", {"aprova/atualizar.py": (RAIZ / "aprova" / "atualizar.py").read_text()}))
+
+    class Silencioso(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *a, **k):
+            super().__init__(*a, directory=str(site), **k)
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Silencioso)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{srv.server_port}"
+        (site / "versao.json").write_text(json.dumps({"versao": "1.13.0", "notas": ["Nova"], "zip": f"{url}/main.zip"}))
+        monkeypatch.setenv("APROVA_DATA", str(dados))
+        monkeypatch.setenv("APROVA_ATUALIZACAO_URL", f"{url}/versao.json")
+        spec = importlib.util.spec_from_loader("iniciar_copia", importlib.machinery.SourceFileLoader("iniciar_copia", str(app_dir / "iniciar.pyw")))
+        ini = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ini)
+
+        # com o app já aberto (clicou num convite), não atrasa a abertura
+        dados.mkdir()
+        (dados / "app.vivo").write_text("1")
+        assert ini.atualizar_ao_abrir(mostrar_tela=False) is None
+        (dados / "app.vivo").unlink()
+
+        assert ini.atualizar_ao_abrir(mostrar_tela=False) == "1.13.0"
+        assert (app_dir / "main.py").read_text() == "print('novo')\n"
+        assert '1.13.0' in (app_dir / "aprova" / "__init__.py").read_text()
+        # abrindo de novo, já está na última: nada a fazer
+        assert ini.atualizar_ao_abrir(mostrar_tela=False) is None
+        # sem internet: abre a versão instalada, sem erro
+        monkeypatch.setenv("APROVA_ATUALIZACAO_URL", "http://127.0.0.1:9/versao.json")
+        assert ini.atualizar_ao_abrir(mostrar_tela=False) is None
+    finally:
+        srv.shutdown()
+
+
+def test_app_baixa_a_atualizacao_sozinho(tmp_path, monkeypatch):
+    import asyncio
+
+    from aprova import atualizar, config, notificar
+    from aprova.ui import atualizacao
+
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(atualizar, "preparar", lambda info, dados, atual, progresso=None, conteudo=None: info["versao"])
+    avisos = []
+    monkeypatch.setattr(notificar, "mostrar", lambda *a, **k: avisos.append(a[0]) or True)
+
+    class Pagina:
+        def __init__(self):
+            self.dialogos = []
+
+        def show_dialog(self, d):
+            self.dialogos.append(d)
+
+    class AppFalso:
+        sessao = config.AjustesMemoria()
+        atualizacao = {"versao": "99.0.0", "notas": ["Coisa nova"]}
+        atualizacao_pronta = None
+        page = Pagina()
+
+        async def em_segundo_plano(self, f, *a, **k):
+            return f(*a, **k)
+
+    app = AppFalso()
+    assert asyncio.run(atualizacao.baixar_sozinho(app, app.atualizacao))
+    assert app.atualizacao_pronta == "99.0.0"
+    assert atualizacao.notificar_pronta(app) and avisos == ["Aprova 99.0.0 pronto para usar"]
+    assert not atualizacao.notificar_pronta(app)  # avisa uma vez só

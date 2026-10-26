@@ -1,4 +1,4 @@
-"""Telinha "Abrindo o Aprova…" mostrada enquanto o app carrega (fecha sozinha)."""
+"""Telinha "Abrindo o Aprova…" (ou "Atualizando…") mostrada enquanto o app carrega (fecha sozinha)."""
 
 import sys
 from pathlib import Path
@@ -30,7 +30,8 @@ def main() -> None:
     except Exception:  # noqa: BLE001
         logo = None
     tk.Label(cartao, text="Aprova", font=(fonte, 20, "bold"), fg="#2340A8", bg="#FFFFFF").pack()
-    tk.Label(cartao, text="Abrindo…", font=(fonte, 10), fg="#586179", bg="#FFFFFF").pack(pady=(0, 10))
+    texto = sys.argv[1] if len(sys.argv) > 1 else "Abrindo…"
+    tk.Label(cartao, text=texto[:60], font=(fonte, 10), fg="#586179", bg="#FFFFFF").pack(pady=(0, 10))
     estilo = ttk.Style(raiz)
     try:
         estilo.theme_use("clam")
@@ -41,7 +42,7 @@ def main() -> None:
     barra = ttk.Progressbar(cartao, style="A.Horizontal.TProgressbar", mode="indeterminate", length=220)
     barra.pack()
     barra.start(12)
-    raiz.after(30000, raiz.destroy)  # se algo der errado, some sozinha
+    raiz.after(120000 if len(sys.argv) > 1 else 30000, raiz.destroy)  # se algo der errado, some sozinha
     raiz.mainloop()
     _ = logo
 

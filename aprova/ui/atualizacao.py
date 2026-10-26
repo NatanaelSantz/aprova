@@ -53,22 +53,67 @@ async def verificar(app, forcar: bool = False) -> dict | None:
 
 async def vigiar(app) -> None:
     """Roda em segundo plano enquanto o app está aberto."""
-    await asyncio.sleep(8)
+    await asyncio.sleep(3)
     avisar_atualizado(app)
+    primeira = True
     while True:
         antes = (app.atualizacao or {}).get("versao")
         try:
-            await verificar(app)
+            # ao abrir, sempre confere na hora (o iniciar.pyw já atualiza antes de abrir; aqui pega o resto)
+            await verificar(app, forcar=primeira)
         except atualizar.ErroAtualizacao:
             pass  # sem internet agora: tenta de novo mais tarde
         except Exception as e:  # noqa: BLE001
             config.registrar(f"atualização: falhou ao verificar ({e!r})")
-        novo = (app.atualizacao or {}).get("versao")
+        primeira = False
+        info = app.atualizacao
+        if info and not app.atualizacao_pronta:
+            # baixa sozinho em segundo plano: a versão nova entra ao reiniciar (ou na próxima vez que abrir)
+            await baixar_sozinho(app, info)
+        if app.atualizacao_pronta:
+            notificar_pronta(app)
+        elif info:
+            notificar_versao(app, info)  # não deu para baixar agora: avisa para atualizar à mão
+        novo = (info or {}).get("versao")
         if novo and novo != antes and app.foco is None and app.secao == "inicio" and not app.em_login:
             app.recarregar_tela()
-        if novo and not app.atualizacao_pronta:
-            notificar_versao(app, app.atualizacao)
         await asyncio.sleep(INTERVALO + 60)
+
+
+async def baixar_sozinho(app, info: dict) -> bool:
+    """Baixa e prepara a versão nova sem perguntar (uns 2 MB). Ela entra quando o app reabrir."""
+    if getattr(app, "_baixando_atualizacao", False):
+        return False
+    app._baixando_atualizacao = True
+    try:
+        versao = await app.em_segundo_plano(atualizar.preparar, info, config.DATA_DIR, __version__)
+    except Exception as e:  # noqa: BLE001 - sem internet, arquivo corrompido...: o aviso para atualizar à mão continua
+        config.registrar(f"atualização: não baixou sozinho ({e!r})")
+        return False
+    finally:
+        app._baixando_atualizacao = False
+    app.atualizacao_pronta = versao
+    return True
+
+
+def notificar_pronta(app) -> bool:
+    """A versão nova já foi baixada: avisa uma vez (notificação + faixa com "Reiniciar agora")."""
+    versao = str(app.atualizacao_pronta or "")
+    if not versao or app.sessao.get("atualizacao_pronta_avisada") == versao:
+        return False
+    app.sessao.set("atualizacao_pronta_avisada", versao)
+    info = app.atualizacao or {}
+    notas = info.get("notas") or []
+    from .. import notificar
+
+    notificar.mostrar(
+        f"Aprova {versao} pronto para usar",
+        (notas[0] + ". " if notas else "") + "Clique para reiniciar agora (ou ele entra na próxima vez que você abrir).",
+        link="aprova://atualizar",
+        botao="Reiniciar agora",
+    )
+    _faixa(app, f"A versão {versao} do Aprova já foi baixada.", "Reiniciar agora", lambda e: app.page.run_task(reiniciar, app))
+    return True
 
 
 def notificar_versao(app, info: dict) -> bool:

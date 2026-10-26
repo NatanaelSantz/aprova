@@ -73,11 +73,13 @@ No macOS/Linux: `./iniciar.sh` (ou `./iniciar.sh --web` para o modo navegador).
 
 ## Atualizações
 
-Da versão 1.9 em diante, o Aprova se atualiza sozinho:
+O Aprova se atualiza sozinho:
 
-1. Com o app aberto, a cada 3 horas ele confere se saiu versão nova. Quando sai, chega uma **notificação do Windows** (clique nela para atualizar), aparece um aviso embaixo da tela e o cartão **Nova versão do Aprova** no Início.
-2. Toque em **Atualizar**: a janela mostra o que mudou e baixa a versão nova (uns 2 MB).
-3. Toque em **Reiniciar agora** (ou **Depois**: a versão nova entra na próxima vez que você abrir o app).
+1. **Toda vez que abre**, ele confere se saiu versão nova. Se saiu, aparece a telinha *Atualizando para a versão…* por alguns segundos e o app já abre na versão nova. Sem internet, abre normalmente a versão que você tem.
+2. **Com o app aberto**, ele confere de novo a cada 3 horas. Quando sai versão nova, ele baixa sozinho (uns 2 MB) e avisa por uma **notificação do Windows** e por um aviso embaixo da tela: toque em **Reiniciar agora**, ou deixe para a próxima vez que abrir.
+3. Se não der para baixar sozinho, o aviso e o cartão **Nova versão do Aprova** no Início levam ao botão **Atualizar**.
+
+(Quem está na 1.13 ou anterior recebe esta atualização do jeito antigo, pelo botão **Atualizar**; dali em diante, ela passa a ser automática ao abrir.)
 
 Para procurar na hora: **Ajustes → Atualizações → Procurar atualização**.
 

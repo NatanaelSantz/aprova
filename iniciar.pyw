@@ -97,21 +97,92 @@ def ambiente_ok() -> bool:
     return ok
 
 
+def _modulo_atualizar():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("aprova_atualizar", RAIZ / "aprova" / "atualizar.py")
+    if spec is None or spec.loader is None:
+        return None
+    modulo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modulo)
+    return modulo
+
+
 def aplicar_atualizacao() -> None:
     """Se uma versão nova foi baixada pelo app, copia os arquivos dela antes de abrir."""
     try:
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location("aprova_atualizar", RAIZ / "aprova" / "atualizar.py")
-        if spec is None or spec.loader is None:
+        modulo = _modulo_atualizar()
+        if modulo is None:
             return
-        modulo = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(modulo)
         versao = modulo.aplicar_pendente(RAIZ, DADOS)
         if versao:
             _anotar(f"\n=== Atualizado para a versão {versao} em {time.strftime('%Y-%m-%d %H:%M:%S')}")
     except Exception:  # noqa: BLE001
         _anotar("Falha ao aplicar a atualização:\n" + traceback.format_exc())
+
+
+def _versao_instalada() -> str:
+    try:
+        m = re.search(r'__version__\s*=\s*"([^"]+)"', (RAIZ / "aprova" / "__init__.py").read_text(encoding="utf-8"))
+        return m.group(1) if m else ""
+    except OSError:
+        return ""
+
+
+def _app_ja_aberto() -> bool:
+    """O Aprova já está aberto (ex.: clicou num convite): não atrasa nada, o app aberto cuida da atualização."""
+    try:
+        return time.time() - (DADOS / "app.vivo").stat().st_mtime < 75
+    except OSError:
+        return False
+
+
+def atualizar_ao_abrir(mostrar_tela: bool = True) -> str | None:
+    """Toda vez que abre: se saiu versão nova, baixa e aplica antes de mostrar o app.
+
+    A consulta é um arquivo de 1 KB (espera no máximo 4 s). Sem internet, ou se algo falhar,
+    abre a versão que já está instalada, sem travar. Devolve a versão nova aplicada (ou None)."""
+    if DEMO or SO_INSTALAR or os.environ.get("APROVA_SEM_ATUALIZAR_AO_ABRIR") or _app_ja_aberto():
+        return None
+    tela = None
+    try:
+        modulo = _modulo_atualizar()
+        atual = _versao_instalada()
+        if modulo is None or not atual:
+            return None
+        url = os.environ.get("APROVA_ATUALIZACAO_URL") or modulo.URL_VERSAO
+        try:
+            info = modulo.verificar(atual, url, timeout=4)
+        except modulo.ErroAtualizacao:
+            return None  # sem internet agora
+        if not info:
+            return None
+        if mostrar_tela:
+            tela = _tela_atualizando(info["versao"])
+        versao = modulo.preparar(info, DADOS, atual)
+        aplicada = modulo.aplicar_pendente(RAIZ, DADOS)
+        if aplicada:
+            _anotar(f"\n=== Atualizado ao abrir para a versão {aplicada} em {time.strftime('%Y-%m-%d %H:%M:%S')} (antes {atual})")
+        return aplicada or versao
+    except Exception:  # noqa: BLE001
+        _anotar("Falha ao atualizar ao abrir (abrindo a versão instalada):\n" + traceback.format_exc())
+        return None
+    finally:
+        if tela is not None:
+            try:
+                tela.terminate()
+            except OSError:
+                pass
+
+
+def _tela_atualizando(versao: str):
+    if os.environ.get("APROVA_SEM_ABERTURA"):
+        return None
+    try:
+        return subprocess.Popen([sys.executable, str(RAIZ / "ferramentas" / "abertura.pyw"), f"Atualizando para a versão {versao}…"],
+                                cwd=str(RAIZ), creationflags=SEM_JANELA)
+    except OSError:
+        return None
 
 
 def _anotar(texto: str) -> None:
@@ -578,6 +649,8 @@ def instalar_sem_janela() -> None:
 
 def main() -> None:
     aplicar_atualizacao()
+    if _no_ambiente():  # (no Python do sistema ele só repassa para o do ambiente, que faz isto)
+        atualizar_ao_abrir()
     if ambiente_ok():
         if WIN and not atalho_atualizado():
             threading.Thread(target=criar_atalho, daemon=True).start()
