@@ -251,7 +251,8 @@ def _mensagem(resp: requests.Response) -> str:
     if "bucket not found" in t:
         return "O servidor ainda não recebe arquivos. O administrador precisa rodar o SQL novo (supabase/ranking.sql)."
     if "schema cache" in t or codigo in ("PGRST205", "PGRST202", "42P01"):
-        return "O servidor está numa versão antiga. O administrador precisa rodar o SQL novo (supabase/ranking.sql) no Supabase."
+        return ("O servidor está numa versão antiga. O administrador precisa rodar o SQL novo no Supabase "
+                "(github.com/NatanaelSantz/aprova/blob/main/supabase/ranking.sql).")
     if resp.status_code == 413 or "maximum allowed size" in t or "too large" in t:
         return f"O arquivo passa do limite de {LIMITE_ARQUIVO // (1024 * 1024)} MB."
     if "mime type" in t:

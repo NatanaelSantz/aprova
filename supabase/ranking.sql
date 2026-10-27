@@ -1,4 +1,7 @@
 -- Aprova: contas, papéis (admin/aluno), ranking, grupos e fórum dos grupos (Supabase)
+-- SQL da versão 1.26 do app. Use sempre o mais novo, direto do GitHub:
+--   https://github.com/NatanaelSantz/aprova/blob/main/supabase/ranking.sql
+-- (uma cópia antiga dá erro "cannot drop columns from view": ela não tem as colunas novas, como o avatar)
 -- Como usar: no painel do Supabase, abra "SQL Editor", cole este arquivo inteiro e clique em "Run".
 -- Pode rodar de novo sem problema (ele não apaga dados).
 
