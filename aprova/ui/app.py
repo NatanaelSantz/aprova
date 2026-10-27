@@ -780,7 +780,15 @@ class App:
         elif nome == "avatar":
             from .. import avatar as av
 
-            cfg = av.sortear(arg or "demo")
+            # arg: uma semente ("natan7") ou escolhas "chave=valor;chave=valor" (para o vídeo usar sempre o mesmo boneco)
+            if "=" in arg:
+                cfg = dict(av.PADRAO)
+                for par in arg.split(";"):
+                    k, _, v = par.partition("=")
+                    cfg[k] = int(v) if v.isdigit() else v
+                cfg = av.validar(cfg)
+            else:
+                cfg = av.sortear(arg or "demo")
             cfg["t"] = av.agora()
             self.aj.set("avatar", cfg)
             self.montar()
