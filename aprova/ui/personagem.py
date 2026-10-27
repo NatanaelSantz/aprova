@@ -272,8 +272,11 @@ def sala_da_turma(app, membros: list[dict], cenario: str = "biblioteca", largura
     lista = sorted(membros, key=lambda m: (not m.get("voce"), not m.get("criador"), (m.get("apelido") or "").lower()))[:10]
     n = len(lista)
     passo = 22  # largura de cada pessoa no cenário (grade de montagem; na tela é o dobro)
-    largura_px = max(64, passo * n + 20)
-    escala = 2 if 2 * largura_px * 2 <= largura_max else 1
+    minimo = max(64, passo * n + 20)
+    escala = 2 if 2 * minimo * 2 <= largura_max else 1
+    # o cenário ocupa a largura toda do cartão (sem faixas vazias dos lados), até um limite
+    largura_px = max(minimo, min(int(largura_max / (2 * escala)) // 8 * 8, 440))
+    vaga = min(2 * largura_px * escala / n, 2 * passo * escala * 1.6)  # as pessoas se espalham um pouco pela sala
     fundo = _pixel(img_cenario(cenario, largura_px, escala), 2 * largura_px * escala, 80 * escala)
     pessoas = []
     for m in lista:
@@ -292,7 +295,7 @@ def sala_da_turma(app, membros: list[dict], cenario: str = "biblioteca", largura
         pessoas.append(
             ft.Container(
                 ft.Column([boneco, nome], spacing=0, horizontal_alignment=ft.CrossAxisAlignment.CENTER, tight=True),
-                width=2 * passo * escala,
+                width=vaga,
                 tooltip=m.get("apelido") or "",
             )
         )

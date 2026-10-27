@@ -1099,6 +1099,13 @@ class App:
         self.secao = destino
         self.montar()
 
+    @property
+    def largura_conteudo(self) -> float:
+        """Largura que sobra para a tela (sem a barra lateral ou o trilho e sem as margens)."""
+        m = self._margens()
+        barra = {"lateral": 236, "trilho": 88}.get(self.modo_nav, 0)
+        return self.largura - barra - (m.left or 0) - (m.right or 0)
+
     def _margens(self) -> ft.Padding:
         """Margens por tamanho; em telas muito largas o conteúdo fica centralizado (linhas não ficam longas demais)."""
         w = self.largura

@@ -416,7 +416,6 @@ class TelaAdmin:
             ),
             c,
             padding=20,
-            width=760 if app.largo else None,
         )
 
     def _comunicados(self) -> ft.Control:

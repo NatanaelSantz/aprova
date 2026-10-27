@@ -448,8 +448,10 @@ class TelaGrupos:
             return comp.bloco(topo, c, padding=ft.Padding.symmetric(horizontal=14, vertical=4))
         cenas = [k for k, _ in av.CENARIOS]
         cena = cenas[sum(map(ord, g["codigo"])) % len(cenas)]
-        largura = app.largura * (0.62 if self.duas_colunas else 0.92)
-        sala = sala_da_turma(app, membros, cena, largura)
+        largura = app.largura_conteudo
+        if self.duas_colunas:  # coluna da direita: 9 de 12 em tela bem larga, 8 de 12 nas outras
+            largura = (largura - 20) * (0.75 if app.largura >= 1600 else 2 / 3)
+        sala = sala_da_turma(app, membros, cena, largura - 32)  # menos as bordas e a margem do cartão
         return comp.bloco(ft.Column([topo, sala] if sala else [topo], spacing=8), c, padding=ft.Padding.only(left=14, right=14, top=4, bottom=12))
 
     def _abas(self) -> ft.Control:
@@ -615,7 +617,7 @@ class TelaGrupos:
             visible=self.tipo_novo != "conversa",
             on_change=lambda e: setattr(self, "_assunto", e.control.value or ""),
         )
-        msg = ft.Container()
+        msg = ft.Container(visible=False)  # só aparece com um erro (assim não sobra espaço vazio na caixa)
 
         def trocar_tipo(e):
             self.tipo_novo = e.control.selected[0] if e.control.selected else "conversa"
@@ -650,6 +652,7 @@ class TelaGrupos:
                     return
                 botao.disabled = False
                 msg.content = comp.aviso(str(ex), c, "erro")
+                msg.visible = True
                 app.page.update()
                 return
             finally:
@@ -719,7 +722,7 @@ class TelaGrupos:
                 [
                     ft.Row([busto(self.app, None, self.r.apelido or "?", 34, self.r.usuario_id), ft.Container(caixa_texto, expand=True)], spacing=12, vertical_alignment=ft.CrossAxisAlignment.START),
                     assunto,
-                    ft.Row(pendentes, wrap=True, spacing=8, run_spacing=8) if pendentes else ft.Container(height=0),
+                    *([ft.Row(pendentes, wrap=True, spacing=8, run_spacing=8)] if pendentes else []),
                     msg,
                     ft.Row([ferramentas, ft.Row([tipos], scroll=ft.ScrollMode.AUTO, expand=True), botao], spacing=6, vertical_alignment=ft.CrossAxisAlignment.CENTER)
                     if self.app.largo

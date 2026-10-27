@@ -13,6 +13,10 @@ from .. import ajuda, config, pdfprova
 from . import comp
 from .tema import FONTE_TEXTO, FONTE_TITULO
 
+LARGURA_LEITURA = 860  # coluna da questão: larga o bastante, sem linhas longas demais para ler
+LARGURA_RESULTADO = 1240  # resultado do simulado: até isso, em duas colunas quando cabe
+RESULTADO_DUAS_COLUNAS = 1100  # janela a partir disso: o resumo e "Por matéria" ficam lado a lado
+
 
 def _fmt_tempo(seg: int) -> str:
     h, r = divmod(int(seg), 3600)
@@ -319,8 +323,10 @@ class TelaProva:
             blocos.append(
                 comp.botao_texto(f"Ver na prova original (página {int(q.get('pagina') or 0) + 1})", lambda e: self._ver_pagina(q), ft.Icons.REMOVE_RED_EYE_OUTLINED)
             )
-        conteudo = ft.Container(ft.Column(blocos, spacing=18), width=780 if app.largo else None)
-        rolagem = ft.Column([conteudo, ft.Container(height=20)], scroll=ft.ScrollMode.AUTO, expand=True)
+        # a questão fica numa coluna boa de ler (linhas não muito longas), centralizada no espaço livre
+        conteudo = ft.Container(ft.Column(blocos, spacing=18), width=LARGURA_LEITURA if app.largo else None)
+        rolagem = ft.Column([conteudo, ft.Container(height=20)], scroll=ft.ScrollMode.AUTO, expand=True,
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER if app.largo else ft.CrossAxisAlignment.START)
         return ft.Column([rolagem, self._barra_acoes()], spacing=0, expand=True)
 
     def _texto_base(self, q: dict) -> ft.Control:
@@ -383,10 +389,12 @@ class TelaProva:
             direita = comp.botao("Finalizar prova", self.finalizar, ft.Icons.CHECK_ROUNDED)
         else:
             direita = comp.botao("Próxima", lambda e: self.ir_para(self.idx + 1), ft.Icons.ARROW_FORWARD_ROUNDED)
+        linha = ft.Row([anterior, marcar, ajuda_btn, ft.Container(expand=True), direita], spacing=6, vertical_alignment=ft.CrossAxisAlignment.CENTER)
         return ft.Container(
-            ft.Row([anterior, marcar, ajuda_btn, ft.Container(expand=True), direita], spacing=6, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            ft.Container(linha, width=LARGURA_LEITURA) if app.largo else linha,  # os botões ficam embaixo da questão
             padding=ft.Padding.symmetric(vertical=12),
             border=ft.Border.only(top=ft.BorderSide(1, c["borda"])),
+            alignment=ft.Alignment.CENTER if app.largo else None,
         )
 
     # ---------------------------------------------------------------- interações
@@ -1195,6 +1203,7 @@ class TelaProva:
             )
 
         # ---- o que você errou, matéria por matéria
+        quebras = comp.quebras(app, {"um": 0, "dois": RESULTADO_DUAS_COLUNAS})
         blocos_erros: list[ft.Control] = []
         for disc, lista in sorted(erradas.items(), key=lambda x: -len(x[1])):
             itens: list[ft.Control] = []
@@ -1233,10 +1242,12 @@ class TelaProva:
                         padding=ft.Padding.symmetric(horizontal=14, vertical=12),
                     )
                 )
+            for item in itens:
+                item.col = {"um": 12, "dois": 6}  # em tela larga, dois erros por linha
             blocos_erros.append(
                 ft.Column(
                     [ft.Row([comp.texto(disc, c, 16, peso=ft.FontWeight.W_700), comp.apagado(f"{len(lista)} {'erro' if len(lista) == 1 else 'erros'}", c, 13.5)], spacing=10),
-                     ft.Column(itens, spacing=8, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)],
+                     ft.ResponsiveRow(itens, spacing=10, run_spacing=10, breakpoints=quebras, vertical_alignment=ft.CrossAxisAlignment.START)],
                     spacing=8,
                     horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
                 )
@@ -1253,18 +1264,19 @@ class TelaProva:
         )
         if self.cartao:
             botoes.controls[0] = comp.botao("Ver o cartão corrigido", lambda e: self._revisar(False), ft.Icons.FACT_CHECK_OUTLINED)
+        # em tela larga: o resumo de um lado e "Por matéria" do outro (sem sobrar espaço dos lados)
+        resumo = ft.Column([numero, dados, cartao_coach, analise, botoes], spacing=14)
+        lado_a_lado: list[ft.Control] = [ft.Container(resumo, col={"um": 12, "dois": 7 if disc_linhas else 12})]
+        if disc_linhas:
+            lado_a_lado.append(
+                comp.bloco(ft.Column([comp.subtitulo("Por matéria", c, 20), ft.Column(disc_linhas, spacing=16)], spacing=16), c, padding=20,
+                           col={"um": 12, "dois": 5})
+            )
         coluna = ft.Column(
             [
                 comp.apagado("Resultado", c, 15),
                 ft.Text(self.prova["titulo"], size=24 if app.largo else 20, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["texto"]),
-                numero,
-                dados,
-                cartao_coach,
-                analise,
-                botoes,
-                ft.Container(height=4),
-                comp.subtitulo("Por matéria", c, 20) if disc_linhas else ft.Container(),
-                ft.Column(disc_linhas, spacing=16),
+                ft.ResponsiveRow(lado_a_lado, spacing=28, run_spacing=20, breakpoints=quebras, vertical_alignment=ft.CrossAxisAlignment.START),
                 ft.Container(height=8),
                 comp.subtitulo("O que você errou", c, 20) if blocos_erros else ft.Container(),
                 comp.apagado("Cada uma já está na sua Revisão: ela volta no dia certo até você dominar.", c, 13.5) if blocos_erros else ft.Container(),
@@ -1276,7 +1288,7 @@ class TelaProva:
             expand=True,
         )
         return ft.Container(
-            ft.Container(coluna, width=760 if app.largo else None, expand=True),
+            ft.Container(coluna, width=LARGURA_RESULTADO if app.largo else None, expand=True),
             padding=ft.Padding.only(left=36 if app.largo else 16, right=16, top=28),
             alignment=ft.Alignment.TOP_LEFT if not app.largo else ft.Alignment.TOP_CENTER,
             bgcolor=c["bg"],

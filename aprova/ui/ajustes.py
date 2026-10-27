@@ -16,6 +16,8 @@ MODELOS = [
     ("claude-opus-5-5", "Claude Opus 5.5 (mais caprichado)"),
 ]
 
+COLUNAS_A_PARTIR = 1460  # janela a partir disso: os cartões ficam em duas colunas (cada uma com uns 600 px ou mais)
+
 AMOSTRA = (
     "Assinale a alternativa em que a palavra destacada foi empregada no sentido figurado. "
     "Leia com calma: o tamanho e o espaçamento do texto mudam aqui conforme você ajusta."
@@ -29,25 +31,31 @@ class TelaAjustes:
 
     def build(self) -> ft.Control:
         app, c = self.app, self.app.c
-        secoes = [
-            comp.titulo("Ajustes", c, 34 if app.largo else 28),
-            self._conta(),
-        ]
+        # duas colunas em telas largas (sem sobrar espaço do lado); numa coluna só, a ordem é a mesma
+        esquerda = [self._conta()]
         if not app.modo_web:
-            secoes.append(self._tamanho())
-        secoes += [
-            self._leitura(),
-            self._pausa(),
-        ]
+            esquerda.append(self._tamanho())
+        esquerda += [self._leitura(), self._pausa()]
         if not app.modo_web:
-            secoes.append(self._voz())
-        secoes += [self._celular(), self._ranking(), self._claude()]
+            esquerda.append(self._voz())
+        direita = [self._celular(), self._ranking(), self._claude()]
         if not app.modo_web:
             from .atualizacao import secao_ajustes
 
-            secoes.append(secao_ajustes(app, self))
-        secoes += [self._geral(), ft.Container(height=30)]
-        return ft.Column(secoes, spacing=22, scroll=ft.ScrollMode.AUTO, expand=True)
+            direita.append(secao_ajustes(app, self))
+        direita.append(self._geral())
+        colunas = ft.ResponsiveRow(
+            [
+                ft.Column(esquerda, spacing=22, col={"um": 12, "dois": 6}, horizontal_alignment=ft.CrossAxisAlignment.STRETCH),
+                ft.Column(direita, spacing=22, col={"um": 12, "dois": 6}, horizontal_alignment=ft.CrossAxisAlignment.STRETCH),
+            ],
+            spacing=22,
+            run_spacing=22,
+            breakpoints=comp.quebras(app, {"um": 0, "dois": COLUNAS_A_PARTIR}),
+            vertical_alignment=ft.CrossAxisAlignment.START,
+        )
+        return ft.Column([comp.titulo("Ajustes", c, 34 if app.largo else 28), colunas, ft.Container(height=30)], spacing=22,
+                         scroll=ft.ScrollMode.AUTO, expand=True)
 
     def _tamanho(self) -> ft.Control:
         """Zoom da interface inteira (cabe mais coisa na tela, ou tudo fica maior)."""
@@ -77,7 +85,6 @@ class TelaAjustes:
             ft.Column([comp.subtitulo(titulo, c, 20), comp.apagado(descricao, c, 14), *filhos], spacing=12),
             c,
             padding=24,
-            width=760 if self.app.largo else None,
         )
 
     # ------------------------------------------------------------------ leitura

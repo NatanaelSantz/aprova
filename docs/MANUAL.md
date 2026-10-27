@@ -56,6 +56,7 @@ App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolv
 - **Questões inéditas com IA**: a IA lê questões reais das provas do concurso na sua biblioteca, cria novas no mesmo estilo e confere o gabarito resolvendo cada uma de novo (precisa da chave do Claude). Também completa os simulados montados.
 - **Conforto para os olhos**:
   - **Tamanho da interface** (Ajustes): automático, 80% a 125%. No automático, tudo fica menor em notebooks com o zoom do Windows em 125% ou 150%, para caber mais coisa na tela. Atalhos: Ctrl + e Ctrl − (Ctrl 0 volta ao automático).
+  - **Tela larga sem espaço sobrando**: em monitores e notebooks largos, os Ajustes ficam em duas colunas, o resultado do simulado põe o resumo e **Por matéria** lado a lado (e os erros dois por linha), a questão fica centralizada numa coluna boa de ler e a sala da turma ocupa o cartão inteiro.
   - Temas claro, sépia (leitura) e escuro.
   - Fonte Atkinson Hyperlegible, com tamanho e espaçamento ajustáveis.
   - Leitura em voz alta da questão.
