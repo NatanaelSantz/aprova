@@ -12,7 +12,7 @@ from .tema import FONTE_TITULO
 
 ESPACO_GRADE, CARTAO_MIN = 14, 170  # galeria de personagens: espaço entre os cartões e largura mínima de cada um
 ABAS = [("geral", "Visão geral"), ("usuarios", "Usuários"), ("personagens", "Personagens"), ("grupos", "Grupos"), ("comunicados", "Comunicados"),
-        ("config", "Configurações")]
+        ("erros", "Erros"), ("config", "Configurações")]
 QUEBRAS_NUM = {"um": 0, "tres": 1000}
 
 
@@ -39,6 +39,8 @@ class TelaAdmin:
         self.grupos: list[dict] | None = None
         self.comunicados: list[dict] | None = None
         self.uso: dict | None | str = "carregando"  # espaço usado no servidor ("erro" se não deu para ver)
+        self.erros: list[dict] | None | str = "carregando"  # relatórios de erro (None: servidor sem o SQL novo)
+        self.erro_aberto: str | None = None
         self.filtro = ""
         self.erro: str | None = None
         self.carregando = False
@@ -85,7 +87,7 @@ class TelaAdmin:
             corpo = comp.carregando("Buscando os dados do servidor…", c)
         else:
             corpo = {"geral": self._geral, "usuarios": self._usuarios, "personagens": self._personagens, "grupos": self._grupos,
-                     "comunicados": self._comunicados, "config": self._config}[self.aba]()
+                     "comunicados": self._comunicados, "erros": self._erros, "config": self._config}[self.aba]()
         return ft.Column([topo, ft.ListView([corpo, ft.Container(height=30)], expand=True)], spacing=16, expand=True)
 
     def _trocar(self, e):
@@ -109,6 +111,10 @@ class TelaAdmin:
             self.uso = await app.em_segundo_plano(self.r.uso_do_servidor)
         except rk.ErroRanking:
             self.uso = "erro"
+        try:
+            self.erros = await app.em_segundo_plano(self.r.erros)
+        except rk.ErroRanking:
+            self.erros = "erro"
         self.carregando = False
         if self.usuarios:
             app.page.run_task(self._desenhar_retratos)  # a aba Personagens abre na hora
@@ -564,6 +570,60 @@ class TelaAdmin:
     # ------------------------------------------------------------------ comunicados
 
     def _config(self) -> ft.Control:
+        return ft.Column([self._config_giphy(), self._config_modelos()], spacing=16)
+
+    def _config_modelos(self) -> ft.Control:
+        """Modelos do Claude que aparecem em Ajustes → Explicações com IA (o primeiro é o padrão)."""
+        from .ajustes import MODELOS, ler_modelos, modelos_ia
+
+        app, c = self.app, self.app.c
+        campo = ft.TextField(
+            label="Um modelo por linha: id | nome que aparece",
+            value="\n".join(f"{i} | {r}" for i, r in modelos_ia(app)),
+            multiline=True,
+            min_lines=3,
+            max_lines=8,
+            border_radius=10,
+        )
+
+        async def salvar(e):
+            import json
+
+            lista = ler_modelos(campo.value or "")
+            if not lista:
+                app.msg("Escreva pelo menos um modelo, no formato: claude-haiku-5-5 | Claude Haiku 5.5")
+                return
+            try:
+                await app.em_segundo_plano(self.r.config_salvar, "modelos_ia", json.dumps(lista, ensure_ascii=False))
+            except rk.ErroRanking as ex:
+                app.msg(str(ex))
+                return
+            app.sessao.set("modelos_ia", [list(m) for m in lista])
+            app.msg(f"Lista salva: {len(lista)} modelo(s). Chega para todos na próxima abertura do app.")
+
+        def padrao(e):
+            campo.value = "\n".join(f"{i} | {r}" for i, r in MODELOS)
+            campo.update()
+
+        return comp.bloco(
+            ft.Column(
+                [
+                    comp.subtitulo("Modelos da IA (Claude)", c, 18),
+                    comp.apagado("Quando a Anthropic lançar modelos novos (ou aposentar um), troque aqui: a lista chega para todo mundo "
+                                 "sem precisar de versão nova do app. O primeiro da lista é o padrão; quem estava num modelo que saiu "
+                                 "da lista passa para ele. Os nomes dos modelos estão em docs.claude.com.", c, 13.5),
+                    campo,
+                    ft.Row([comp.botao("Salvar", salvar, ft.Icons.SAVE_OUTLINED), comp.botao_texto("Voltar para a lista padrão", padrao, ft.Icons.RESTART_ALT)],
+                           spacing=10),
+                ],
+                spacing=12,
+                horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+            ),
+            c,
+            padding=20,
+        )
+
+    def _config_giphy(self) -> ft.Control:
         """Chave do GIPHY (busca de GIFs e figurinhas animadas nos grupos)."""
         app, c = self.app, self.app.c
         atual = self.r._giphy or ""
@@ -625,6 +685,73 @@ class TelaAdmin:
             c,
             padding=20,
         )
+
+    # ------------------------------------------------------------------ erros
+
+    def _erros(self) -> ft.Control:
+        """Relatórios de erro de quem deixou enviar (Ajustes → Geral), agrupados: o mesmo erro numa linha só."""
+        app, c = self.app, self.app.c
+        cab = [comp.subtitulo("Erros nos aparelhos das pessoas", c, 18),
+               comp.apagado("Chegam de quem ligou “Enviar relatórios de erro” nos Ajustes. Vai só o erro técnico (versão, sistema, tela e o "
+                            "rastro), sem dados pessoais. O mesmo erro aparece numa linha só, com quantas vezes aconteceu. "
+                            "Os relatórios somem sozinhos depois de 90 dias.", c, 13)]
+        if self.erros == "carregando":
+            return comp.bloco(ft.Column(cab + [comp.apagado("Buscando…", c, 13)], spacing=10), c, padding=20)
+        if self.erros is None:
+            return comp.bloco(ft.Column(cab + [comp.aviso("Para receber os relatórios, rode o SQL novo (supabase/ranking.sql) no Supabase.", c)],
+                                        spacing=10), c, padding=20)
+        if self.erros == "erro":
+            return comp.bloco(ft.Column(cab + [comp.apagado("Não deu para buscar agora.", c, 13)], spacing=10), c, padding=20)
+        grupos: dict[str, dict] = {}
+        for e in self.erros:
+            g = grupos.setdefault(e["assinatura"], {**e, "vezes": 0, "versoes": set(), "sistemas": set(), "telas": set(), "ultimo": e["criado_em"]})
+            g["vezes"] += 1
+            g["versoes"].add(e.get("versao") or "?")
+            g["sistemas"].add(e.get("sistema") or "?")
+            if e.get("onde"):
+                g["telas"].add(e["onde"])
+        if not grupos:
+            return comp.bloco(ft.Column(cab + [comp.aviso("Nenhum erro relatado. Tudo tranquilo por aqui.", c, "ok")], spacing=10), c, padding=20)
+
+        def alternar(chave):
+            self.erro_aberto = None if self.erro_aberto == chave else chave
+            self._redesenhar()
+
+        async def resolver(chave):
+            try:
+                await app.em_segundo_plano(self.r.apagar_erros, chave)
+                self.erros = await app.em_segundo_plano(self.r.erros)
+            except rk.ErroRanking as ex:
+                app.msg(str(ex))
+                return
+            app.msg("Erro marcado como resolvido.")
+            self._redesenhar()
+
+        linhas: list[ft.Control] = []
+        ordem = sorted(grupos.items(), key=lambda kv: kv[1]["ultimo"], reverse=True)  # o mais recente primeiro...
+        ordem.sort(key=lambda kv: -kv[1]["vezes"])  # ...e o que mais acontece no topo
+        for chave, g in ordem:
+            quando = str(g["ultimo"])[:16].replace("T", " ")
+            info = ft.Column(
+                [
+                    ft.Text(g["mensagem"], size=14.5, weight=ft.FontWeight.W_600, color=c["texto"], selectable=True),
+                    comp.apagado(f"{g['vezes']}× · último em {quando} · versão {', '.join(sorted(g['versoes']))} · "
+                                 f"{', '.join(sorted(g['sistemas']))}" + (f" · tela: {', '.join(sorted(g['telas']))}" if g["telas"] else ""), c, 12.5),
+                ],
+                spacing=2,
+                expand=True,
+            )
+            acoes = ft.Row([
+                comp.botao_texto("Ver rastro" if self.erro_aberto != chave else "Esconder", lambda e, k=chave: alternar(k), ft.Icons.CODE),
+                comp.botao_texto("Resolvido", lambda e, k=chave: app.page.run_task(resolver, k), ft.Icons.CHECK),
+            ], spacing=0, tight=True)
+            filhos: list[ft.Control] = [ft.Row([info, acoes], vertical_alignment=ft.CrossAxisAlignment.START)]
+            if self.erro_aberto == chave:
+                filhos.append(ft.Container(ft.Text(g.get("detalhe") or "(sem rastro)", size=12, font_family="monospace", selectable=True, color=c["texto"]),
+                                           bgcolor=c["sup2"], border_radius=10, padding=12))
+            linhas.append(ft.Container(ft.Column(filhos, spacing=8), padding=ft.Padding.symmetric(vertical=10),
+                                       border=ft.Border.only(bottom=ft.BorderSide(1, c["borda"]))))
+        return comp.bloco(ft.Column(cab + linhas, spacing=6), c, padding=20)
 
     def _comunicados(self) -> ft.Control:
         app, c = self.app, self.app.c

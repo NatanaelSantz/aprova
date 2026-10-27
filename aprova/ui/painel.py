@@ -34,6 +34,8 @@ class TelaPainel:
     def __init__(self, app):
         self.app = app
         self.aba = "desempenho"
+        self.assuntos_abertos: set[str] = set()  # disciplinas com a lista de assuntos aberta
+        self._assuntos: dict[str, list[dict]] = {}
 
     def preparar(self, aba: str | None = None, **_):
         if aba in dict(ABAS):
@@ -117,11 +119,20 @@ class TelaPainel:
         app, c = self.app, self.app.c
         revisao = app.db.revisao_resumo()["por_disciplina"]
         linhas: list[ft.Control] = []
+        from .. import assuntos
+
         for d in r["disciplinas"]:
             fundo, cor = NIVEL_COR[d["nivel"]]
             nome = d["chave"] or "Geral"
+            tem_assuntos = assuntos.familia(nome) is not None and d["respondidas"] > 0
+            sub = ft.Container(visible=nome in self.assuntos_abertos, padding=ft.Padding.only(left=14, top=4, bottom=4))
+            if sub.visible:
+                sub.content = self._lista_assuntos(nome)
             acoes = ft.Row(
-                [
+                ([ft.IconButton(ft.Icons.ACCOUNT_TREE_OUTLINED, tooltip=f"Acerto por assunto em {nome}", icon_size=19,
+                                selected=nome in self.assuntos_abertos, on_click=lambda e, n=nome, s_=sub: self._alternar_assuntos(n, s_))]
+                 if tem_assuntos else [])
+                + [
                     ft.IconButton(ft.Icons.FITNESS_CENTER, tooltip=f"Treinar 10 questões de {nome}", icon_size=19, on_click=lambda e, n=nome: app.page.run_task(app.abrir_destino, "treino", n)),
                     ft.IconButton(
                         ft.Icons.REPLAY,
@@ -153,9 +164,10 @@ class TelaPainel:
                 spacing=6,
                 expand=True,
             )
+            linha = ft.Row([info, acoes], spacing=12, vertical_alignment=ft.CrossAxisAlignment.CENTER) if app.largo else ft.Column([info, acoes], spacing=2)
             linhas.append(
                 ft.Container(
-                    ft.Row([info, acoes], spacing=12, vertical_alignment=ft.CrossAxisAlignment.CENTER) if app.largo else ft.Column([info, acoes], spacing=2),
+                    ft.Column([linha, sub], spacing=4),
                     padding=ft.Padding.symmetric(vertical=10),
                     border=ft.Border.only(bottom=ft.BorderSide(1, c["borda"])),
                 )
@@ -178,6 +190,72 @@ class TelaPainel:
             c,
             padding=18,
         )
+
+    # ---------------------------------------------------------------- assuntos
+
+    def _alternar_assuntos(self, nome: str, sub: ft.Container) -> None:
+        if nome in self.assuntos_abertos:
+            self.assuntos_abertos.discard(nome)
+            sub.visible = False
+        else:
+            self.assuntos_abertos.add(nome)
+            sub.visible = True
+            if nome in self._assuntos:
+                sub.content = self._lista_assuntos(nome)
+            else:
+                sub.content = comp.apagado("Separando suas questões por assunto…", self.app.c, 12.5)
+                self.app.page.run_task(self._carregar_assuntos, nome, sub)
+        self.app.page.update()
+
+    async def _carregar_assuntos(self, nome: str, sub: ft.Container) -> None:
+        from .. import assuntos
+
+        try:
+            self._assuntos[nome] = await self.app.em_segundo_plano(assuntos.desempenho, self.app.db, nome)
+        except Exception as e:  # noqa: BLE001
+            self._assuntos[nome] = []
+            from .. import config
+
+            config.registrar(f"assuntos de {nome}: {type(e).__name__}: {e}")
+        sub.content = self._lista_assuntos(nome)
+        try:
+            sub.update()
+        except Exception:  # noqa: BLE001 - saiu da tela
+            pass
+
+    def _lista_assuntos(self, nome: str) -> ft.Control:
+        from .. import assuntos
+
+        c = self.app.c
+        itens = self._assuntos.get(nome)
+        if itens is None:
+            return comp.apagado("Separando suas questões por assunto…", c, 12.5)
+        if not itens:
+            return comp.apagado("Ainda não dá para separar por assunto.", c, 12.5)
+        medidos = [i for i in itens if i["total"] >= assuntos.MINIMO and i["assunto"] != assuntos.OUTROS]
+        filhos: list[ft.Control] = []
+        if medidos and medidos[0]["taxa"] is not None and medidos[0]["taxa"] < 0.7:
+            pior = medidos[0]
+            filhos.append(comp.texto(f"O que mais derruba você em {nome}: {pior['assunto']} ({_pct(pior['taxa'])}).", c, 13.5,
+                                     peso=ft.FontWeight.W_600, cor=c["erro"] if pior["taxa"] < 0.5 else c["marca"]))
+        for i in itens:
+            poucos = i["total"] < assuntos.MINIMO
+            taxa = i["taxa"] or 0
+            cor = c["tinta"] if poucos else c["erro"] if taxa < 0.5 else c["marca"] if taxa < 0.7 else c["ok"]
+            filhos.append(
+                ft.Row(
+                    [
+                        ft.Text(i["assunto"], size=13.5, color=c["texto2"] if poucos else c["texto"], width=260 if self.app.largo else 170,
+                                max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                        ft.Container(comp.barra(taxa, c, cor, altura=6), expand=True),
+                        comp.apagado(f"{_pct(i['taxa'])} · {i['total']} {'questão' if i['total'] == 1 else 'questões'}"
+                                     + (" (poucos dados)" if poucos else ""), c, 12),
+                    ],
+                    spacing=10,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                )
+            )
+        return ft.Column(filhos, spacing=6)
 
     def _ir_livros(self):
         self.aba = "livros"

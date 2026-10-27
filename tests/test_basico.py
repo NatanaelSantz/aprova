@@ -1163,8 +1163,8 @@ def test_minhas_figurinhas(tmp_path, monkeypatch):
     # imagem grande vira WebP de até 512 px, com transparência
     item, nova = col.adicionar(_figurinha_png((200, 30, 30)), "minha.png")
     assert nova and item["arquivo"].endswith(".webp") and max(item["largura"], item["altura"]) == 512
-    im = Image.open(col.caminho(item))
-    assert im.format == "WEBP" and im.mode == "RGBA"
+    with Image.open(col.caminho(item)) as im:  # fecha o arquivo (no Windows, aberto não deixa apagar)
+        assert im.format == "WEBP" and im.mode == "RGBA"
     # a mesma de novo não duplica
     assert col.adicionar(_figurinha_png((200, 30, 30)), "de novo")[1] is False
     # animada fica como veio (WhatsApp manda WebP animado)
@@ -2509,3 +2509,180 @@ def test_copia_semanal_automatica(tmp_path):
         assert copia.automatica(tmp_path, b, agora=t0 + semana * 7 * dia + dia) is None  # no meio da semana não repete
     semanais = sorted(a.name for a in copia.automaticas(tmp_path) if a.name.startswith("semanal-"))
     assert semanais == sorted(a.name for a in feitas[-copia.GUARDAR_AUTO:])  # guarda as 4 mais novas
+
+
+def test_assuntos_das_questoes(tmp_path):
+    """1.26: o assunto de cada questão (Crase, Concordância...) e o acerto por assunto no Painel."""
+    from aprova import assuntos
+    from aprova.db import Banco
+
+    casos = [
+        ("Língua Portuguesa", "Assinale a alternativa em que o acento indicativo de crase está correto.", "Crase"),
+        ("Língua Portuguesa", "Assinale a frase que segue a norma-padrão quanto à concordância verbal.", "Concordância"),
+        ("Língua Portuguesa", "Assinale a alternativa corretamente pontuada.", "Pontuação"),
+        ("Português", "De acordo com o texto, o autor defende que", "Interpretação de texto"),
+        ("Matemática", "Um produto teve aumento de 20% e depois desconto de 20%. O preço final é", "Porcentagem"),
+        ("Matemática", "Se 4 servidores analisam 120 processos em 3 dias, quantos processos 6 servidores analisam em 5 dias?",
+         "Razão, proporção e regra de três"),
+        ("Raciocínio Lógico", "Se todo A é B e nenhum B é C, então é correto afirmar que", "Quantificadores e silogismos"),
+        ("Raciocínio Lógico", "A negação de 'Pedro estuda e trabalha' é:", "Proposições e conectivos"),
+        ("Raciocínio Lógico", "Qual é o próximo número da sequência 3, 7, 15, 31?", "Sequências e padrões"),
+        ("Noções de Informática", "Uma mensagem de e-mail que imita um banco e pede que o usuário clique em um link é", "Segurança da informação"),
+        ("Informática", "Em uma planilha, a fórmula =SOMA(A1:A3) resulta em", "Planilhas (Excel/Calc)"),
+        ("Direito Constitucional", "São Poderes da União, independentes e harmônicos entre si:", "Poderes e processo legislativo"),
+        ("Direito Administrativo", "Conforme a Lei 14.133, a dispensa de licitação ocorre quando", "Licitações e contratos"),
+        ("Direito Administrativo", "A investidura em cargo público depende de aprovação prévia em concurso público", "Agentes públicos e servidores"),
+        ("Direito Penal", "Sobre o crime de peculato, é correto afirmar", assuntos.OUTROS),  # disciplina sem regras
+    ]
+    for disc, enunciado, esperado in casos:
+        assert assuntos.assunto(disc, enunciado) == esperado, (enunciado, assuntos.assunto(disc, enunciado))
+    assert assuntos.familia("Direito Penal") is None and assuntos.familia("LÍNGUA PORTUGUESA") == "portugues"
+
+    b = Banco(tmp_path / "a.db")
+    p = b.criar_prova(titulo="P", origem_url="u1")
+    qs = [("Crase", "Assinale o uso correto da crase."), ("Crase", "O acento grave está correto em"),
+          ("Crase", "Há crase em"), ("Concordância", "Quanto à concordância verbal"), ("Concordância", "A concordância nominal")]
+    b.salvar_questoes(p, [{"numero": i + 1, "enunciado": e, "disciplina": "Língua Portuguesa", "alternativas": {"A": "a"}, "gabarito": "A"}
+                          for i, (_, e) in enumerate(qs)])
+    t = b.iniciar_tentativa(p, "estudo")
+    for n, certa in ((1, False), (2, False), (3, True), (4, True), (5, True)):
+        b.registrar_resposta(t, n, "Língua Portuguesa", "A" if certa else "B", certa)
+    # no simulado montado, a resposta conta para a questão de onde ela veio (ref)
+    sim = b.criar_prova(titulo="Simulado", origem_url="aprova://simulado/1")
+    b.salvar_questoes(sim, [{"numero": 1, "enunciado": "copiada", "disciplina": "Língua Portuguesa", "alternativas": {"A": "a"}, "ref": f"{p}:1"}])
+    t2 = b.iniciar_tentativa(sim, "simulado")
+    b.registrar_resposta(t2, 1, "Língua Portuguesa", "B", False, f"{p}:1")
+    lista = assuntos.desempenho(b, "Língua Portuguesa")
+    por = {i["assunto"]: (i["acertos"], i["total"]) for i in lista}
+    assert por == {"Crase": (1, 4), "Concordância": (2, 2)}
+    assert lista[0]["assunto"] == "Crase"  # o pior primeiro (Concordância tem poucos dados e vai para o fim)
+    assert assuntos.desempenho(b, "Direito Penal") == []
+
+
+def test_relatorios_de_erro(tmp_path, monkeypatch):
+    """1.26: erro vira relatório limpo (sem pasta, usuário, e-mail ou chave); só vai para quem deixou, 1x por dia."""
+    import logging
+    from pathlib import Path as P
+
+    from aprova import config, erros
+
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(config, "LOG_PATH", tmp_path / "aprova.log")
+    monkeypatch.setenv("USERNAME", "natanael")
+    casa = str(P.home())
+    sujo = f'File "{casa}/aprova/ui/inicio.py" de natanael ana@gmail.com sk-ant-api03-abcdefghijk123'
+    limpo = erros.limpar(sujo)
+    assert casa not in limpo and "natanael" not in limpo and "ana@gmail.com" not in limpo and "abcdefghijk123" not in limpo
+    assert "~/aprova/ui/inicio.py" in limpo
+
+    def explode():
+        return {}["chave"]
+
+    try:
+        explode()
+    except KeyError as e:
+        exc = e
+    rel = erros.relatorio(exc, "inicio")
+    assert rel["msg"] == "KeyError: 'chave'" and rel["local"] == "inicio" and len(rel["chave"]) == 16
+    assert rel["chave"] == erros.relatorio(exc, "outra")["chave"]  # mesma assinatura para o mesmo erro
+
+    enviados = []
+
+    class RankingFalso:
+        configurado = True
+
+        def reportar_erro(self, r):
+            enviados.append(r)
+            return True
+
+    import sys as _sys
+    import threading as _th
+
+    ganchos = (_sys.excepthook, _th.excepthook)
+    aj = config.AjustesMemoria()
+    erros.ligar(aj, RankingFalso(), lambda: "painel")
+    try:
+        _testar_envio(erros, exc, aj, enviados, tmp_path)
+    finally:
+        _sys.excepthook, _th.excepthook = ganchos
+        lg = logging.getLogger("flet")
+        for h in [h for h in lg.handlers if isinstance(h, erros._Pegador)]:
+            lg.removeHandler(h)
+        erros._estado.update(aj=None, ranking=None)
+
+
+def _testar_envio(erros, exc, aj, enviados, tmp_path):
+    import logging
+    import time
+
+    erros.anotar(exc)
+    time.sleep(0.2)
+    assert enviados == [] and "KeyError" in (tmp_path / "aprova.log").read_text(encoding="utf-8")  # sem permissão: só anota
+    aj.set("enviar_erros", True)
+    erros.anotar(exc)
+    erros.anotar(exc)  # o mesmo erro, de novo no mesmo dia: não manda outra vez
+    time.sleep(0.3)
+    assert len(enviados) == 1 and enviados[0]["local"] == "painel"
+    # erro num botão: o Flet anota no logger "flet" com o rastro, e o Aprova pega
+    try:
+        raise ValueError("botão quebrou")
+    except ValueError:
+        logging.getLogger("flet").error("Unhandled error in 'on_click' handler", exc_info=True)
+    time.sleep(0.3)
+    assert len(enviados) == 2 and enviados[1]["msg"] == "ValueError: botão quebrou"
+
+
+def test_relatorios_de_erro_no_servidor(tmp_path):
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from servidor_falso import CHAVE, ServidorFalso
+
+    from aprova import config, ranking
+
+    srv = ServidorFalso().iniciar()
+    try:
+        visitante = ranking.Ranking(config.Ajustes(tmp_path / "v.json"), {"url": srv.url, "chave": CHAVE})
+        rel = {"versao_app": "1.26.0", "sistema_op": "Windows 11", "local": "inicio", "msg": "KeyError: 'x'", "rastro": "...", "chave": "a1b2c3d4e5f60718"}
+        assert visitante.reportar_erro(rel)  # sem conta também manda
+        admin = ranking.Ranking(config.Ajustes(tmp_path / "a.json"), {"url": srv.url, "chave": CHAVE})
+        admin.criar_conta("admin@exemplo.com", "segredo1", "Natan")
+        lista = admin.erros()
+        assert [(e["mensagem"], e["sistema"]) for e in lista] == [("KeyError: 'x'", "Windows 11")]
+        aluno = ranking.Ranking(config.Ajustes(tmp_path / "b.json"), {"url": srv.url, "chave": CHAVE})
+        aluno.criar_conta("aluno@exemplo.com", "segredo1", "Aluno")
+        assert aluno.erros() == []  # aluno não vê
+        admin.apagar_erros("a1b2c3d4e5f60718")
+        assert admin.erros() == []
+        srv.dados.sem_sql_124 = True
+        assert admin.erros() is None  # servidor sem o SQL novo: a aba pede para rodar
+    finally:
+        srv.parar()
+
+
+def test_modelos_da_ia_pelo_servidor():
+    """1.26: o admin troca a lista de modelos no servidor; quem estava num modelo que saiu passa para o primeiro."""
+    import asyncio
+    from types import SimpleNamespace
+
+    from aprova import config
+    from aprova.ui.ajustes import MODELOS, ler_modelos, modelos_ia
+    from aprova.ui.app import App
+
+    assert ler_modelos('[["claude-haiku-6", "Haiku 6"], ["X Y", "inválido"]]') == [("claude-haiku-6", "Haiku 6")]
+    assert ler_modelos("claude-sonnet-6 | Sonnet 6\nlixo sem barra") == [("claude-sonnet-6", "Sonnet 6")]
+    app = SimpleNamespace(sessao=config.AjustesMemoria(), aj=config.AjustesMemoria())
+    assert modelos_ia(app) == list(MODELOS)
+
+    async def em_segundo_plano(f, *a):
+        return f(*a)
+
+    app.em_segundo_plano = em_segundo_plano
+    app.ranking = SimpleNamespace(config_valor=lambda chave: '[["claude-haiku-6", "Haiku 6"], ["claude-opus-6", "Opus 6"]]')
+    app.aj.set("claude_modelo", "claude-sonnet-5-5")
+    asyncio.run(App._buscar_modelos_ia(app))
+    assert modelos_ia(app) == [("claude-haiku-6", "Haiku 6"), ("claude-opus-6", "Opus 6")]
+    assert app.aj["claude_modelo"] == "claude-haiku-6"  # o dele saiu da lista
+    app.aj.set("claude_modelo", "claude-opus-6")
+    asyncio.run(App._buscar_modelos_ia(app))
+    assert app.aj["claude_modelo"] == "claude-opus-6"  # continua na lista: não mexe

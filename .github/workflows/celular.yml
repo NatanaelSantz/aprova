@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 75
     permissions:
-      contents: write  # guarda o APK no ramo "apk" (link direto para baixar no celular)
+      contents: write  # põe o APK na página da versão (link direto para baixar no celular)
     steps:
       - uses: actions/checkout@v4
 
@@ -73,22 +73,26 @@ jobs:
           done
           ls -la saida
 
-      - name: Guardar no ramo "apk" (link direto para baixar no celular)
+      # Na página da versão (Releases), ao lado do Aprova.zip: o link
+      # github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android.apk sempre leva ao último.
+      # (Antes ia para um ramo "apk", e esse passo falhava; a página da versão aceita arquivos grandes e não pesa no repositório.)
+      # Só o envio que é a própria versão publicada sobe; os outros ficam só como artefato desta execução.
+      - name: Guardar na página da versão (link direto para baixar no celular)
         if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           V="${{ steps.versao.outputs.valor }}"
-          mkdir -p /tmp/apk && cp saida/*.apk /tmp/apk/
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -q --orphan apk-novo
-          git rm -rfq .
-          cp /tmp/apk/*.apk .
-          cp "Aprova-$V-android.apk" Aprova-android.apk
-          cp "Aprova-$V-android-antigo.apk" Aprova-android-antigo.apk
-          printf '# Aprova para Android\n\nVersão %s (build %s).\n\n- Aprova-android.apk: celulares de hoje (arm64)\n- Aprova-android-antigo.apk: celulares mais antigos (32 bits)\n' "$V" "${{ github.run_number }}" > LEIAME.md
-          git add Aprova-android.apk Aprova-android-antigo.apk LEIAME.md
-          git commit -qm "Aprova $V para Android (build ${{ github.run_number }})"
-          git push -qf origin HEAD:apk
+          git fetch -q --tags origin || true
+          if [ "$(git rev-list -n1 "v$V" 2>/dev/null)" != "$GITHUB_SHA" ]; then
+            echo "Este envio não é o da versão v$V: o APK fica só como artefato."
+            exit 0
+          fi
+          for i in $(seq 1 20); do gh release view "v$V" >/dev/null 2>&1 && break; sleep 15; done
+          cp "saida/Aprova-$V-android.apk" Aprova-android.apk
+          cp "saida/Aprova-$V-android-antigo.apk" Aprova-android-antigo.apk
+          ls -la Aprova-android*.apk
+          gh release upload "v$V" Aprova-android.apk Aprova-android-antigo.apk --clobber
 
       - uses: actions/upload-artifact@v4
         with:

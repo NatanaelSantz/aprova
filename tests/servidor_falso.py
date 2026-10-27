@@ -372,6 +372,8 @@ class Manipulador(BaseHTTPRequestHandler):
             if not m:
                 return self._json(404, {"message": "not found"})
             tabela = m.group(1)
+            if tabela == "erros" and d.sem_sql_124:
+                return self._json(404, {"code": "PGRST205", "message": "Could not find the table 'public.erros' in the schema cache"})
             filtros = [(k, unquote(v)) for k, v in query if k not in ("select", "order", "limit", "on_conflict")]
             selecao = dict(query).get("select", "")
             if d.sem_avatar and "avatar" in selecao:

@@ -382,6 +382,30 @@ class Banco:
                 h["acertou"] = True
         return saida
 
+    def respostas_com_questao(self, disciplina: str) -> list[tuple[dict, bool]]:
+        """Cada resposta corrigida da disciplina com a questão original ({enunciado, alternativas}) e se acertou.
+
+        Usa a mesma ligação do histórico: no simulado, treino e revisão vale a questão de onde ela veio."""
+        linhas = self._q(
+            """SELECT t.prova_id, r.numero, r.correta, r.ref, p.origem_url
+               FROM respostas r JOIN tentativas t ON t.id = r.tentativa_id JOIN provas p ON p.id = t.prova_id
+               WHERE r.correta IS NOT NULL AND r.disciplina = ?""",
+            (disciplina,),
+        )
+        reaproveitadas = ("aprova://revisao", "aprova://simulado/treino")
+        chaves: list[tuple[tuple[int, int], bool]] = []
+        for r in linhas:
+            if not r["ref"] and (r["origem_url"] or "").startswith(reaproveitadas):
+                continue  # resposta antiga sem a referência: não dá para saber qual era a questão
+            chaves.append((self._original(r["prova_id"], r["numero"], r["ref"] or ""), bool(r["correta"])))
+        provas = sorted({k[0] for k, _ in chaves})
+        textos: dict[tuple[int, int], dict] = {}
+        for i in range(0, len(provas), 500):
+            lote = provas[i:i + 500]
+            for q in self._q(f"SELECT prova_id, numero, enunciado, alternativas FROM questoes WHERE prova_id IN ({','.join('?' * len(lote))})", lote):
+                textos[(q["prova_id"], q["numero"])] = {"enunciado": q["enunciado"], "alternativas": q["alternativas"]}
+        return [(textos[k], c) for k, c in chaves if k in textos]
+
     def em_revisao(self) -> set[tuple[int, int]]:
         """Questões que você errou e que ainda estão esperando o dia de revisar."""
         return {(r["prova_id"], r["numero"]) for r in self._q("SELECT prova_id, numero FROM revisao WHERE caixa < 6")}

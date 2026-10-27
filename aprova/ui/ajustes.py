@@ -14,7 +14,41 @@ MODELOS = [
     ("claude-haiku-5-5", "Claude Haiku 5.5 (mais barato e rápido)"),
     ("claude-sonnet-5-5", "Claude Sonnet 5.5 (equilibrado)"),
     ("claude-opus-5-5", "Claude Opus 5.5 (mais caprichado)"),
-]
+]  # padrão; o admin troca a lista pelo servidor (Admin → Configurações) quando saem modelos novos
+
+
+def ler_modelos(texto: str) -> list[tuple[str, str]]:
+    """Lista de modelos vinda do servidor: JSON [[id, rótulo], ...] ou uma linha "id | rótulo" por modelo."""
+    import json
+    import re
+
+    itens: list = []
+    try:
+        dados = json.loads(texto or "")
+        if isinstance(dados, list):
+            itens = [x for x in dados if isinstance(x, (list, tuple)) and len(x) == 2]
+    except ValueError:
+        for linha in (texto or "").splitlines():
+            if "|" in linha:
+                a, b = linha.split("|", 1)
+                itens.append((a, b))
+    saida: list[tuple[str, str]] = []
+    for ident, rotulo in itens[:8]:
+        ident, rotulo = str(ident).strip(), str(rotulo).strip()[:60]
+        if re.fullmatch(r"[a-z0-9][a-z0-9._-]{2,60}", ident) and ident not in {i for i, _ in saida}:
+            saida.append((ident, rotulo or ident))
+    return saida
+
+
+def modelos_ia(app) -> list[tuple[str, str]]:
+    """Os modelos para escolher: a lista do servidor (se o admin mudou) ou a padrão."""
+    return ler_modelos(json_dumps(app.sessao.get("modelos_ia") or [])) or list(MODELOS)
+
+
+def json_dumps(x) -> str:
+    import json
+
+    return json.dumps(x)
 
 COLUNAS_A_PARTIR = 1460  # janela a partir disso: os cartões ficam em duas colunas (cada uma com uns 600 px ou mais)
 
@@ -470,7 +504,7 @@ class TelaAjustes:
 
         modelo = ft.Dropdown(
             value=app.aj["claude_modelo"],
-            options=[ft.DropdownOption(key=k, text=v) for k, v in MODELOS],
+            options=[ft.DropdownOption(key=k, text=v) for k, v in modelos_ia(app)],
             on_select=lambda e: app.aj.set("claude_modelo", e.control.value),
             width=340,
             dense=True,
@@ -519,6 +553,16 @@ class TelaAjustes:
             comp.mensagem(app.page, f"{n} páginas guardadas foram apagadas. As listas serão baixadas de novo.")
 
         filhos.append(comp.botao_texto("Atualizar dados do site (limpar cache)", limpar_cache, ft.Icons.REFRESH))
+        if not app.modo_web:
+            filhos.append(
+                ft.Switch(
+                    label="Enviar relatórios de erro para quem mantém o Aprova",
+                    value=bool(app.sessao.get("enviar_erros")),
+                    on_change=lambda e: app.sessao.set("enviar_erros", bool(e.control.value)),
+                )
+            )
+            filhos.append(comp.apagado("Quando algo der errado, vai só o erro técnico (versão, sistema e a tela), sem seus estudos, "
+                                       "e-mail ou o nome da sua pasta. Ajuda a consertar mais rápido. Os erros também ficam em aprova.log.", c, 12.5))
         filhos.append(
             comp.apagado(
                 f"Aprova {__version__}. Concursos e provas vêm do PCI Concursos (pciconcursos.com.br). Confirme sempre datas e regras no edital oficial.",

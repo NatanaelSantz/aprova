@@ -43,7 +43,7 @@ App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolv
 - **Meta semanal (tela Início)**: o painel **Sua semana** mostra as horas estudadas e a meta, o ritmo (em dia, à frente ou quanto falta), a sequência de dias, o dia de hoje e as horas de cada dia em barras, com um tracinho na altura da meta do dia (numa semana ainda sem estudo, as barras ficam baixinhas, sem um vão vazio). Embaixo vem “Seu próximo estudo” (revisão do dia ou treino do ponto fraco). No computador, o seu personagem fica do lado da saudação, e o aviso da primeira semana da meta aparece logo abaixo dela.
 - **Tempo de estudo**: conta sozinho enquanto você resolve questões (para depois de 8 minutos parado). Para estudo fora do app (livro, aula), use o **cronômetro** ou **lance o tempo** à mão.
 - **Painel**:
-  - *Desempenho*: acertos por disciplina com selo Forte / Atenção / Precisa melhorar, evolução nas últimas 8 semanas, acertos por banca e por concurso.
+  - *Desempenho*: acertos por disciplina com selo Forte / Atenção / Precisa melhorar, evolução nas últimas 8 semanas, acertos por banca e por concurso. O ícone de **assuntos** do lado de cada disciplina abre o acerto por assunto (Português → Crase, Concordância, Pontuação, Interpretação de texto…), do pior para o melhor, e diz o que mais derruba você. Vale para Português, Matemática, Raciocínio Lógico, Informática, Direito Constitucional e Direito Administrativo; o assunto é reconhecido pelas palavras da questão.
   - *Tempo*: meta, horas por dia, mapa das últimas 12 semanas, em que dias da semana você estuda e tempo por disciplina.
   - *Lembretes*: alarmes de atividades extras. Na hora, o app toca e leva você ao conteúdo: pesquisa na internet, vídeo-aulas, um link, a revisão, um treino ou um simulado.
   - *Livros*: indicações por disciplina, das mais fracas para as mais fortes, com material oficial gratuito (leis no Planalto).
@@ -184,6 +184,8 @@ A **primeira pessoa que cria conta** no servidor vira administrador sozinha. Dep
 - *Personagens*: a galeria com o personagem de todo mundo, cada um no seu cenário (com a busca por apelido ou concurso). Clique num para ver de perto: ele acena, pula e **dança**, e aparecem as escolhas dele (corpo, cabelo, roupa, acessórios, cenário). Quem usa foto no perfil tem o botão **Tirar a foto de perfil**;
 - *Grupos*: ver e apagar grupos;
 - *Comunicados*: escrever um aviso que aparece na tela Início de todos (ex.: “Simulado coletivo no sábado”), ligar/desligar e apagar.
+- *Erros*: os erros que aconteceram no aparelho de quem ligou **Enviar relatórios de erro** (Ajustes → Geral). O mesmo erro fica numa linha só, com quantas vezes aconteceu, as versões, os sistemas e a tela; **Ver rastro** mostra o detalhe técnico e **Resolvido** apaga. Vai só o erro técnico, sem dados pessoais;
+- *Configurações*: a chave do GIPHY (GIFs nos grupos) e a **lista de modelos da IA**. Quando a Anthropic lançar modelos novos (ou aposentar um), troque a lista aqui: ela chega para todo mundo sem versão nova do app, e quem estava num modelo que saiu passa para o primeiro da lista.
 
 As regras ficam no próprio servidor (`supabase/ranking.sql`): um aluno não consegue se promover nem se desbloquear, mesmo mexendo no app.
 
@@ -303,6 +305,8 @@ Tudo fica no seu computador, na pasta `.aprova` dentro da sua pasta de usuário 
 - **Restaurar de uma cópia** troca os estudos de agora pelos da cópia. Antes, o Aprova guarda uma cópia do que existe agora em `.aprova\copias`, então dá para voltar atrás.
 - Toda semana o app faz uma cópia sozinho em `.aprova\copias` (guarda as 4 últimas). Em Ajustes aparece a data da última, com o botão **Restaurar esta**.
 - No celular, a cópia vai pelo menu Compartilhar (salvar em Arquivos, Drive ou mandar para você mesmo).
+
+**Relatórios de erro (opcional):** em **Ajustes → Geral**, a chave *Enviar relatórios de erro* manda para quem mantém o Aprova só o erro técnico quando algo dá errado (versão, sistema, a tela e o rastro do erro), sem seus estudos, e-mail, chave ou o nome da sua pasta. Vem desligada. Com ela desligada, os erros ficam só no arquivo `aprova.log`, na pasta `.aprova`.
 
 ## Se não abrir na primeira vez
 

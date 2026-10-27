@@ -913,6 +913,25 @@ class Ranking:
             cabecalhos={"Prefer": "resolution=merge-duplicates,return=minimal"},
         )
 
+    # ---- relatórios de erro (quem deixou nos Ajustes)
+
+    def reportar_erro(self, rel: dict) -> bool:
+        """Manda um relatório de erro (já limpo de dados pessoais) para o admin ver. Sem conta também vai."""
+        resp = self._pedir("POST", "/rest/v1/rpc/reportar_erro", autenticado=self.logado, json=rel, tempo=10)
+        return bool(resp.json())
+
+    def erros(self, limite: int = 500) -> list[dict] | None:
+        """Relatórios de erro (admin), os mais novos primeiro. None se o servidor ainda não tem a tabela."""
+        try:
+            return self._pedir("GET", f"/rest/v1/erros?select=id,criado_em,versao,sistema,onde,mensagem,detalhe,assinatura&order=criado_em.desc&limit={limite}").json()
+        except ErroRanking as e:
+            if "SQL novo" in str(e):
+                return None
+            raise
+
+    def apagar_erros(self, assinatura: str) -> None:
+        self._pedir("DELETE", f"/rest/v1/erros?assinatura=eq.{quote(assinatura)}")
+
     # ---- espaço usado no servidor (admin)
 
     def uso_do_servidor(self) -> dict | None:

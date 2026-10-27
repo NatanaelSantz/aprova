@@ -465,6 +465,14 @@ class App:
 
     def iniciar(self) -> None:
         p = self.page
+        if not self.modo_web:
+            from .. import erros
+
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+            erros.ligar(self.sessao, self.ranking, lambda: str(getattr(self, "secao", "") or ""), loop)
         p.title = TITULO_JANELA
         p.fonts = tema.FONTES
         p.padding = 0
@@ -532,8 +540,25 @@ class App:
             from .personagem import sincronizar
 
             p.run_task(sincronizar, self)
+            p.run_task(self._buscar_modelos_ia)
         if os.environ.get("APROVA_DEMO"):
             p.run_task(self._roteiro_demo, os.environ["APROVA_DEMO"])
+
+    async def _buscar_modelos_ia(self) -> None:
+        """Modelos do Claude que o admin deixou no servidor (assim o app acompanha os modelos novos sem versão nova)."""
+        from .ajustes import ler_modelos
+
+        try:
+            lista = ler_modelos(await self.em_segundo_plano(self.ranking.config_valor, "modelos_ia"))
+        except Exception as e:  # noqa: BLE001
+            config.registrar(f"modelos da IA: {type(e).__name__}: {e}")
+            return
+        if not lista:
+            return
+        self.sessao.set("modelos_ia", [list(m) for m in lista])
+        if self.aj["claude_modelo"] not in {i for i, _ in lista}:
+            # o modelo escolhido saiu da lista (foi aposentado): passa para o primeiro, o padrão
+            self.aj.set("claude_modelo", lista[0][0])
 
     async def _copia_semanal(self) -> None:
         """Uma cópia de segurança por semana em .aprova/copias (sem atrapalhar a abertura)."""
@@ -586,6 +611,15 @@ class App:
             abrir_prova(self, prova["id"], arg or "estudo")
         elif nome == "responder" and tela:
             tela.responder(arg)
+        elif nome == "assuntos":
+            from .. import assuntos as _assuntos
+
+            self.ir("painel")
+            t = self._tela("painel")
+            for d in arg.split("|"):
+                t.assuntos_abertos.add(d)
+                t._assuntos[d] = _assuntos.desempenho(self.db, d)
+            self.recarregar_tela_sem_perder(t)
         elif nome == "meu_concurso":
             from .meu_concurso import abrir_dialogo
 
