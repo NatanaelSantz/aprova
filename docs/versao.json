@@ -1,10 +1,9 @@
 {
-  "versao": "1.14.0",
+  "versao": "1.14.1",
   "data": "26/10/2026",
   "notas": [
-    "Personagem estilo RPG: crie o seu bonequinho em pixel art (ou use uma foto)",
-    "Ele respira, pisca, acena e pula: fica no Início e comemora no resultado do simulado",
-    "Sala da turma: os personagens do grupo juntos, como no lobby de um jogo"
+    "Corrige o erro de certificado (CERTIFICATE_VERIFY_FAILED) ao abrir pela primeira vez em alguns computadores",
+    "Mensagem mais clara quando a primeira abertura não consegue baixar a janela do app"
   ],
   "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
 }

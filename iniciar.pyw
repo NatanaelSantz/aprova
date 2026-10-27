@@ -26,7 +26,7 @@ VENV = RAIZ / ".venv"
 PY_VENV = VENV / ("Scripts/python.exe" if WIN else "bin/python")
 PYW_VENV = VENV / ("Scripts/pythonw.exe" if WIN else "bin/python")
 REQUISITOS = RAIZ / os.environ.get("APROVA_REQUISITOS", "requirements.txt")
-MODULOS = [m for m in os.environ.get("APROVA_MODULOS", "flet,flet_desktop,pymupdf,bs4,requests,ddgs,anthropic,qrcode").split(",") if m]
+MODULOS = [m for m in os.environ.get("APROVA_MODULOS", "flet,flet_desktop,pymupdf,bs4,requests,ddgs,anthropic,qrcode,PIL,truststore").split(",") if m]
 SEM_JANELA = 0x08000000 if WIN else 0  # CREATE_NO_WINDOW
 DADOS = Path(os.environ.get("APROVA_DATA", Path.home() / ".aprova"))
 LOG = DADOS / "instalacao.log"
@@ -106,6 +106,34 @@ def _modulo_atualizar():
     modulo = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(modulo)
     return modulo
+
+
+def _confiar_certificados() -> str:
+    """Faz o Python verificar o HTTPS pelo sistema (como o navegador). Ver aprova/certificados.py."""
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("aprova_certificados", RAIZ / "aprova" / "certificados.py")
+        if spec is None or spec.loader is None:
+            return ""
+        modulo = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(modulo)
+        return modulo.confiar_no_sistema()
+    except Exception:  # noqa: BLE001 - nunca impede de abrir
+        _anotar("Falha ao preparar os certificados:\n" + traceback.format_exc())
+        return ""
+
+
+def _explicar_erro(detalhe: str) -> str:
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("aprova_certificados", RAIZ / "aprova" / "certificados.py")
+        modulo = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(modulo)
+        return modulo.explicar_erro(detalhe)
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 def aplicar_atualizacao() -> None:
@@ -260,12 +288,16 @@ def _erro_ao_abrir(detalhe: str) -> None:
 
         raiz = tk.Tk()
         raiz.withdraw()
-        messagebox.showerror(
-            "Aprova",
-            "O Aprova não conseguiu abrir.\n\n"
-            + detalhe.strip().splitlines()[-1][:300]
-            + f"\n\nOs detalhes estão em:\n{LOG}\n\nSe continuar, apague a pasta .venv dentro da pasta do Aprova e abra o 'Abrir Aprova.bat' de novo.",
-        )
+        ultima = detalhe.strip().splitlines()[-1][:300]
+        amigavel = _explicar_erro(detalhe)
+        if amigavel:
+            texto = f"O Aprova não conseguiu abrir.\n\n{amigavel}\n\nDetalhe técnico: {ultima}\n\nOs detalhes estão em:\n{LOG}"
+        else:
+            texto = (
+                f"O Aprova não conseguiu abrir.\n\n{ultima}\n\nOs detalhes estão em:\n{LOG}"
+                "\n\nSe continuar, apague a pasta .venv dentro da pasta do Aprova e abra o 'Abrir Aprova.bat' de novo."
+            )
+        messagebox.showerror("Aprova", texto)
         raiz.destroy()
     except Exception:  # noqa: BLE001
         pass
@@ -650,6 +682,7 @@ def instalar_sem_janela() -> None:
 def main() -> None:
     aplicar_atualizacao()
     if _no_ambiente():  # (no Python do sistema ele só repassa para o do ambiente, que faz isto)
+        _confiar_certificados()  # antes de qualquer download (atualização e a janela do Flet na primeira vez)
         atualizar_ao_abrir()
     if ambiente_ok():
         if WIN and not atalho_atualizado():

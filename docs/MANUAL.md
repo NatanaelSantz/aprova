@@ -266,6 +266,14 @@ A chave é como um cartão: quem tiver a chave gasta o seu crédito, então não
 
 Tudo fica no seu computador, na pasta `.aprova` dentro da sua pasta de usuário (`C:\Users\<você>\.aprova`): provas importadas, respostas, favoritos, ajustes e PDFs marcados (pasta `marcados`). Os estudos de cada conta ficam em `.aprova\contas\<conta>`; os de quem usa sem conta, direto em `.aprova`. No servidor vão só o apelido, o concurso e os números da semana.
 
+## Se não abrir na primeira vez
+
+Na primeira vez, o Aprova baixa do GitHub a janela do app (uns 30 MB). Se aparecer **CERTIFICATE_VERIFY_FAILED** (certificado), é um antivírus que inspeciona a internet, a rede da escola ou empresa, ou um Windows novo que ainda não tem o certificado do GitHub. A partir da versão 1.14.1 o Aprova verifica o certificado pelo próprio Windows, como o navegador. Quem tem uma versão mais antiga resolve assim:
+
+1. Baixe o Aprova de novo pelo site e extraia por cima da pasta antiga (os estudos ficam guardados à parte, em `.aprova`, e não se perdem).
+2. Abra o **Abrir Aprova.bat**. Ele instala o que falta e abre.
+3. Se ainda falhar, tente uma vez em outra rede (por exemplo, o roteador do celular). Depois da primeira abertura, ele não precisa baixar de novo.
+
 ## Limites
 
 - A leitura automática das questões depende do layout do PDF. Quando falha, a prova abre no modo cartão-resposta com as páginas originais. Figuras e tabelas aparecem pelo botão “Ver na prova original”.

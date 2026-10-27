@@ -1822,3 +1822,30 @@ def test_admin_tira_foto_de_perfil(tmp_path):
         assert srv.dados.fotos == {}
     finally:
         srv.parar()
+
+
+def test_https_pelo_sistema_e_erro_explicado():
+    """Computador da aluna: CERTIFICATE_VERIFY_FAILED ao baixar a janela do Flet. O app passa a verificar pelo sistema."""
+    import subprocess
+
+    from aprova import certificados
+
+    codigo = (
+        "import ssl, sys; sys.path.insert(0, '.');"
+        "from aprova import certificados as c;"
+        "a = c.confiar_no_sistema(); b = c.confiar_no_sistema();"
+        "print(a, b, ssl.SSLContext.__module__)"
+    )
+    saida = subprocess.run([sys.executable, "-c", codigo], capture_output=True, text=True, cwd=Path(__file__).parent.parent, timeout=60).stdout.split()
+    assert saida[0] == saida[1] == "truststore" and saida[2].startswith("truststore")
+    erro = "Traceback ...\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1032)>"
+    assert "certificado de segurança do GitHub" in certificados.explicar_erro(erro)
+    assert "uns 30 MB" in certificados.explicar_erro("urllib.error.URLError: <urlopen error [Errno 11001] getaddrinfo failed>")
+    assert certificados.explicar_erro("KeyError: 'x'") == ""
+    # o main.py liga isso antes de importar o Flet; o iniciar.pyw, antes de qualquer download
+    main = (Path(__file__).parent.parent / "main.py").read_text(encoding="utf-8")
+    assert main.index("confiar_no_sistema()") < main.index("import flet as ft")
+    iniciar = (Path(__file__).parent.parent / "iniciar.pyw").read_text(encoding="utf-8")
+    trecho = iniciar[iniciar.index("def main() -> None:"):]
+    assert trecho.index("_confiar_certificados()") < trecho.index("atualizar_ao_abrir()")
+    assert "truststore" in (Path(__file__).parent.parent / "requirements.txt").read_text()

@@ -17,6 +17,10 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent
 sys.path.insert(0, str(RAIZ))
 
+from aprova import certificados  # noqa: E402
+
+certificados.confiar_no_sistema()  # HTTPS verificado pelo sistema, como no navegador (antes do Flet baixar a janela)
+
 import flet as ft  # noqa: E402
 
 from aprova import config, convite  # noqa: E402
