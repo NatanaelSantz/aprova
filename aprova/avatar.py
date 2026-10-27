@@ -41,7 +41,8 @@ MAT_CORPO = {"s": M_PELE, "S": M_PELE, "r": M_PELE, "c": M_ROUPA, "C": M_ROUPA, 
 PELES = [("#FFE1C8", "Clara"), ("#F4C7A1", "Pêssego"), ("#E2A97E", "Morena clara"), ("#C38A5E", "Morena"), ("#9A6542", "Morena escura"), ("#6A4430", "Escura")]
 CORES_CABELO = [("#2B2B35", "Preto"), ("#4B2F22", "Castanho escuro"), ("#7B4A2C", "Castanho"), ("#C25A2B", "Ruivo"), ("#E7C064", "Loiro"),
                 ("#ECE4D3", "Platinado"), ("#9AA0AA", "Grisalho"), ("#3D6BD6", "Azul"), ("#E56FA5", "Rosa"), ("#40A57A", "Verde"), ("#7C51C8", "Roxo")]
-CORES_OLHOS = [("#5A3A28", "Castanhos"), ("#24232B", "Pretos"), ("#3B7AD4", "Azuis"), ("#3E9A5E", "Verdes"), ("#B37B2A", "Mel")]
+CORES_OLHOS = [("#5A3A28", "Castanhos"), ("#24232B", "Pretos"), ("#3B7AD4", "Azuis"), ("#3E9A5E", "Verdes"), ("#B37B2A", "Mel"),
+               ("#8C97A8", "Cinzas"), ("#E9EEF6", "Brancos"), ("#8A5CD6", "Roxos"), ("#C8414A", "Vermelhos")]
 CORES_ROUPA = [("#2340A8", "Azul Aprova"), ("#C2413A", "Vermelho"), ("#2E8B57", "Verde"), ("#E2B42F", "Amarelo"), ("#6E4BB8", "Roxo"),
                ("#E07B2C", "Laranja"), ("#D9578C", "Rosa"), ("#16928E", "Turquesa"), ("#6B7280", "Cinza"), ("#2A2D3A", "Preto"), ("#EFEFEF", "Branco")]
 
@@ -393,17 +394,18 @@ CABELO_FRENTE = {
         16: "..h......hhhHhh.",
         17: "..h.........Hh..",
     },
-    "moicano": {
+    "moicano": {  # "z" = lateral raspada (pele com sombra do cabelo)
         5: "......hh........",
         6: ".....hhhh.......",
         7: "......hhhh......",
         8: ".....hhhhh......",
         9: "......hhhhh.....",
         10: ".....hhhhhh.....",
-        11: "....HhhhhhhH....",
-        12: "...H.hhLhhh.H...",
-        13: "..H.H.hhhh.H.H..",
-        14: "..H.H......H.H..",
+        11: "....zzhhhhzz....",
+        12: "...zzzhhLhzzz...",
+        13: "..zzzzzhhhzzzz..",
+        14: "..zzzzzzzzzzzz..",
+        15: "..z..........z..",
     },
     "chiquinhas": {
         11: "....hhhhhhhh....",
@@ -548,23 +550,24 @@ def _cheio(x0, y0, x1, y1):
 
 _CORACAO = [".aa..aa.", "aAAaaAAa", "aAAAAAAa", ".aAAAAa.", "..aAAa..", "...aa..."]
 OCULOS_HD = {
-    "redondo": {"lente": [(x, y, "a") for x, y in _retangulo(25, 33, 30, 38, cantos=False)],
-                "extras": [(31, 35, "a"), (32, 35, "a"), (23, 34, "a"), (24, 34, "a"), (39, 34, "a"), (40, 34, "a")]},
-    "quadrado": {"lente": [(x, y, "a") for x, y in _retangulo(25, 33, 30, 38)],
-                 "extras": [(31, 34, "a"), (32, 34, "a"), (23, 34, "a"), (24, 34, "a"), (39, 34, "a"), (40, 34, "a")]},
-    "meia": {"lente": [(x, 33, "a") for x in range(25, 31)] + [(25, 34, "a"), (30, 34, "a")],
-             "extras": [(31, 34, "a"), (32, 34, "a"), (23, 34, "a"), (24, 34, "a"), (39, 34, "a"), (40, 34, "a")]},
-    "escuro": {"lente": [(x, y, "A") for x, y in _cheio(25, 34, 30, 37)] + [(x, 33, "a") for x in range(25, 31)] + [(26, 35, "g"), (27, 34, "g")],
-               "extras": [(31, 34, "a"), (32, 34, "a"), (23, 34, "a"), (24, 34, "a"), (39, 34, "a"), (40, 34, "a")]},
-    "coracao": {"lente": [(24 + i, 33 + j, ch) for j, linha in enumerate(_CORACAO) for i, ch in enumerate(linha) if ch != "."] + [(26, 34, "g")],
+    "redondo": {"lente": [(x, y, "a") for x, y in _retangulo(23, 33, 29, 40, cantos=False)],
+                "extras": [(30, 35, "a"), (31, 34, "a"), (32, 34, "a"), (33, 35, "a"), (21, 35, "a"), (22, 35, "a"), (41, 35, "a"), (42, 35, "a")]},
+    "quadrado": {"lente": [(x, y, "a") for x, y in _retangulo(23, 33, 29, 40)],
+                 "extras": [(30, 35, "a"), (31, 35, "a"), (32, 35, "a"), (33, 35, "a"), (21, 35, "a"), (22, 35, "a"), (41, 35, "a"), (42, 35, "a")]},
+    "meia": {"lente": [(x, 33, "a") for x in range(23, 30)] + [(23, 34, "a"), (29, 34, "a"), (23, 35, "a"), (29, 35, "a")],
+             "extras": [(30, 34, "a"), (31, 34, "a"), (32, 34, "a"), (33, 34, "a"), (21, 34, "a"), (22, 34, "a"), (41, 34, "a"), (42, 34, "a")]},
+    "escuro": {"lente": [(x, y, "A") for x, y in _cheio(23, 34, 29, 39)] + [(x, 33, "a") for x in range(23, 30)] + [(24, 36, "g"), (25, 35, "g")],
+               "extras": [(30, 34, "a"), (31, 34, "a"), (32, 34, "a"), (33, 34, "a"), (21, 34, "a"), (22, 34, "a"), (41, 34, "a"), (42, 34, "a")]},
+    "coracao": {"lente": [(22 + i, 34 + j, ch) for j, linha in enumerate(_CORACAO) for i, ch in enumerate(linha) if ch != "."] + [(24, 35, "g")],
                 "extras": []},
-    "monoculo": {"so_direita": True, "lente": [(x, y, "a") for x, y in _retangulo(25, 33, 30, 38, cantos=False)],
-                 "extras": [(39, 38, "c"), (39, 40, "c"), (40, 42, "c"), (40, 44, "c"), (39, 46, "c")]},
-    "visor": {"lente": [], "extras": [(x, y, "A") for x, y in _cheio(24, 34, 39, 37)] + [(x, 33, "a") for x in range(23, 41)]
-              + [(x, 38, "a") for x in range(23, 41)] + [(23, y, "a") for y in range(34, 38)] + [(40, y, "a") for y in range(34, 38)]
-              + [(x, 35, "g") for x in range(26, 31)]},
+    "monoculo": {"so_direita": True, "lente": [(x, y, "a") for x, y in _retangulo(23, 33, 29, 40, cantos=False)],
+                 "extras": [(40, 41, "c"), (41, 43, "c"), (41, 45, "c"), (42, 47, "c"), (41, 49, "c")]},
+    "visor": {"lente": [], "extras": [(x, y, "A") for x, y in _cheio(21, 34, 42, 39)] + [(x, 33, "a") for x in range(20, 44)]
+              + [(x, 40, "a") for x in range(20, 44)] + [(20, y, "a") for y in range(34, 40)] + [(43, y, "a") for y in range(34, 40)]
+              + [(x, 36, "g") for x in range(23, 29)]},
 }
 LENTES = {"escuro": "#1C2030", "coracao": "#F06A9E", "visor": "#3FD0E6"}
+OLHO_X, OLHO_Y, BOCA_Y = (24, 35), 34, 41  # na grade final: olhos de 5 x 6 e a boca
 OCULOS_COBREM_OLHOS = {"escuro", "coracao", "visor"}
 
 # pescoço e costas: (na frente, atrás do corpo)
@@ -766,7 +769,7 @@ def _base(cfg: dict, respira: int = 0, braco: str = "", aceno: int = 0, vapor: i
     # costas: capa e mochila; cabelo de trás
     if extra in EXTRA_MOLDES and EXTRA_MOLDES[extra][1]:
         _pintar(img, mat, _moldar(EXTRA_MOLDES[extra][1], corpo, juntar=True), _cores_extra(cfg, pal), M_EXTRA, dy=d)
-    pal_cabelo = {**pal, "d": _rgb("#E0507E")}  # "d" no cabelo = elástico
+    pal_cabelo = {**pal, "d": _rgb("#E0507E"), "z": _mistura(pal["s"], pal["h"], 0.32)}  # "d" = elástico, "z" = raspado
     if cfg["cabelo"] in CABELO_ATRAS:
         atras = CABELO_ATRAS[cfg["cabelo"]]
         molde_atras, x_atras = atras if isinstance(atras, tuple) else (atras, 8)
@@ -878,6 +881,7 @@ def _epx(cores: list, w: int, h: int) -> list:
 SOMBREIA = {M_PELE, M_CABELO, M_ROUPA, M_CALCA, M_BOTA, M_METAL, M_ACESS, M_ITEM, M_EXTRA}
 BRILHA = {M_CABELO, M_ROUPA, M_METAL, M_ACESS, M_ITEM, M_EXTRA}
 CONTORNO_INTERNO = {M_ITEM, M_ACESS, M_EXTRA}
+LUZ_DO_LADO = {M_ROUPA, M_CALCA, M_BOTA, M_CABELO, M_EXTRA}
 
 
 def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: bool) -> list:
@@ -909,20 +913,30 @@ def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: b
                 novo = _escura(c, 0.2)  # sombra do cabelo na testa
             if m == M_CABELO and mc == M_CABELO and mb == M_CABELO and (x + 2 * y) % 9 == 0:
                 novo = _escura(novo, 0.12)  # fios
-            if m == M_ROUPA and 56 + d2 <= y <= 61 + d2 and x % 2 == 0 and y % 2 == 0:
-                novo = _escura(novo, 0.06)  # sombra pontilhada na barriga
+            if novo == c and m in LUZ_DO_LADO and me != m and x and orig[i - 1][3] == 0:
+                novo = _clara(c, 0.12)  # luz vinda da esquerda: dá volume
+            if m == M_ROUPA and mb == M_PELE and y > 50 + d2:
+                novo = _escura(c, 0.2)  # punho da manga e barra da roupa
+            if m == M_BOTA and mc != M_BOTA and me != M_BOTA:
+                novo = _clara(c, 0.3)  # brilho na ponta do sapato
+            if m in (M_ROUPA, M_EXTRA) and 48 + d2 <= y <= 49 + d2 and 24 <= x <= 39:
+                novo = _escura(novo, 0.1)  # sombra que a cabeça faz nos ombros
+            if m == M_PELE and y == 46 + d2 and 26 <= x <= 37:
+                novo = _escura(c, 0.12)  # sombra embaixo do queixo
             if novo != c:
                 out[i] = novo[:4] + (m,)
 
     # brilho do cabelo: uma faixa clara que acompanha o topo da cabeça, do lado da luz
-    for x in range(21, 35):
+    for x in range(20, 37):
+        if (x - 20) % 6 == 5:
+            continue  # o brilho vem em mechas, com um vão entre elas
         topo = next((y for y in range(0, 44) if orig[y * L + x][4] == M_CABELO), None)
         if topo is None:
             continue
-        for yy in (topo + 2, topo + 3):
+        for yy, t in ((topo + 2, 0.3), (topo + 3, 0.18)):
             i = yy * L + x
             if orig[i][4] == M_CABELO and orig[i + L][4] == M_CABELO:
-                out[i] = _clara(out[i], 0.24)[:4] + (M_CABELO,)
+                out[i] = _clara(orig[i], t + (0.14 if (x - 20) % 6 == 1 and yy == topo + 2 else 0))[:4] + (M_CABELO,)
     if cfg["cabelo"] == "careca":
         for y in (26 + d2, 27 + d2):
             for x in range(25, 30):
@@ -943,78 +957,93 @@ def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: b
     estilo = "feliz" if alegre else cfg["olhos"]
     sobrancelha = pal["H"] if cfg["cabelo"] != "careca" else _escura(pele, 0.45)
 
+    branco_olho = _luz(e) > 0.8  # olhos brancos: a pupila vira um cinza e o brilho fica azulado
+    iris_alto = _escura(e, 0.35)
+    pupila = _escura(e, 0.45 if branco_olho else 0.72)
+    iris_baixo = _clara(e, 0.42) if not branco_olho else _mistura(e, (170, 190, 220, 255), 0.35)
+    brilho = (255, 255, 255, 255) if not branco_olho else (150, 200, 255, 255)
+    faisca = _clara(e, 0.8) if not branco_olho else (255, 255, 255, 255)
+    # olho de 5 x 6 (estilo chibi): cílio grosso, íris com sombra em cima, pupila, brilho grande e faísca
+    # "." = deixa a pele; o lado de fora de cada olho ganha a pontinha do cílio
+    OLHO = ["KKKKK", "WWAAA", "WAPPA", "ePPPe", "ePPFe", ".LLL."]
+    cores_olho = {"K": cilio, "W": brilho, "A": iris_alto, "P": pupila, "e": e, "F": faisca, "L": iris_baixo}
+
+    def olho_aberto(x0, y0, fora, desde=0):
+        for dy, linha in enumerate(OLHO):
+            if dy < desde:
+                continue
+            for k, ch in enumerate(linha):
+                if ch != ".":
+                    pinta(x0 + k, y0 + dy, cores_olho[ch])
+        pinta(fora, y0 - 1 + desde, cilio)
+        pinta(fora, y0 + desde, cilio)
+
     def fechado(x0, y0, fora, feliz):
-        if feliz:
-            for dx, dy in ((-1, 3), (0, 2), (1, 1), (2, 1), (3, 2), (4, 3)):
+        if feliz:  # ^ ^
+            for dx, dy in ((0, 4), (1, 3), (2, 2), (3, 3), (4, 4), (-1, 5) if fora < x0 else (5, 5)):
                 pinta(x0 + dx, y0 + dy, cilio)
-        else:
-            for k in range(4):
-                pinta(x0 + k, y0 + 2, cilio)
-            pinta(fora, y0 + 2, cilio)
+        else:  # piscando: uma linha com a pontinha do cílio
+            for k in range(5):
+                pinta(x0 + k, y0 + 4, cilio)
+            pinta(fora, y0 + 3, cilio)
 
     if not cfg["oculos"] in OCULOS_COBREM_OLHOS:
-        for x0, lado in ((26, -1), (34, 1)):
-            y0 = 34 + d2
-            fora = x0 - 1 if lado < 0 else x0 + 4
+        for x0, lado in ((OLHO_X[0], -1), (OLHO_X[1], 1)):
+            y0 = OLHO_Y + d2
+            fora = x0 - 1 if lado < 0 else x0 + 5
             if piscando:
                 fechado(x0, y0, fora, False)
                 continue
             if estilo == "feliz" or (estilo == "piscadinha" and lado > 0):
                 fechado(x0, y0, fora, True)
                 if estilo == "piscadinha":
-                    for dx in (1, 2):
+                    for dx in (1, 2, 3):
                         pinta(x0 + dx, y0 - 2, _mistura(sobrancelha, pele, 0.3))
                 continue
             if estilo == "sonolento":  # pálpebra pesada: só a metade de baixo do olho aparece
-                for k in range(4):
-                    pinta(x0 + k, y0, _escura(pele, 0.1))
-                    pinta(x0 + k, y0 + 1, cilio)
-                pinta(fora, y0 + 1, cilio)
-                for k, cor in enumerate((e, _escura(e, 0.6), _escura(e, 0.6), e)):
-                    pinta(x0 + k, y0 + 2, cor)
-                for k in range(4):
-                    pinta(x0 + k, y0 + 3, _clara(e, 0.32))
-                for dx in (0, 1, 2, 3):
-                    pinta(x0 + dx, y0 - 2, _mistura(sobrancelha, pele, 0.55))
+                for k in range(5):
+                    pinta(x0 + k, y0, _escura(pele, 0.08))
+                    pinta(x0 + k, y0 + 1, _escura(pele, 0.14))
+                    pinta(x0 + k, y0 + 2, cilio)
+                olho_aberto(x0, y0, fora, desde=3)
+                pinta(fora, y0 + 3, pele)
+                pinta(fora, y0 + 2, cilio)
+                for dx in range(5):
+                    pinta(x0 + dx, y0 - 2, _mistura(sobrancelha, pele, 0.5))
                 continue
-            for k in range(4):
-                pinta(x0 + k, y0, cilio)
-            pinta(fora, y0 - 1, cilio)
-            for k, cor in enumerate(((255, 255, 255, 255), e, e, e)):
-                pinta(x0 + k, y0 + 1, cor)
-            for k, cor in enumerate((e, _escura(e, 0.6), _escura(e, 0.6), e)):
-                pinta(x0 + k, y0 + 2, cor)
-            for k in range(4):
-                pinta(x0 + k, y0 + 3, _clara(e, 0.32))
+            olho_aberto(x0, y0, fora)
             if estilo == "determinado":
-                pts = ((-1, -2), (0, -2), (1, -2), (2, -1), (3, -1)) if lado < 0 else ((0, -1), (1, -1), (2, -2), (3, -2), (4, -2))
+                pts = ((-1, -3), (0, -3), (1, -3), (2, -2), (3, -2), (4, -1)) if lado < 0 else ((0, -1), (1, -2), (2, -2), (3, -3), (4, -3), (5, -3))
                 for dx, dy in pts:
                     pinta(x0 + dx, y0 + dy, sobrancelha)
-            else:
-                for dx in (1, 2):
-                    pinta(x0 + dx, y0 - 2, _mistura(sobrancelha, pele, 0.45))
+            else:  # sobrancelha em arco, suave
+                arco = ((-1, -2), (0, -3), (1, -3), (2, -3), (3, -3)) if lado < 0 else ((1, -3), (2, -3), (3, -3), (4, -3), (5, -2))
+                for dx, dy in arco:
+                    pinta(x0 + dx, y0 + dy, _mistura(sobrancelha, pele, 0.35))
 
     # barba e bigode (antes das bochechas e da boca, que ficam por cima)
     barba = cfg.get("barba", "nenhuma")
     pelo = pal["h"] if cfg["cabelo"] != "careca" else _rgb("#3B2A20")
     pelo_escuro = _escura(pelo, 0.25)
     com_barba: set = set()
+    yb = BOCA_Y  # linha da boca
 
     def na_barba(x, y):
         yy = y - d2
-        return (yy >= 36 and (x <= 24 or x >= 39)) or yy >= 42 or (yy == 41 and (x <= 28 or x >= 35)) or (yy >= 39 and (x <= 25 or x >= 38))
+        return ((yy >= yb - 4 and (x <= 22 or x >= 41)) or (yy >= yb - 1 and (x <= 25 or x >= 38))
+                or (yy == yb + 1 and (x <= 28 or x >= 35)) or yy >= yb + 2)
 
     def bigode(cor):
         for x in range(28, 36):
-            pinta(x, 39 + d2, cor)
-            com_barba.add((x, 39 + d2))
+            pinta(x, yb - 1 + d2, cor)
+            com_barba.add((x, yb - 1 + d2))
         for x in (28, 29, 34, 35):
-            pinta(x, 40 + d2, cor)
-            com_barba.add((x, 40 + d2))
+            pinta(x, yb + d2, cor)
+            com_barba.add((x, yb + d2))
 
     if barba in ("cheia", "por_fazer"):
-        for y in range(34 + d2, 48 + d2):
-            for x in range(20, 44):
+        for y in range(34 + d2, 49 + d2):
+            for x in range(18, 46):
                 if orig[y * L + x][4] != M_PELE or not na_barba(x, y):
                     continue
                 if barba == "cheia":
@@ -1028,39 +1057,40 @@ def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: b
     elif barba in ("bigode", "cavanhaque"):
         bigode(pelo)
         if barba == "cavanhaque":
-            for y, xs in ((43, range(30, 34)), (44, range(30, 34)), (45, range(31, 33))):
+            for y, xs in ((yb + 3, range(30, 34)), (yb + 4, range(30, 34)), (yb + 5, range(31, 33))):
                 for x in xs:
-                    pinta(x, y + d2, pelo if y < 45 else pelo_escuro)
+                    pinta(x, y + d2, pelo if y < yb + 5 else pelo_escuro)
                     com_barba.add((x, y + d2))
 
-    # bochechas, detalhes do rosto e nariz
+    # bochechas (embaixo e por fora dos olhos), detalhes do rosto e nariz
     marca = cfg.get("marca", "nenhuma")
     rosado = pal["r"]
-    bochechas = [(23, 38), (25, 38), (24, 39), (38, 38), (40, 38), (39, 39)]
+    bochechas = [(21, 40), (23, 40), (22, 41), (40, 40), (42, 40), (41, 41)]
     if marca == "corado":
-        bochechas += [(22, 39), (26, 39), (23, 40), (25, 40), (37, 39), (41, 39), (38, 40), (40, 40), (24, 38), (39, 38)]
+        bochechas += [(20, 41), (24, 41), (21, 42), (23, 42), (22, 40), (39, 41), (43, 41), (40, 42), (42, 42), (41, 40)]
         rosado = _mistura(pal["r"], (232, 90, 110, 255), 0.35)
     for x, y in bochechas:
         if (x, y + d2) not in com_barba:
             pinta(x, y + d2, rosado)
     if marca == "sardas":
-        for x, y in ((22, 38), (24, 39), (26, 39), (23, 40), (37, 39), (39, 40), (41, 38), (40, 39)):
+        for x, y in ((21, 41), (23, 42), (25, 41), (22, 43), (38, 41), (40, 42), (42, 41), (41, 43)):
             if (x, y + d2) not in com_barba:
                 pinta(x, y + d2, _escura(pele, 0.24))
     elif marca == "pinta":
-        pinta(37, 41 + d2, _escura(pele, 0.55))
+        pinta(38, 43 + d2, _escura(pele, 0.55))
     elif marca == "curativo":
         fita, borda, gaze = _rgb("#F2CF96"), _rgb("#C9965A"), _rgb("#FFF4DE")
-        for x, y, cor in ((22, 37, borda), (23, 37, fita), (24, 37, fita), (25, 37, borda),
-                          (21, 38, borda), (22, 38, fita), (23, 38, gaze), (24, 38, gaze), (25, 38, fita), (26, 38, borda),
-                          (22, 39, borda), (23, 39, fita), (24, 39, fita), (25, 39, borda)):
+        for x, y, cor in ((20, 40, borda), (21, 40, fita), (22, 40, fita), (23, 40, borda),
+                          (19, 41, borda), (20, 41, fita), (21, 41, gaze), (22, 41, gaze), (23, 41, fita), (24, 41, borda),
+                          (20, 42, borda), (21, 42, fita), (22, 42, fita), (23, 42, borda)):
             pinta(x, y + d2, cor)
-    if (31, 39 + d2) not in com_barba:
-        pinta(31, 39 + d2, _escura(pele, 0.12))
+    if (31, yb - 1 + d2) not in com_barba:
+        pinta(31, yb - 1 + d2, _escura(pele, 0.12))
+        pinta(32, yb - 1 + d2, _escura(pele, 0.06))
 
     # boca
     boca, lingua = pal["m"], (232, 112, 122, 255)
-    y0 = 40 + d2
+    y0 = yb + d2
     tipo_boca = "sorrisao" if alegre else cfg.get("boca", "sorriso")
     if tipo_boca == "sorrisao":
         for k in range(4):
@@ -1096,7 +1126,7 @@ def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: b
         if oc == "coracao":
             cores["a"] = _escura(lente, 0.25) if cfg["cor_oculos"] in (0, 6) else arm
         dados = OCULOS_HD[oc]
-        deslocamentos = (8,) if dados.get("so_direita") else (0, 8)
+        deslocamentos = (11,) if dados.get("so_direita") else (0, 11)
         pontos = [(x + dx, y, p) for dx in deslocamentos for x, y, p in dados["lente"]] + list(dados["extras"])
         for x, y, parte in pontos:
             yy = y + d2

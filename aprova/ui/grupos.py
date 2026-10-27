@@ -110,6 +110,10 @@ class TelaGrupos:
         self._pendentes: list[dict] = []  # fotos/arquivos já enviados, esperando o "Publicar"
         self._enviando: list[str] = []  # nomes dos arquivos subindo agora
         self._rapidos: list[dict] = []  # figurinhas e GIFs indo agora: {"tipo", "valor", "post": id da mensagem (resposta) ou None}
+        # figurinha ou GIF escolhido, esperando o envio (como no Teams): na mensagem nova (None) ou na resposta de um post
+        self._figurinha_escolhida: dict[int | None, dict] = {}
+        self._rascunho_resposta: dict[int, str] = {}
+        self._assunto = ""
 
     @property
     def r(self) -> rk.Ranking:
@@ -602,12 +606,14 @@ class TelaGrupos:
             on_change=lambda e: setattr(self, "_rascunho", e.control.value or ""),
         )
         assunto = ft.TextField(
+            value=self._assunto,
             label="Assunto (opcional)",
             hint_text="Ex.: Questão 32 de Português (2024)" if self.tipo_novo == "duvida" else "Ex.: Resumo de LGPD",
             dense=True,
             border_radius=10,
             max_length=120,
             visible=self.tipo_novo != "conversa",
+            on_change=lambda e: setattr(self, "_assunto", e.control.value or ""),
         )
         msg = ft.Container()
 
@@ -621,19 +627,38 @@ class TelaGrupos:
             if self._enviando:
                 app.msg("Espere os arquivos terminarem de subir.")
                 return
-            botao.disabled = True
-            app.page.update()
+            escolhida = self._figurinha_escolhida.get(None)
+            so_figurinha = bool(escolhida) and not (texto.value or "").strip() and not self._pendentes
+            item = None
+            if so_figurinha:
+                # só a figurinha: sai da caixa e aparece na conversa na hora, "enviando…"
+                item = {**escolhida, "post": None}
+                self._rapidos.append(item)
+                self._figurinha_escolhida.pop(None, None)
+                self._redesenhar()
+            else:
+                botao.disabled = True
+                app.page.update()
             try:
-                await app.em_segundo_plano(
-                    lambda: self.r.forum_publicar(g["codigo"], texto.value or "", self.tipo_novo, assunto.value or "", anexos=list(self._pendentes) or None)
-                )
+                await self._publicar_com_figurinha(g, texto.value or "", self.tipo_novo, assunto.value or "", list(self._pendentes), escolhida)
             except rk.ErroRanking as ex:
+                if item is not None:
+                    self._rapidos = [r for r in self._rapidos if r is not item]
+                    self._figurinha_escolhida[None] = escolhida  # volta para a caixa, para tentar de novo
+                    self._redesenhar()
+                    app.msg(f"A figurinha não foi: {ex}")
+                    return
                 botao.disabled = False
                 msg.content = comp.aviso(str(ex), c, "erro")
                 app.page.update()
                 return
+            finally:
+                if item is not None:
+                    self._rapidos = [r for r in self._rapidos if r is not item]
             self._rascunho = ""
+            self._assunto = ""
             self._pendentes = []
+            self._figurinha_escolhida.pop(None, None)
             self.tipo_novo = "conversa"
             await self._atualizar_conversa(g["codigo"])
             self._redesenhar()
@@ -651,7 +676,7 @@ class TelaGrupos:
         def figurinhas_gifs(e):
             from .anexos import dialogo_figurinhas_gifs
 
-            dialogo_figurinhas_gifs(app, lambda tipo, valor: app.page.run_task(self._mandar_rapido, g, tipo, valor))
+            dialogo_figurinhas_gifs(app, lambda tipo, valor: self._escolher_figurinha(None, tipo, valor))
 
         tipos = ft.SegmentedButton(
             selected=[self.tipo_novo],
@@ -683,10 +708,16 @@ class TelaGrupos:
             )
             for n in self._enviando
         ]
+        escolhida = self._figurinha_escolhida.get(None)
+        caixa_texto: ft.Control = texto
+        if escolhida:
+            texto.hint_text = "Escreva algo junto, se quiser, e clique em Publicar"
+            texto.min_lines = 1
+            caixa_texto = ft.Column([texto, self._previa_escolhida(None, 104)], spacing=8, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)
         return comp.bloco(
             ft.Column(
                 [
-                    ft.Row([busto(self.app, None, self.r.apelido or "?", 34, self.r.usuario_id), ft.Container(texto, expand=True)], spacing=12, vertical_alignment=ft.CrossAxisAlignment.START),
+                    ft.Row([busto(self.app, None, self.r.apelido or "?", 34, self.r.usuario_id), ft.Container(caixa_texto, expand=True)], spacing=12, vertical_alignment=ft.CrossAxisAlignment.START),
                     assunto,
                     ft.Row(pendentes, wrap=True, spacing=8, run_spacing=8) if pendentes else ft.Container(height=0),
                     msg,
@@ -699,6 +730,69 @@ class TelaGrupos:
             c,
             padding=16,
         )
+
+    def _escolher_figurinha(self, post: int | None, tipo: str, valor) -> None:
+        """A figurinha ou GIF vai para a prévia da mensagem (troca a que estava); só sai quando a pessoa envia."""
+        self._figurinha_escolhida[post] = {"tipo": tipo, "valor": valor}
+        self._redesenhar()
+
+    def _previa_escolhida(self, post: int | None, lado: int) -> ft.Control:
+        """A figurinha esperando o envio, com o X para tirar."""
+        from .anexos import previa_envio
+
+        c = self.app.c
+        sel = self._figurinha_escolhida[post]
+        gif = sel["tipo"] == "gif" and not (isinstance(sel["valor"], dict) and sel["valor"].get("figurinha"))
+
+        def tirar(e):
+            self._figurinha_escolhida.pop(post, None)
+            self._redesenhar()
+
+        return ft.Row(
+            [
+                ft.Stack(
+                    [
+                        ft.Container(previa_envio(self.app, sel["tipo"], sel["valor"], lado), padding=8, bgcolor=c["sup2"], border_radius=14,
+                                     tooltip="GIF" if gif else "Figurinha"),
+                        ft.Container(
+                            ft.Icon(ft.Icons.CLOSE, size=14, color="#FFFFFF"),
+                            width=24, height=24, border_radius=12, bgcolor="#99000000", alignment=ft.Alignment.CENTER,
+                            right=4, top=4, on_click=tirar, tooltip="Tirar", ink=True,
+                        ),
+                    ],
+                    width=lado + 16,
+                    height=lado + 16,
+                ),
+                comp.apagado("GIF na mensagem" if gif else "Figurinha na mensagem", c, 12),
+            ],
+            spacing=10,
+            vertical_alignment=ft.CrossAxisAlignment.END,
+        )
+
+    async def _publicar_com_figurinha(self, g: dict, texto: str, tipo: str, titulo: str, anexos: list[dict], escolhida: dict | None,
+                                      post_id: int | None = None) -> None:
+        """Envia a mensagem (ou resposta) com a figurinha escolhida. A sua figurinha sobe só agora, na hora de enviar."""
+        from .anexos import conteudo_rapido
+
+        extra: dict = {}
+        subiram: list[dict] = []
+        if escolhida:
+            extra = await conteudo_rapido(self.app, g["codigo"], escolhida["tipo"], escolhida["valor"])
+            subiram = [a for a in extra.get("anexos") or [] if a.get("caminho")]
+            for a in extra.get("anexos") or []:
+                self.visor.lembrar(a)
+        todos = list(anexos) + list(extra.get("anexos") or [])
+        try:
+            if post_id is None:
+                await self.app.em_segundo_plano(
+                    lambda: self.r.forum_publicar(g["codigo"], texto, tipo, titulo, anexos=todos or None, figurinha=extra.get("figurinha"))
+                )
+            else:
+                await self.app.em_segundo_plano(lambda: self.r.forum_responder(post_id, texto, anexos=todos or None, figurinha=extra.get("figurinha")))
+        except rk.ErroRanking:
+            if subiram:  # a figurinha que subiu e não foi: apaga do servidor
+                self.app.page.run_task(self.app.em_segundo_plano, self.r.apagar_anexos, subiram)
+            raise
 
     async def _anexar_caminhos(self, g: dict, caminhos: list[Path]):
         """Sobe os arquivos escolhidos; eles ficam esperando o "Publicar" (com o texto, se tiver)."""
@@ -960,15 +1054,38 @@ class TelaGrupos:
                 )
         filhos.extend(self._enviando_figurinha(r, self._lado_figurinha(resposta=True), 28) for r in self._rapidos if r["post"] == p["id"])
         if not g.get("visitante"):
-            campo = ft.TextField(hint_text="Escreva uma resposta…", dense=True, border_radius=20, expand=True, multiline=True, min_lines=1, max_lines=5, shift_enter=True)
+            escolhida = self._figurinha_escolhida.get(p["id"])
+            campo = ft.TextField(
+                value=self._rascunho_resposta.get(p["id"], ""),
+                hint_text="Escreva algo junto, se quiser, e aperte Enter" if escolhida else "Escreva uma resposta…",
+                dense=True, border_radius=20, expand=True, multiline=True, min_lines=1, max_lines=5, shift_enter=True,
+                on_change=lambda e: self._rascunho_resposta.__setitem__(p["id"], e.control.value or ""),
+                autofocus=bool(escolhida),
+            )
 
             async def enviar(e):
+                sel = self._figurinha_escolhida.get(p["id"])
+                texto_resp = campo.value or ""
+                item = None
+                if sel and not texto_resp.strip():
+                    item = {**sel, "post": p["id"]}  # só a figurinha: aparece na hora, "enviando…"
+                    self._rapidos.append(item)
+                    self._figurinha_escolhida.pop(p["id"], None)
+                    self._redesenhar()
                 try:
-                    await app.em_segundo_plano(self.r.forum_responder, p["id"], campo.value or "")
+                    await self._publicar_com_figurinha(g, texto_resp, "", "", [], sel, post_id=p["id"])
+                    self.respostas[p["id"]] = await app.em_segundo_plano(self.r.forum_respostas, p["id"])
                 except rk.ErroRanking as ex:
+                    if item is not None:
+                        self._figurinha_escolhida[p["id"]] = sel
                     app.msg(str(ex))
                     return
-                self.respostas[p["id"]] = await app.em_segundo_plano(self.r.forum_respostas, p["id"])
+                finally:
+                    if item is not None:
+                        self._rapidos = [r for r in self._rapidos if r is not item]
+                        self._redesenhar()
+                self._figurinha_escolhida.pop(p["id"], None)
+                self._rascunho_resposta.pop(p["id"], None)
                 p["respostas"] = len(self.respostas[p["id"]])
                 self._redesenhar()
 
@@ -999,31 +1116,14 @@ class TelaGrupos:
                     return
                 await recarregar()
 
-            async def rapido(tipo, valor):
-                from .anexos import conteudo_rapido
-
-                item = {"tipo": tipo, "valor": valor, "post": p["id"]}
-                self._rapidos.append(item)
-                self._redesenhar()
-                try:
-                    extra = await conteudo_rapido(app, g["codigo"], tipo, valor)
-                    for a in extra.get("anexos") or []:
-                        self.visor.lembrar(a)
-                    await app.em_segundo_plano(lambda: self.r.forum_responder(p["id"], "", **extra))
-                    self.respostas[p["id"]] = await app.em_segundo_plano(self.r.forum_respostas, p["id"])
-                    p["respostas"] = len(self.respostas[p["id"]])
-                except rk.ErroRanking as ex:
-                    app.msg(f"A figurinha não foi: {ex}")
-                finally:
-                    self._rapidos = [r for r in self._rapidos if r is not item]
-                    self._redesenhar()
-
             def figurinhas_gifs(e):
                 from .anexos import dialogo_figurinhas_gifs
 
-                dialogo_figurinhas_gifs(app, lambda tipo, valor: app.page.run_task(rapido, tipo, valor))
+                dialogo_figurinhas_gifs(app, lambda tipo, valor: self._escolher_figurinha(p["id"], tipo, valor))
 
             campo.on_submit = enviar
+            if escolhida:
+                filhos.append(ft.Container(self._previa_escolhida(p["id"], 88), padding=ft.Padding.only(left=38)))
             filhos.append(
                 ft.Row(
                     [

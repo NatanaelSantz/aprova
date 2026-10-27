@@ -1,10 +1,10 @@
 {
-  "versao": "1.17.0",
+  "versao": "1.18.0",
   "data": "27/10/2026",
   "notas": [
-    "Personagens mais magros: o corpo agora é médio por padrão, e dá para escolher magro, médio, forte ou gordinho",
-    "Mais opções: 5 cortes de cabelo novos (black power, tranças, maria-chiquinha, moicano, repartido), barba e bigode, boca, sardas e outros detalhes, olhos sonolento e piscadinha",
-    "Roupas novas: toga, farda, jaleco, jaqueta e regata, e a cor da calça; itens novos: Vade Mecum, marca-texto, diploma e troféu"
+    "Personagens mais bonitinhos: olhos grandes com brilho e pupila, sobrancelhas, mechas no cabelo, luz e sombra na roupa, punhos e sapatos com brilho",
+    "Olhos brancos, cinzas, roxos e vermelhos",
+    "Grupos: a figurinha ou o GIF vai para a prévia da mensagem (como no Teams); você escreve algo junto, se quiser, e envia"
   ],
   "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
 }

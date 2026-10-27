@@ -727,7 +727,7 @@ class App:
                 self.aj.set("ultima_aba_figurinhas", arg)
             if t.grupo:
                 dialogo_figurinhas_gifs(self, lambda tipo, valor, g=t.grupo: self.page.run_task(t._mandar_rapido, g, tipo, valor))
-        elif nome in ("mandar_figurinha", "figurinha_indo"):
+        elif nome in ("mandar_figurinha", "figurinha_indo", "escolher_figurinha"):
             # manda uma figurinha do Aprova na conversa (ou só mostra ela "enviando…", para a captura de tela)
             from .anexos import lembrar_recente
 
@@ -736,8 +736,12 @@ class App:
                 if t.grupo and t.posts.get((t.codigo, "conversa")) is not None:
                     break
                 await asyncio.sleep(0.5)
-            lembrar_recente(self, "figurinha", arg or "valeu")
-            if nome == "figurinha_indo":
+            lembrar_recente(self, "figurinha", arg.rpartition("|")[2] or "valeu")
+            if nome == "escolher_figurinha":  # arg "valeu" (mensagem nova) ou "resposta|valeu" (na resposta aberta)
+                onde, _, ident = arg.rpartition("|")
+                post = next(iter(t.abertos), None) if onde == "resposta" else None
+                t._escolher_figurinha(post, "figurinha", ident or "valeu")
+            elif nome == "figurinha_indo":
                 t._rapidos.append({"tipo": "figurinha", "valor": arg or "valeu", "post": None})
                 t._redesenhar()
             elif t.grupo:

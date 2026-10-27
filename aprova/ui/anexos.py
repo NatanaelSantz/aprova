@@ -504,7 +504,7 @@ def dialogo_figurinhas_gifs(app, ao_escolher) -> None:
     """Escolher uma figurinha (recentes, do Aprova ou das suas), um GIF ou uma figurinha animada do GIPHY.
 
     ao_escolher(tipo, valor): tipo "figurinha" (valor = id do Aprova), "minha" (valor = id da coleção)
-    ou "gif" (valor = anexo). Um toque já manda, como no WhatsApp."""
+    ou "gif" (valor = anexo). O toque põe na prévia da mensagem; quem envia é a pessoa (como no Teams)."""
     c = app.c
     largura = min(580, (app.page.width or 600) - 48) - 2
     tem_recentes = bool(recentes(app))
@@ -520,7 +520,7 @@ def dialogo_figurinhas_gifs(app, ao_escolher) -> None:
     linha_minhas = ft.Row(visible=False, wrap=True, spacing=6, run_spacing=6)
     abas = ft.Row(wrap=True, spacing=6, run_spacing=6)  # quebram linha: todas à vista no celular
     aviso = ft.Container()
-    dica = comp.apagado("Toque numa figurinha para mandar.", c, 12)
+    dica = comp.apagado("Toque numa figurinha para pôr na mensagem. Você confere e envia.", c, 12)
     rodape = comp.apagado("GIFs: Powered by GIPHY", c, 11.5)
     corpo = ft.Column(spacing=10, tight=True)
 

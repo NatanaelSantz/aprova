@@ -1828,10 +1828,17 @@ def test_personagem_validar_e_desenhar():
     antigo = av.validar({"acessorio": "oculos", "t": 5})
     assert antigo["acessorio"] == "nenhum" and antigo["oculos"] == "redondo"
     # óculos que cobrem os olhos (escuro) escondem os olhos; os outros deixam ver
-    rosto_normal = av.boneco({**av.PADRAO, "cor_olhos": 2}).crop((26, 34, 30, 38)).getcolors(100)
-    rosto_escuro = av.boneco({**av.PADRAO, "cor_olhos": 2, "oculos": "escuro"}).crop((26, 34, 30, 38)).getcolors(100)
+    caixa_olho = (av.OLHO_X[0], av.OLHO_Y, av.OLHO_X[0] + 5, av.OLHO_Y + 6)
+    rosto_normal = av.boneco({**av.PADRAO, "cor_olhos": 2}).crop(caixa_olho).getcolors(100)
+    rosto_escuro = av.boneco({**av.PADRAO, "cor_olhos": 2, "oculos": "escuro"}).crop(caixa_olho).getcolors(100)
     azul = (59, 122, 212, 255)
     assert any(c == azul for _, c in rosto_normal) and not any(c == azul for _, c in rosto_escuro)
+    # olhos grandes: brilho branco em cima e pupila escura; olhos brancos ganham pupila cinza e brilho azulado
+    cores_olho = {c for _, c in rosto_normal}
+    assert (255, 255, 255, 255) in cores_olho and len(cores_olho) >= 5
+    branco = av.CORES_OLHOS.index(next(c for c in av.CORES_OLHOS if c[1] == "Brancos"))
+    olho_branco = {c for _, c in av.boneco({**av.PADRAO, "cor_olhos": branco}).crop(caixa_olho).getcolors(100)}
+    assert (150, 200, 255, 255) in olho_branco
     # animações: WebP animado, ampliado sem borrar
     for anim in ("parado", "aceno", "pulo", "lobby"):
         im = Image.open(_io.BytesIO(av.animacao(av.sortear("x"), anim, 2)))
