@@ -130,6 +130,9 @@
 2. Dê dois cliques em **`Abrir Aprova.bat`**. Na primeira vez abre a janela *Preparando o Aprova*: se faltar o Python, ele é instalado, e depois vêm as bibliotecas do app (de 5 a 10 minutos, com internet).
 3. Pronto: o Aprova abre sozinho e cria o atalho **Aprova** na área de trabalho. Dali em diante, abra por ele.
 
+> [!TIP]
+> **Android (em teste):** baixe o **[Aprova-android.apk](https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android.apk)** no celular, abra o arquivo e permita instalar apps desta fonte quando o Android pedir. Em celulares mais antigos (32 bits), use o [Aprova-android-antigo.apk](https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android-antigo.apk). O app do celular ainda está em teste.
+
 > [!NOTE]
 > **Atualizações:** da versão 1.9 em diante, o Aprova procura versão nova sozinho e mostra o aviso **Nova versão** no Início: é só tocar em **Atualizar** e depois em **Reiniciar agora**. Quem tem a 1.8 ou anterior precisa baixar o .zip uma última vez e extrair por cima da pasta antiga (os estudos ficam guardados à parte, na pasta `.aprova`).
 

@@ -384,7 +384,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
       <a href="#instalar">Instalar</a>
       <a href="#perguntas">Dúvidas</a>
     </nav>
-    <a class="bt bt-azul" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-baixar"/></svg>Baixar grátis</a>
+    <a class="bt bt-azul" id="baixar-topo" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-baixar"/></svg>Baixar grátis</a>
   </div>
 </header>
 
@@ -396,10 +396,10 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
         <h1>Estude com método até ver seu nome na <span class="marcado anima">lista de aprovados</span>.</h1>
         <p class="texto-grande">Provas reais com gabarito oficial, revisão no dia certo, meta da semana, PDFs marcados e grupos de estudo. Tudo em português e pensado para quem estuda depois do trabalho.</p>
         <div class="acoes">
-          <a class="bt bt-azul" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-baixar"/></svg>Baixar para Windows</a>
+          <a class="bt bt-azul" id="baixar-principal" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-baixar"/></svg><span>Baixar para Windows</span></a>
           <a class="bt bt-linha" href="#recursos">Ver o que ele faz<svg aria-hidden="true"><use href="#i-seta"/></svg></a>
         </div>
-        <p class="miudo">Versão 1.26.0 · se atualiza sozinho toda vez que abre · também roda no macOS e no Linux</p>
+        <p class="miudo">Versão 1.26.0 · se atualiza sozinho toda vez que abre · também roda no macOS e no Linux · <a id="link-android" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android.apk">Android (em teste): baixar o APK</a></p>
       </div>
 
       <div class="vitrine">
@@ -630,7 +630,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
       <div class="perguntas">
         <details><summary>Quanto custa?</summary><p>Nada. O Aprova é grátis para baixar e usar.</p></details>
         <details><summary>Preciso criar conta?</summary><p>Não. Dá para estudar como visitante, e quem recebe um convite entra no grupo sem fazer cadastro.</p></details>
-        <details><summary>Funciona no celular?</summary><p>A tela se ajusta ao tamanho da janela e o Aprova também abre no navegador do celular, quando o celular está na mesma rede Wi-Fi do computador.</p></details>
+        <details><summary>Funciona no celular?</summary><p>Sim, de dois jeitos. No Android, já dá para instalar o app, que ainda está em teste: <a href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android.apk">baixe o APK</a> no celular, abra o arquivo e permita instalar apps desta fonte quando o Android pedir (em celulares mais antigos, use <a href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android-antigo.apk">este outro APK</a>). No iPhone, o app ainda está em preparação. E em qualquer celular o Aprova também abre no navegador, quando o celular está na mesma rede Wi-Fi do computador.</p></details>
         <details><summary>Preciso pagar pela IA?</summary><p>Não. Os botões Perguntar ao Claude e Perguntar ao ChatGPT usam a sua própria conta, que pode ser a grátis. Se quiser a IA trabalhando dentro do app, dá para colocar uma chave do Claude, paga à parte com crédito pré-pago; o app tem o passo a passo.</p></details>
         <details><summary>Onde ficam os meus estudos?</summary><p>No seu computador, numa pasta só do Aprova. Em Ajustes dá para salvar uma cópia de segurança e levar os estudos para outro computador, e o app também guarda uma cópia sozinho toda semana. O ranking e os grupos ficam no servidor, e no ranking aparecem só o seu apelido e os números.</p></details>
         <details><summary>Recebi um convite de grupo. E agora?</summary><p>Abra o link no computador e clique em Entrar no grupo. Se o Aprova ainda não estiver instalado, a página leva ao download e o convite aparece sozinho quando o app abrir.</p></details>
@@ -648,6 +648,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
         <p class="texto-grande">Baixe o Aprova, escolha o seu concurso e faça a primeira prova ainda hoje.</p>
         <div class="acoes">
           <a class="bt bt-azul" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-baixar"/></svg>Baixar grátis para Windows</a>
+          <a class="bt bt-linha" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android.apk"><svg aria-hidden="true"><use href="#i-baixar"/></svg>Android (em teste)</a>
           <a class="bt bt-linha" href="https://github.com/NatanaelSantz/aprova" target="_blank" rel="noopener">Ver no GitHub</a>
         </div>
       </div>
@@ -684,6 +685,19 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
 </footer>
 
 <script>
+// no Android, o botão principal baixa o app do celular (em teste) em vez do .zip do Windows
+if (/Android/i.test(navigator.userAgent)) {
+  const b = document.getElementById("baixar-principal");
+  if (b) {
+    b.href = "https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android.apk";
+    b.removeAttribute("target");
+    b.querySelector("span").textContent = "Baixar para Android (em teste)";
+  }
+  const t = document.getElementById("baixar-topo");
+  if (t) { t.href = "https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android.apk"; t.removeAttribute("target"); }
+  const l = document.getElementById("link-android");
+  if (l) { l.href = "https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip"; l.textContent = "Windows: baixar o .zip"; }
+}
 /* troca o vídeo do player pelos botões ao lado */
 (function () {
   const player = document.getElementById('player');
