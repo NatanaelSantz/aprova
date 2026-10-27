@@ -157,6 +157,17 @@ em.it { font-style: italic; font-weight: 500; }
 .recurso-texto { display: grid; gap: 16px; min-width: 0; align-content: center; }
 .recurso-texto p { color: var(--tinta2); max-width: 32em; }
 .tela { margin: 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--linha); box-shadow: var(--sombra); background: var(--folha); min-width: 0; }
+.cinema-duo { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.capitulos { display: grid; gap: 14px; min-width: 0; }
+.capitulo { display: grid; gap: 10px; align-content: start; width: 100%; text-align: left; padding: 10px 10px 14px; border-radius: 14px; border: 1.5px solid var(--linha); background: var(--folha); color: var(--tinta); font: inherit; cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
+.capitulo img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 9px; border: 1px solid var(--linha); }
+.capitulo span { display: grid; gap: 2px; padding-inline: 4px; }
+.capitulo strong { font-size: 1rem; }
+.capitulo small { font-size: 0.86rem; color: var(--tinta2); }
+.capitulo:hover { border-color: var(--azul); }
+.capitulo[aria-pressed="true"] { border-color: var(--azul); box-shadow: 0 0 0 3px var(--azul-suave); }
+.capitulo:focus-visible { outline: 3px solid var(--azul); outline-offset: 2px; }
+@media (max-width: 860px) { .cinema-duo { grid-template-columns: minmax(0, 1fr); } .capitulos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .cinema { margin: 0; border-radius: 16px; overflow: hidden; border: 1px solid var(--linha); box-shadow: var(--sombra); background: #0D1428; }
 .cinema video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #0D1428; }
 .cinema figcaption { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--folha); border-top: 1px solid var(--linha); font-size: 0.92rem; color: var(--tinta2); }
@@ -361,7 +372,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
   <div class="caixa">
     <a class="marca-app" href="#inicio" aria-label="Aprova, voltar ao topo"><img src="icon.png" alt="" width="38" height="38"><span>Aprova</span></a>
     <nav aria-label="Seções">
-      <a href="#videos">Vídeo</a>
+      <a href="#videos">Vídeos</a>
       <a href="#recursos">O que faz</a>
       <a href="#turma">Grupos</a>
       <a href="#olhos">Leitura</a>
@@ -417,15 +428,28 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
   <section class="secao" id="videos">
     <div class="caixa">
       <div class="cabeca">
-        <span class="rotulo">Veja funcionando</span>
-        <h2>O Aprova em <span class="marcado rolar">menos de um minuto</span>.</h2>
+        <span class="rotulo">Vídeos</span>
+        <h2>Veja o Aprova <span class="marcado rolar">funcionando</span>.</h2>
+        <p class="texto-grande">Comece pela apresentação ou vá direto ao tutorial: do download ao primeiro simulado, passo a passo.</p>
       </div>
-      <figure class="cinema">
-        <video controls preload="none" playsinline poster="video/capa-promo.webp" width="1920" height="1080" aria-label="Vídeo de apresentação do Aprova">
-          <source src="video/aprova-promo.mp4" type="video/mp4">
-        </video>
-        <figcaption><span><strong>Apresentação</strong> · provas reais, simulados, revisão, painel e grupos</span></figcaption>
-      </figure>
+      <div class="cinema-duo">
+        <figure class="cinema">
+          <video id="player" controls preload="none" playsinline poster="video/capa-promo.webp" width="1920" height="1080" aria-label="Vídeo de apresentação do Aprova">
+            <source src="video/aprova-promo.mp4" type="video/mp4">
+          </video>
+          <figcaption id="cinema-leg"><span><strong>Apresentação</strong> · provas reais, simulados, revisão, painel e grupos</span></figcaption>
+        </figure>
+        <div class="capitulos" aria-label="Escolha o vídeo">
+          <button type="button" class="capitulo" aria-pressed="true" data-src="video/aprova-promo.mp4" data-capa="video/capa-promo.webp" data-nome="Vídeo de apresentação do Aprova" data-leg="&lt;span&gt;&lt;strong&gt;Apresentação&lt;/strong&gt; · provas reais, simulados, revisão, painel e grupos&lt;/span&gt;">
+            <img src="video/capa-promo.webp" alt="" width="1280" height="720" loading="lazy">
+            <span><strong>Apresentação</strong><small>O que o Aprova faz</small></span>
+          </button>
+          <button type="button" class="capitulo" aria-pressed="false" data-src="video/aprova-tutorial.mp4" data-capa="video/capa-tutorial.webp" data-nome="Tutorial: como usar o Aprova" data-leg="&lt;span&gt;&lt;strong&gt;Tutorial&lt;/strong&gt; · instalar, achar provas, resolver, simulado, resultado, painel, PDFs, grupos e ajustes&lt;/span&gt;">
+            <img src="video/capa-tutorial.webp" alt="" width="1280" height="720" loading="lazy">
+            <span><strong>Tutorial: como usar</strong><small>Do download ao primeiro simulado</small></span>
+          </button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -646,6 +670,26 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
 </footer>
 
 <script>
+/* troca o vídeo do player pelos botões ao lado */
+(function () {
+  const player = document.getElementById('player');
+  const leg = document.getElementById('cinema-leg');
+  if (!player) return;
+  document.querySelectorAll('.capitulo').forEach(function (bt) {
+    bt.addEventListener('click', function () {
+      if (bt.getAttribute('aria-pressed') === 'true') { player.play().catch(function () {}); return; }
+      document.querySelectorAll('.capitulo').forEach(function (x) { x.setAttribute('aria-pressed', String(x === bt)); });
+      player.pause();
+      player.poster = bt.dataset.capa;
+      player.querySelector('source').src = bt.dataset.src;
+      player.setAttribute('aria-label', bt.dataset.nome);
+      leg.innerHTML = bt.dataset.leg;
+      player.load();
+      player.play().catch(function () {});
+      if (player.getBoundingClientRect().top < 0) player.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  });
+})();
   // herói: a janela do app inclina de leve seguindo o mouse (só com mouse, e só se o sistema permite movimento)
   (function () {
     var v = document.querySelector(".vitrine");
