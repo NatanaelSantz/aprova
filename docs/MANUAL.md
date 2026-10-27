@@ -43,7 +43,7 @@ App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolv
 - **Contas e login**: cada pessoa entra com e-mail e senha e tem seus estudos separados. Há dois tipos de conta: **aluno** e **administrador** (veja abaixo). Quem não quiser conta usa o app normalmente com “Usar sem conta”.
 - **Tela que se ajusta ao aparelho**: no celular, menu embaixo; em tela média, menu lateral compacto; em tela grande, menu lateral completo e o conteúdo centralizado.
 - **Grupos de estudo (fórum)**: cada grupo tem a sua conversa, onde a turma combina simulados, tira dúvidas, troca materiais (fotos e arquivos do computador), manda **GIFs e figurinhas** e compartilha **planos de estudo**. Só quem tem o convite entra e só quem está no grupo vê as mensagens. Fica no menu **Grupos**.
-- **Personagem (estilo RPG) ou foto**: crie o seu bonequinho em pixel art (pele, cabelo, olhos, roupa, acessório, item na mão e cenário) ou use uma foto. Ele respira, pisca, acena e pula; aparece no Início, comemora no resultado do simulado e fica na **sala da turma** dos grupos, com o personagem de todo mundo.
+- **Personagem (estilo RPG) ou foto**: crie o seu bonequinho em pixel art (pele, cabelo, olhos, óculos, roupa, acessórios na cabeça, no pescoço e nas costas, item na mão e cenário) ou use uma foto. Ele respira, pisca, acena e pula; aparece no Início, comemora no resultado do simulado e fica na **sala da turma** dos grupos, com o personagem de todo mundo.
 - **Convite por link**: em **Grupos → Convidar**, mande o link do grupo pelo WhatsApp, Telegram ou e-mail, ou salve uma imagem com QR code para os Stories do Instagram e o TikTok. Quem abre o link entra no grupo com um clique, sem digitar código nem preencher cadastro.
 - **Ranking**: crie uma conta com apelido e compare horas, questões, acerto e sequência da semana com outras pessoas, no geral ou em grupos com código (a turma do concurso, os amigos). Fica em Painel → Ranking.
 - **Revisão espaçada** (Estudar → Revisão): o que você erra ou marca com a bandeira volta no dia certo (1, 3, 7, 15 e 30 dias) até ficar dominado.
@@ -180,7 +180,10 @@ Sem o servidor configurado, a tela de entrada mostra **Começar a estudar** (o a
 
 Clique na sua bolinha (no menu ou no canto do celular) e escolha **Personagem e foto**. Também dá pelo **Início** (no quadro do personagem) e por **Ajustes → Conta**.
 
-- **Rosto, Cabelo, Roupa, Extras e Cenário**: cada aba muda uma parte do bonequinho. **Sortear** cria um aleatório; **Acenar** e **Pular** mostram os gestos.
+- **Rosto, Cabelo, Óculos, Roupa, Acessórios e Cenário**: cada aba muda uma parte do bonequinho. **Sortear** cria um aleatório; **Acenar** e **Pular** mostram os gestos.
+  - *Óculos*: redondo, quadrado, meia armação, escuro, coração, monóculo e visor, com 8 cores de armação. Combinam com qualquer chapéu.
+  - *Acessórios*: na cabeça (boné, gorro, capelo de formatura, coroa, tiara, chapéu de mago, capacete viking, fone, laço, flor, orelhas de gato, auréola, faixa), no pescoço e nas costas (cachecol, medalha, gravata-borboleta, colar, capa de herói, mochila) e na mão (livro, lápis gigante, café, espada, cajado).
+- O desenho tem o dobro de pixels: olhos com brilho e cílios, fios e brilho no cabelo, luz e sombra na roupa e contorno fino.
 - **Foto**: escolha uma imagem do computador. O Aprova recorta em quadrado, diminui e tira os dados escondidos da foto. Ligue **Mostrar a foto** para ela aparecer no lugar do personagem nos grupos e no ranking.
 - **Onde aparece**: na sua bolinha do menu, no Início (o boneco no cenário), no resultado do simulado (ele comemora quando você vai bem e dá força quando não), nas mensagens e na lista de membros dos grupos, no ranking e na **sala da turma**.
 - **Sala da turma**: no topo de cada grupo, os personagens de quem está no grupo aparecem juntos, como no lobby de um jogo. Quem ainda não criou o seu aparece com um personagem sorteado. **Esconder** guarda a sala.

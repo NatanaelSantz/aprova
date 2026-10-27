@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.14.1" src="https://img.shields.io/badge/vers%C3%A3o-1.14.1-2340A8">
+  <img alt="Versão 1.15.0" src="https://img.shields.io/badge/vers%C3%A3o-1.15.0-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -239,6 +239,7 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
+| **1.15.0** | Personagens com o dobro de detalhe, 7 modelos de óculos com 8 cores e 14 acessórios novos (cabeça, pescoço e costas) |
 | **1.14.1** | Corrige o erro de certificado (CERTIFICATE_VERIFY_FAILED) na primeira abertura em computadores com antivírus que inspeciona a internet, rede de escola ou Windows novo |
 | **1.14.0** | Personagem estilo RPG (pixel art animado) ou foto de perfil, com a sala da turma nos grupos, o boneco no Início e a comemoração no resultado |
 | **1.13.1** | Atualiza sozinho ao abrir (e baixa a versão nova em segundo plano com o app aberto) |

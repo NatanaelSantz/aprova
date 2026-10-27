@@ -32,19 +32,22 @@ def _guardado(chave, fazer):
     return _CACHE[chave]
 
 
-def img_lobby(cfg: dict, anim: str = "lobby", escala: int = 5) -> bytes:
-    return _guardado(("lobby", av.chave_cache(cfg, anim, escala)), lambda: av.animacao(cfg, anim, escala))
+def img_lobby(cfg: dict, anim: str = "lobby", escala: int = 2, largura: int = 64) -> bytes:
+    """Boneco no cenário: (2 x largura x escala) por (80 x escala) pixels."""
+    return _guardado(("lobby", av.chave_cache(cfg, anim, escala, largura)), lambda: av.animacao(cfg, anim, escala, largura=largura))
 
 
-def img_sozinho(cfg: dict, anim: str = "parado", escala: int = 3) -> bytes:
+def img_sozinho(cfg: dict, anim: str = "parado", escala: int = 1) -> bytes:
+    """Boneco sem cenário: 64 x 80 por escala."""
     return _guardado(("so", av.chave_cache(cfg, anim, escala)), lambda: av.animacao(cfg, anim, escala, cenario=False))
 
 
-def img_rosto(cfg: dict, escala: int = 2) -> bytes:
+def img_rosto(cfg: dict, escala: int = 1) -> bytes:
+    """Busto: 40 x 40 por escala."""
     return _guardado(("rosto", av.chave_cache(cfg, escala)), lambda: av.rosto(cfg, escala))
 
 
-def img_membro(cfg: dict, semente: str, escala: int = 3) -> bytes:
+def img_membro(cfg: dict, semente: str, escala: int = 1) -> bytes:
     return _guardado(("membro", av.chave_cache(cfg, semente, escala)), lambda: av.membro(cfg, semente, escala))
 
 
@@ -151,7 +154,7 @@ def _circulo(conteudo: ft.Control, tamanho: float, fundo: str, tooltip: str | No
 
 
 def _busto_personagem(cfg: dict, tamanho: float) -> ft.Control:
-    escala = max(1, round(tamanho / 17))
+    escala = max(1, round(tamanho / 34))
     return _circulo(_pixel(img_rosto(cfg, escala), tamanho, tamanho), tamanho, av.cor_fundo(cfg))
 
 
@@ -206,10 +209,11 @@ def meu_busto(app, tamanho: float = 38) -> ft.Control | None:
 
 # ---------------------------------------------------------------------- lobby (boneco no cenário)
 
-def lobby(cfg: dict, largura: float, anim: str = "lobby", raio: int = 14) -> ft.Container:
-    escala = max(2, min(8, int(largura // 64)))
-    return ft.Container(_pixel(img_lobby(cfg, anim, escala), 64 * escala, 40 * escala), border_radius=raio, clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
-                        width=64 * escala, height=40 * escala)
+def lobby(cfg: dict, largura: float, anim: str = "lobby", raio: int = 14, cena: int = 64) -> ft.Container:
+    """cena = largura do cenário (64 = inteiro; menos = só o pedaço do meio)."""
+    escala = max(1, min(4, int(largura // (2 * cena))))
+    w, h = 2 * cena * escala, 80 * escala
+    return ft.Container(_pixel(img_lobby(cfg, anim, escala, cena), w, h), border_radius=raio, clip_behavior=ft.ClipBehavior.ANTI_ALIAS, width=w, height=h)
 
 
 def cartao_inicio(app) -> ft.Control:
@@ -218,7 +222,7 @@ def cartao_inicio(app) -> ft.Control:
     if tenho_personagem(app):
         cfg = meu(app)
         return ft.Container(
-            lobby(cfg, 192, raio=12),
+            lobby(cfg, 192, raio=12, cena=48),
             on_click=lambda e: abrir_criador(app),
             tooltip="Seu personagem · clique para mudar",
             border_radius=12,
@@ -228,7 +232,7 @@ def cartao_inicio(app) -> ft.Control:
     return ft.Container(
         ft.Row(
             [
-                _pixel(img_sozinho(exemplo, "aceno", 2), 64, 80),
+                _pixel(img_sozinho(exemplo, "aceno", 1), 64, 80),
                 ft.Column(
                     [
                         ft.Text("Crie o seu personagem", size=14.5, weight=ft.FontWeight.W_700, color=c["texto"]),
@@ -255,7 +259,7 @@ def comemoracao(app, pct: float) -> ft.Control | None:
     if not tenho_personagem(app):
         return None
     anim = "pulo" if pct >= 0.7 else "aceno"
-    return _pixel(img_sozinho(meu(app), anim, 3), 96, 120, tooltip="Boa!" if pct >= 0.7 else "Bora pra próxima!")
+    return _pixel(img_sozinho(meu(app), anim, 2), 128, 160, tooltip="Boa!" if pct >= 0.7 else "Bora pra próxima!")
 
 
 # ---------------------------------------------------------------------- sala da turma
@@ -267,17 +271,17 @@ def sala_da_turma(app, membros: list[dict], cenario: str = "biblioteca", largura
     c = app.c
     lista = sorted(membros, key=lambda m: (not m.get("voce"), not m.get("criador"), (m.get("apelido") or "").lower()))[:10]
     n = len(lista)
-    passo = 22  # pixels do cenário por pessoa
+    passo = 22  # largura de cada pessoa no cenário (grade de montagem; na tela é o dobro)
     largura_px = max(64, passo * n + 20)
-    escala = next((k for k in (4, 3) if largura_px * k <= largura_max), 2)
-    fundo = _pixel(img_cenario(cenario, largura_px, escala), largura_px * escala, 40 * escala)
+    escala = 2 if 2 * largura_px * 2 <= largura_max else 1
+    fundo = _pixel(img_cenario(cenario, largura_px, escala), 2 * largura_px * escala, 80 * escala)
     pessoas = []
     for m in lista:
         cfg = m.get("avatar") if isinstance(m.get("avatar"), dict) else None
         if m.get("voce"):
             cfg = meu(app) if tenho_personagem(app) else cfg
         cfg = av.validar(cfg) if cfg and av.tem_personagem(cfg) else av.sortear(m.get("usuario_id") or m.get("apelido") or "?")
-        boneco = _pixel(img_membro(cfg, m.get("usuario_id") or m.get("apelido") or "?", escala), 32 * escala, 40 * escala)
+        boneco = _pixel(img_membro(cfg, m.get("usuario_id") or m.get("apelido") or "?", escala), 64 * escala, 80 * escala)
         nome = ft.Container(
             ft.Text(m.get("apelido") or "?", size=11, weight=ft.FontWeight.W_700, color="#FFFFFF", max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
                     text_align=ft.TextAlign.CENTER),
@@ -288,15 +292,15 @@ def sala_da_turma(app, membros: list[dict], cenario: str = "biblioteca", largura
         pessoas.append(
             ft.Container(
                 ft.Column([boneco, nome], spacing=0, horizontal_alignment=ft.CrossAxisAlignment.CENTER, tight=True),
-                width=passo * escala,
+                width=2 * passo * escala,
                 tooltip=m.get("apelido") or "",
             )
         )
     fila = ft.Row(pessoas, spacing=0, alignment=ft.MainAxisAlignment.CENTER, vertical_alignment=ft.CrossAxisAlignment.END)
     cena = ft.Stack(
-        [fundo, ft.Container(fila, left=0, right=0, bottom=2 * escala)],
-        width=largura_px * escala,
-        height=40 * escala + 6,
+        [fundo, ft.Container(fila, left=0, right=0, bottom=4 * escala)],
+        width=2 * largura_px * escala,
+        height=80 * escala + 6,
     )
     sem = sum(1 for m in lista if not (isinstance(m.get("avatar"), dict) and av.tem_personagem(m["avatar"])) and not m.get("voce"))
     rodape = []
@@ -316,14 +320,15 @@ def sala_da_turma(app, membros: list[dict], cenario: str = "biblioteca", largura
 
 # ---------------------------------------------------------------------- criador de personagem
 
-ABAS_CRIADOR = [("rosto", "Rosto"), ("cabelo", "Cabelo"), ("roupa", "Roupa"), ("extras", "Extras"), ("cenario", "Cenário"), ("foto", "Foto")]
+ABAS_CRIADOR = [("rosto", "Rosto"), ("cabelo", "Cabelo"), ("oculos", "Óculos"), ("roupa", "Roupa"), ("acessorios", "Acessórios"),
+                ("cenario", "Cenário"), ("foto", "Foto")]
 
 
-def abrir_criador(app, ao_salvar=None) -> None:
+def abrir_criador(app, ao_salvar=None, aba: str = "rosto") -> None:
     c = app.c
     estado = {
         "cfg": dict(meu(app)) if tenho_personagem(app) else av.sortear(app.ranking.usuario_id or app.aj.get("nome") or None),
-        "aba": "rosto",
+        "aba": aba if aba in dict(ABAS_CRIADOR) else "rosto",
         "foto": None,  # foto nova escolhida agora (bytes)
         "apagar_foto": False,
         "gesto": "lobby",
@@ -331,15 +336,29 @@ def abrir_criador(app, ao_salvar=None) -> None:
     foto_atual = minha_foto(app)
     largura_tela = app.largura or 900
     estreito = largura_tela < 820
-    escala_previa = 4 if estreito else 5
-    previa = _pixel(img_lobby(estado["cfg"], "lobby", escala_previa), 64 * escala_previa, 40 * escala_previa)
+    escala_previa = 2 if estreito else 3
+    previa = _pixel(img_lobby(estado["cfg"], "lobby", escala_previa), 128 * escala_previa, 80 * escala_previa)
     opcoes = ft.Column(spacing=14, tight=True)
-    abas = ft.SegmentedButton(
-        selected=["rosto"],
-        segments=[ft.Segment(value=k, label=ft.Text(v)) for k, v in ABAS_CRIADOR],
-        show_selected_icon=False,
-        on_change=lambda e: trocar_aba(e.control.selected[0] if e.control.selected else "rosto"),
-    )
+    abas = ft.Row(wrap=True, spacing=6, run_spacing=6)  # abas que quebram linha: todas sempre à vista
+
+    def montar_abas():
+        abas.controls = [
+            ft.Container(
+                ft.Text(rotulo, size=13.5, weight=ft.FontWeight.W_700 if k == estado["aba"] else ft.FontWeight.W_500,
+                        color=c["tinta"] if k == estado["aba"] else c["texto2"]),
+                bgcolor=c["tinta_suave"] if k == estado["aba"] else None,
+                border=ft.Border.all(1.4, c["tinta"] if k == estado["aba"] else c["borda"]),
+                border_radius=10,
+                padding=ft.Padding.symmetric(horizontal=12, vertical=7),
+                on_click=lambda e, k=k: trocar_aba(k),
+                ink=True,
+            )
+            for k, rotulo in ABAS_CRIADOR
+        ]
+        try:
+            abas.update()
+        except Exception:  # noqa: BLE001
+            pass
 
     def atualizar_previa(gesto: str = "lobby"):
         estado["gesto"] = gesto
@@ -403,8 +422,12 @@ def abrir_criador(app, ao_salvar=None) -> None:
             filhos = [linha_estilos("Corte", "cabelo", av.CABELOS), linha_cores("Cor", "cor_cabelo", av.CORES_CABELO)]
         elif aba == "roupa":
             filhos = [linha_estilos("Roupa", "roupa", av.ROUPAS), linha_cores("Cor", "cor_roupa", av.CORES_ROUPA)]
-        elif aba == "extras":
-            filhos = [linha_estilos("Acessório", "acessorio", av.ACESSORIOS), linha_estilos("Na mão", "item", av.ITENS)]
+        elif aba == "oculos":
+            filhos = [linha_estilos("Modelo", "oculos", av.OCULOS), linha_cores("Cor da armação", "cor_oculos", av.CORES_OCULOS),
+                      comp.apagado("Os óculos combinam com qualquer chapéu ou acessório.", c, 12)]
+        elif aba == "acessorios":
+            filhos = [linha_estilos("Na cabeça", "acessorio", av.ACESSORIOS), linha_estilos("Pescoço e costas", "extra", av.EXTRAS),
+                      linha_estilos("Na mão", "item", av.ITENS)]
         elif aba == "cenario":
             filhos = [linha_estilos("Onde o seu personagem fica", "cenario", av.CENARIOS),
                       comp.apagado("O cenário aparece no Início e quando você abre o personagem.", c, 12)]
@@ -470,6 +493,7 @@ def abrir_criador(app, ao_salvar=None) -> None:
 
     def trocar_aba(aba):
         estado["aba"] = aba
+        montar_abas()
         montar_opcoes()
 
     def sortear(e):
@@ -508,7 +532,8 @@ def abrir_criador(app, ao_salvar=None) -> None:
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         tight=True,
     )
-    lado_opcoes = ft.Column([ft.Row([abas], scroll=ft.ScrollMode.AUTO), opcoes], spacing=14, tight=True, expand=not estreito)
+    montar_abas()
+    lado_opcoes = ft.Column([abas, opcoes], spacing=14, tight=True, expand=not estreito)
     corpo = (
         ft.Column([lado_previa, lado_opcoes], spacing=14, tight=True, scroll=ft.ScrollMode.AUTO)
         if estreito

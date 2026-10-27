@@ -1,9 +1,10 @@
 {
-  "versao": "1.14.1",
+  "versao": "1.15.0",
   "data": "26/10/2026",
   "notas": [
-    "Corrige o erro de certificado (CERTIFICATE_VERIFY_FAILED) ao abrir pela primeira vez em alguns computadores",
-    "Mensagem mais clara quando a primeira abertura não consegue baixar a janela do app"
+    "Personagens com o dobro de detalhe: olhos com brilho e cílios, cabelo com fios e brilho, luz e sombra na roupa",
+    "Óculos: 7 modelos (redondo, quadrado, meia armação, escuro, coração, monóculo e visor) e 8 cores de armação",
+    "Acessórios novos: gorro, capelo de formatura, tiara, capacete viking, flor, orelhas de gato, auréola, faixa, cachecol, medalha, gravata-borboleta, colar, capa de herói e mochila"
   ],
   "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
 }

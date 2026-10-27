@@ -1660,7 +1660,7 @@ def test_personagem_validar_e_desenhar():
     v = av.validar(sujo)
     assert v["cabelo"] == av.PADRAO["cabelo"] and v["pele"] == av.PADRAO["pele"] and v["roupa"] == "manto" and v["item"] == "espada"
     assert v["cor_roupa"] == av.PADRAO["cor_roupa"] and v["usar_foto"] is False and v["foto"] == 0 and v["t"] == 1793000000
-    assert "extra" not in v and av.validar(None) == av.PADRAO and av.validar(["x"]) == av.PADRAO
+    assert v["extra"] == "nenhum" and "lixo" not in av.validar({"lixo": "x"}) and av.validar(None) == av.PADRAO and av.validar(["x"]) == av.PADRAO
     assert av.validar({"usar_foto": True, "foto": 0})["usar_foto"] is False  # sem foto enviada não usa foto
     assert not av.tem_personagem(av.PADRAO) and av.tem_personagem({**av.PADRAO, "t": 5})
     # sorteio estável por semente e sempre válido
@@ -1668,30 +1668,47 @@ def test_personagem_validar_e_desenhar():
     for i in range(40):
         c = av.sortear(f"s{i}")
         assert av.validar(c) == c
-        assert av.boneco(c).size == (av.W, av.H)
-    # todas as combinações de estilo desenham sem erro (cabelo x acessório, roupa x item) e todos os gestos
+        assert av.boneco(c).size == (av.W2, av.H2)  # 64 x 80: o dobro da grade de montagem, com detalhes
+    # todas as combinações de estilo desenham sem erro (cabelo x acessório x óculos, roupa x item x extra) e todos os gestos
     for cab, _ in av.CABELOS:
         for ac, _ in av.ACESSORIOS:
             av.boneco({**av.PADRAO, "cabelo": cab, "acessorio": ac})
+        for oc, _ in av.OCULOS:
+            for cor in range(len(av.CORES_OCULOS)):
+                av.boneco({**av.PADRAO, "cabelo": cab, "oculos": oc, "cor_oculos": cor, "olhos": "determinado"})
     for roupa, _ in av.ROUPAS:
         for item, _ in av.ITENS:
-            for kw in ({}, {"braco": "aceno", "aceno": 1}, {"braco": "dois", "pulo": 5}, {"respira": 1, "piscando": True}):
-                av.boneco({**av.PADRAO, "roupa": roupa, "item": item, "olhos": "feliz"}, **kw)
+            for extra, _ in av.EXTRAS:
+                for kw in ({}, {"braco": "aceno", "aceno": 1}, {"braco": "dois", "pulo": 5}, {"respira": 1, "piscando": True}):
+                    av.boneco({**av.PADRAO, "roupa": roupa, "item": item, "extra": extra, "olhos": "feliz"}, **kw)
+    # 1.14.0 tinha óculos como acessório: vira o óculos redondo
+    antigo = av.validar({"acessorio": "oculos", "t": 5})
+    assert antigo["acessorio"] == "nenhum" and antigo["oculos"] == "redondo"
+    # óculos que cobrem os olhos (escuro) escondem os olhos; os outros deixam ver
+    rosto_normal = av.boneco({**av.PADRAO, "cor_olhos": 2}).crop((26, 34, 30, 38)).getcolors(100)
+    rosto_escuro = av.boneco({**av.PADRAO, "cor_olhos": 2, "oculos": "escuro"}).crop((26, 34, 30, 38)).getcolors(100)
+    azul = (59, 122, 212, 255)
+    assert any(c == azul for _, c in rosto_normal) and not any(c == azul for _, c in rosto_escuro)
     # animações: WebP animado, ampliado sem borrar
     for anim in ("parado", "aceno", "pulo", "lobby"):
-        im = Image.open(_io.BytesIO(av.animacao(av.sortear("x"), anim, 4)))
-        assert im.format == "WEBP" and im.size == (64 * 4, 40 * 4) and getattr(im, "is_animated", False)
-    sozinho = Image.open(_io.BytesIO(av.animacao(av.sortear("x"), "parado", 3, cenario=False)))
-    assert sozinho.size == (32 * 3, 40 * 3)
-    assert Image.open(_io.BytesIO(av.membro(av.sortear("x"), "uid-9", 3))).size == (96, 120)
-    assert Image.open(_io.BytesIO(av.rosto(av.sortear("x"), 4))).size == (80, 80)
+        im = Image.open(_io.BytesIO(av.animacao(av.sortear("x"), anim, 2)))
+        assert im.format == "WEBP" and im.size == (128 * 2, 80 * 2) and getattr(im, "is_animated", False)
+    assert Image.open(_io.BytesIO(av.animacao(av.sortear("x"), "lobby", 2, largura=48))).size == (96 * 2, 160)
+    sozinho = Image.open(_io.BytesIO(av.animacao(av.sortear("x"), "parado", 2, cenario=False)))
+    assert sozinho.size == (128, 160)
+    assert Image.open(_io.BytesIO(av.membro(av.sortear("x"), "uid-9", 2))).size == (128, 160)
+    assert Image.open(_io.BytesIO(av.rosto(av.sortear("x"), 2))).size == (80, 80)
     for nome, _ in av.CENARIOS:
         for larg in (64, 150):
-            assert Image.open(_io.BytesIO(av.cenario_png(nome, larg, 2))).size == (larg * 2, 80)
+            assert Image.open(_io.BytesIO(av.cenario_png(nome, larg, 2))).size == (larg * 4, 160)
+            assert Image.open(_io.BytesIO(av.cenario_png(nome, larg, 1, quadros=4))).size == (larg * 2, 80)
     assert av.cor_fundo(av.PADRAO).startswith("#") and len(av.cor_fundo(av.PADRAO)) == 7
-    # pixels sem borrão: só as cores da paleta (nenhuma cor intermediária de redimensionamento)
-    q = Image.open(_io.BytesIO(av.animacao(av.PADRAO, "parado", 5, cenario=False))).convert("RGBA")
-    assert len(q.getcolors(100000)) < 40
+    # ampliado sem borrar: cada pixel vira um quadrado de cor única (nenhuma cor de meio-termo)
+    q = Image.open(_io.BytesIO(av.animacao(av.PADRAO, "parado", 3, cenario=False))).convert("RGBA")
+    for x in range(0, q.width, 3):
+        for y in range(0, q.height, 3):
+            bloco = q.crop((x, y, x + 3, y + 3)).tobytes()
+            assert len({bloco[i:i + 4] for i in range(0, len(bloco), 4)}) == 1
 
 
 def test_foto_de_perfil_fica_pequena_e_quadrada(tmp_path):
