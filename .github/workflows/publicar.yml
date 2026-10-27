@@ -1,0 +1,54 @@
+# Publica cada versão do Aprova com um .zip fixo.
+#
+# Quando o número em aprova/__init__.py muda na main (ferramentas/nova_versao.py), este robô cria a
+# etiqueta vX.Y.Z e a página da versão com o Aprova.zip. O docs/versao.json aponta para o .zip da
+# etiqueta, então quem atualiza recebe exatamente aquela versão, e não o que estiver na main na hora.
+# O botão "Baixar" do site e do README usa a última versão publicada (releases/latest).
+name: Publicar versão
+
+on:
+  push:
+    branches: [main]
+    paths: ["aprova/__init__.py"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publicar
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versão
+        id: versao
+        run: |
+          V=$(python3 -c "import re;print(re.search(r'__version__\s*=\s*\"([^\"]+)\"', open('aprova/__init__.py', encoding='utf-8').read()).group(1))")
+          echo "versao=$V" >> "$GITHUB_OUTPUT"
+          if gh release view "v$V" >/dev/null 2>&1; then echo "existe=1" >> "$GITHUB_OUTPUT"; else echo "existe=0" >> "$GITHUB_OUTPUT"; fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      # rápido de propósito: o site já anuncia a versão nova e o .zip da etiqueta precisa existir logo
+      # (os testes rodam antes do envio e no robô testes.yml)
+      - name: Etiqueta e página da versão
+        if: steps.versao.outputs.existe == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.versao.outputs.versao }}
+        run: |
+          git archive --format=zip --prefix=Aprova/ -o Aprova.zip "$GITHUB_SHA"
+          python3 - <<'PY'
+          import json
+          d = json.load(open("docs/versao.json", encoding="utf-8"))
+          notas = "\n".join(f"- {n}" for n in d.get("notas") or [])
+          open("notas.md", "w", encoding="utf-8").write(
+              f"{notas}\n\n**Instalar no Windows:** baixe o **Aprova.zip** abaixo, extraia numa pasta e dê dois cliques em `Abrir Aprova.bat`.\n"
+              "Quem já tem o Aprova recebe esta versão sozinho.\n")
+          PY
+          gh release create "v$V" Aprova.zip --target "$GITHUB_SHA" --title "Aprova $V" --notes-file notas.md --latest

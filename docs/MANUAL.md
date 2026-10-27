@@ -92,6 +92,8 @@ Para procurar na hora: **Ajustes → Atualizações → Procurar atualização**
 
 Seus estudos, contas, ajustes e PDFs marcados ficam na pasta `.aprova` e não mudam. Se uma biblioteca nova for necessária, a janela *Preparando o Aprova* aparece ao reabrir e instala só o que falta. Uma cópia da versão anterior fica em `.aprova\atualizacao\anterior`.
 
+**Se a versão nova não abrir no seu computador** (da 1.24 em diante), o Aprova volta sozinho para a versão anterior e avisa no Início. A versão com problema é pulada, e a próxima (com a correção) chega normalmente. Seus estudos não são tocados.
+
 Quem tem a versão 1.8 ou anterior precisa baixar o .zip uma última vez no [site](https://natanaelsantz.github.io/aprova/) e extrair por cima da pasta antiga (substituindo os arquivos). Os estudos não se perdem, porque ficam à parte, na pasta `.aprova`.
 
 ## Usar no celular
@@ -173,7 +175,7 @@ Tipos de conta:
 
 A **primeira pessoa que cria conta** no servidor vira administrador sozinha. Depois disso, só um administrador transforma outra conta em administrador. Na tela **Admin**:
 
-- *Visão geral*: contas, quem estudou na semana, horas e questões somadas, quem mais estudou e os concursos mais estudados;
+- *Visão geral*: contas, quem estudou na semana, horas e questões somadas, quem mais estudou, os concursos mais estudados e o **espaço usado no servidor** (banco e arquivos, perto dos limites do plano grátis do Supabase: 500 MB e 1 GB). Perto de 80% aparece um aviso para apagar arquivos antigos dos grupos;
 - *Usuários*: procurar por apelido ou concurso, **tornar administrador**, voltar para aluno, **bloquear** (some do ranking) e desbloquear; clicar no rostinho de alguém abre o personagem dessa pessoa;
 - *Personagens*: a galeria com o personagem de todo mundo, cada um no seu cenário (com a busca por apelido ou concurso). Clique num para ver de perto: ele acena, pula e **dança**, e aparecem as escolhas dele (corpo, cabelo, roupa, acessórios, cenário). Quem usa foto no perfil tem o botão **Tirar a foto de perfil**;
 - *Grupos*: ver e apagar grupos;
@@ -285,7 +287,7 @@ Como conseguir a chave (também tem esse passo a passo no app, em **Ajustes → 
 3. Em **API keys** ([platform.claude.com/settings/keys](https://platform.claude.com/settings/keys)), clique em **Create key**, dê o nome Aprova e copie a chave (começa com `sk-ant-` e aparece uma vez só).
 4. No Aprova, em **Ajustes → Explicações com IA**, cole a chave e clique em **Salvar**.
 
-A chave é como um cartão: quem tiver a chave gasta o seu crédito, então não mande no grupo nem mostre em print. Ela fica guardada só no seu computador. A chave do ChatGPT (OpenAI) não funciona no lugar da do Claude. O modelo padrão é o Haiku, o mais barato.
+A chave é como um cartão: quem tiver a chave gasta o seu crédito, então não mande no grupo nem mostre em print. Ela fica guardada só no seu computador e, no Windows, cifrada pela proteção do próprio Windows (presa à sua conta naquele computador; em outro computador é só colar a chave de novo). A chave do ChatGPT (OpenAI) não funciona no lugar da do Claude. O modelo padrão é o Haiku, o mais barato.
 
 ## Onde ficam seus dados
 
@@ -303,7 +305,7 @@ Na primeira vez, o Aprova baixa do GitHub a janela do app (uns 30 MB). Se aparec
 
 - A leitura automática das questões depende do layout do PDF. Quando falha, a prova abre no modo cartão-resposta com as páginas originais. Figuras e tabelas aparecem pelo botão “Ver na prova original”.
 - Provas com vários tipos de caderno podem ter gabaritos diferentes. Confira em **⋮ → Gabarito**.
-- Se o PCI Concursos mudar o layout do site, a leitura das listas pode precisar de ajuste no arquivo `aprova/pci.py`.
+- Se o PCI Concursos mudar o layout do site, a leitura das listas pode precisar de ajuste no arquivo `aprova/pci.py`. Um robô do GitHub confere isso todo dia e avisa quem mantém o app.
 - A leitura em voz alta funciona no computador (vozes do Windows). No celular, use o recurso de leitura do próprio aparelho.
 - Os alarmes tocam com o Aprova aberto no computador (pode ficar minimizado).
 

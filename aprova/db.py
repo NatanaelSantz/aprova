@@ -317,6 +317,18 @@ class Banco:
             saida.append(d)
         return saida
 
+    def disciplinas(self) -> list[str]:
+        """Disciplinas das questões da biblioteca (sem simulados montados), em ordem alfabética.
+
+        Bem mais leve que montar o banco de questões inteiro só para saber os nomes."""
+        return sorted(
+            r[0] for r in self._q(
+                """SELECT DISTINCT q.disciplina FROM questoes q JOIN provas p ON p.id = q.prova_id
+                   WHERE q.enunciado <> '' AND q.disciplina IS NOT NULL
+                     AND p.origem_url NOT LIKE 'aprova://simulado%' AND p.origem_url NOT LIKE 'aprova://revisao%'"""
+            )
+        )
+
     def resumo_biblioteca(self, filtro: str = "") -> dict:
         """Quantas provas e questões (sem repetidas) existem para um concurso."""
         from .montador import combina

@@ -10,8 +10,11 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import asyncio
 import os
+import subprocess
 import sys
+import traceback
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent
@@ -67,6 +70,34 @@ def _tela_trancada(page: ft.Page) -> None:
     )
 
 
+def _voltar_versao_anterior(detalhe: str) -> bool:
+    """O app não montou logo depois de uma atualização: volta para a versão anterior e abre ela."""
+    from aprova import atualizar
+
+    try:
+        if not atualizar.em_teste(config.DATA_DIR):
+            return False
+        versao = atualizar.ultima(config.DATA_DIR).get("versao")
+        de = atualizar.voltar(RAIZ, config.DATA_DIR)
+        if not de:
+            return False
+        config.registrar(f"atualização: a versão {versao} não abriu; voltou para a {de}.\n{detalhe}")
+        sem_janela = 0x08000000 if sys.platform == "win32" else 0
+        subprocess.Popen([sys.executable, str(RAIZ / "iniciar.pyw")], cwd=str(RAIZ), creationflags=sem_janela)
+        return True
+    except Exception:  # noqa: BLE001 - se nem isso der, mostra o erro de sempre
+        config.registrar("atualização: não conseguiu voltar para a versão anterior\n" + traceback.format_exc())
+        return False
+
+
+async def _confirmar_versao() -> None:
+    """A janela apareceu e o app seguiu de pé: a versão nova (se acabou de chegar) fica."""
+    await asyncio.sleep(5)
+    from aprova import atualizar
+
+    atualizar.confirmar(config.DATA_DIR)
+
+
 def principal(modo_web: bool):
     async def main(page: ft.Page):
         if modo_web:
@@ -75,10 +106,15 @@ def principal(modo_web: bool):
             if not rede.acesso_liberado(page.client_ip, page.route, os.environ.get(rede.CHAVE_ENV, "")):
                 _tela_trancada(page)
                 return
+        voltou = False
         try:
             App(page, modo_web=modo_web).iniciar()
+        except Exception:
+            voltou = not modo_web and _voltar_versao_anterior(traceback.format_exc())
+            if not voltou:
+                raise
         finally:
-            if not modo_web:
+            if not modo_web and not voltou:
                 # a janela nasce escondida (sem a tela preta do Flet) e aparece já com o app desenhado
                 try:
                     await page.window.center()
@@ -98,6 +134,11 @@ def principal(modo_web: bool):
                     await page.window.to_front()
                 except Exception:  # noqa: BLE001
                     pass
+        if voltou:
+            _fechar_abertura()
+            await page.window.destroy()
+        elif not modo_web:
+            page.run_task(_confirmar_versao)
 
     return main
 

@@ -531,7 +531,7 @@ def dialogo_lembrete(app, dados: dict | None, ao_salvar, lembrete_id: int | None
         border_radius=10,
         width=min(400, (app.page.width or 500) - 80),
     )
-    disciplinas = sorted({q["disciplina"] for q in app.db.banco_de_questoes()} | set(livros.INDICACOES))
+    disciplinas = sorted(set(app.db.disciplinas()) | set(livros.INDICACOES))
     alvo = ft.TextField(value=dados["alvo"], dense=True, border_radius=10)
     dica = comp.apagado("", c, 12.5)
 

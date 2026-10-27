@@ -368,7 +368,7 @@ class TelaProvas:
         return ft.Column(filhos, spacing=10)
 
     def _linha_pci(self, it: ProvaItem, prova_id: int | None) -> ft.Control:
-        app, c = self.app, self.app.c
+        _app, c = self.app, self.app.c
         direita: list[ft.Control] = []
         if prova_id:
             direita.append(comp.pilula("na biblioteca", c["ok_suave"], c["ok"], ft.Icons.CHECK_ROUNDED))

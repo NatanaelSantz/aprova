@@ -38,6 +38,7 @@ class TelaAdmin:
         self.usuarios: list[dict] | None = None
         self.grupos: list[dict] | None = None
         self.comunicados: list[dict] | None = None
+        self.uso: dict | None | str = "carregando"  # espaço usado no servidor ("erro" se não deu para ver)
         self.filtro = ""
         self.erro: str | None = None
         self.carregando = False
@@ -104,6 +105,10 @@ class TelaAdmin:
             self.comunicados = await app.em_segundo_plano(self.r.comunicados, True)
         except rk.ErroRanking as ex:
             self.erro = str(ex)
+        try:
+            self.uso = await app.em_segundo_plano(self.r.uso_do_servidor)
+        except rk.ErroRanking:
+            self.uso = "erro"
         self.carregando = False
         if self.usuarios:
             app.page.run_task(self._desenhar_retratos)  # a aba Personagens abre na hora
@@ -188,14 +193,59 @@ class TelaAdmin:
         if vg["bloqueados"]:
             avisos.append(comp.apagado(f"{vg['bloqueados']} usuário(s) bloqueado(s) no ranking.", c, 12.5))
         return ft.Column(
-            [numeros, ft.ResponsiveRow([mais_ativos, concursos], spacing=14, run_spacing=14, breakpoints=comp.quebras(self.app, QUEBRAS_NUM))] + avisos,
+            [numeros, ft.ResponsiveRow([mais_ativos, concursos], spacing=14, run_spacing=14, breakpoints=comp.quebras(self.app, QUEBRAS_NUM)),
+             self._espaco()] + avisos,
             spacing=16,
         )
+
+    def _espaco(self) -> ft.Control:
+        """Quanto do plano grátis do Supabase já foi usado (banco e arquivos dos grupos e fotos)."""
+        c = self.app.c
+        cab = [comp.subtitulo("Espaço no servidor (plano grátis)", c, 17)]
+        if self.uso == "carregando":
+            return comp.bloco(ft.Column(cab + [comp.apagado("Calculando…", c, 13)], spacing=10), c, padding=18)
+        if self.uso is None:
+            return comp.bloco(ft.Column(cab + [comp.apagado(
+                "Para ver o espaço usado, rode o SQL novo (supabase/ranking.sql) no Supabase.", c, 13)], spacing=10), c, padding=18)
+        if self.uso == "erro":
+            return comp.bloco(ft.Column(cab + [comp.apagado("Não deu para consultar agora.", c, 13)], spacing=10), c, padding=18)
+
+        def mb(b: int) -> str:
+            v = b / 1024 / 1024
+            if v >= 1024:
+                g = v / 1024
+                return (f"{g:.0f}" if g == int(g) else f"{g:.2f}").replace(".", ",") + " GB"
+            return (f"{v:.0f}" if v >= 100 or v == int(v) else f"{v:.1f}").replace(".", ",") + " MB"
+
+        def barra(rotulo: str, usado: int, limite: int, detalhe: str) -> ft.Control:
+            frac = min(1.0, usado / limite) if limite else 0
+            cor = c["erro"] if frac >= 0.9 else c["marca"] if frac >= 0.7 else c["ok"]
+            return ft.Column(
+                [
+                    ft.Row([ft.Text(rotulo, size=14.5, color=c["texto"], expand=True),
+                            comp.apagado(f"{mb(usado)} de {mb(limite)} ({frac * 100:.0f}%)", c, 12.5)]),
+                    ft.ProgressBar(value=frac, color=cor, bgcolor=c["sup2"], height=8, border_radius=4),
+                    comp.apagado(detalhe, c, 12),
+                ],
+                spacing=6,
+            )
+
+        pastas = self.uso["pastas"]
+        nomes = {"anexos": "arquivos dos grupos", "avatares": "fotos de perfil"}
+        detalhe = " · ".join(f"{nomes.get(k, k)}: {mb(b)} em {n} arquivo{'s' if n != 1 else ''}" for k, (b, n) in sorted(pastas.items())) or "nenhum arquivo ainda"
+        linhas = [
+            barra("Banco de dados", self.uso["banco"], rk.LIMITE_BANCO, "contas, ranking, grupos e mensagens"),
+            barra("Arquivos", self.uso["arquivos"], rk.LIMITE_ARQUIVOS, detalhe),
+        ]
+        cheio = max(self.uso["banco"] / rk.LIMITE_BANCO, self.uso["arquivos"] / rk.LIMITE_ARQUIVOS)
+        if cheio >= 0.8:
+            linhas.append(comp.aviso("O plano grátis está quase cheio. Apague arquivos antigos dos grupos ou mude de plano no Supabase.", c, "erro"))
+        return comp.bloco(ft.Column(cab + linhas, spacing=14), c, padding=18)
 
     # ------------------------------------------------------------------ usuários
 
     def _usuarios(self) -> ft.Control:
-        app, c = self.app, self.app.c
+        _app, c = self.app, self.app.c
         busca = ft.TextField(
             value=self.filtro,
             hint_text="Procurar por apelido ou concurso",

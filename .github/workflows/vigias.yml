@@ -1,0 +1,44 @@
+# Vigias diários: quando um deles falha, o GitHub manda um e-mail para o dono do repositório.
+#
+# - servidor: faz uma consulta leve ao Supabase. O plano grátis pausa o projeto depois de 7 dias
+#   sem uso (login, ranking, grupos e convites param); a consulta diária conta como uso. Se o
+#   projeto já estiver pausado, este passo falha e avisa.
+# - sites: confere se o Aprova ainda consegue ler o PCI Concursos e a FGV (ferramentas/conferir_sites.py).
+#
+# Observação: o GitHub desliga robôs agendados de repositórios públicos depois de 60 dias sem
+# nenhum commit. Lançar versões já mantém tudo ligado.
+name: Vigias
+
+on:
+  schedule:
+    - cron: "23 10 * * *"  # todo dia, 07:23 em Brasília
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  servidor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Consulta leve ao Supabase (mantém o projeto acordado)
+        run: |
+          URL=$(python3 -c "import json;print(json.load(open('aprova/servidor.json'))['url'])")
+          CHAVE=$(python3 -c "import json;print(json.load(open('aprova/servidor.json'))['chave'])")
+          curl -fsS --retry 3 --retry-delay 20 -X POST "$URL/rest/v1/rpc/convite_info" \
+            -H "apikey: $CHAVE" -H "Content-Type: application/json" -d '{"cod":"VIGIA"}'
+          echo
+          echo "Servidor respondeu."
+
+  sites:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -q requests beautifulsoup4
+      - name: O Aprova ainda lê os sites?
+        run: python ferramentas/conferir_sites.py

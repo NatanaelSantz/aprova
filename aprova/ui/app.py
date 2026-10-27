@@ -900,8 +900,6 @@ class App:
                 self._moldura.update()
             except Exception:  # noqa: BLE001
                 pass
-        if False and self._largo is not None and self._largo != self.largo:
-            self.montar()
 
     def _teclado(self, e: ft.KeyboardEvent) -> None:
         self.marcar_atividade()
@@ -1499,7 +1497,7 @@ class App:
             self.msg("Cronômetro parado. Menos de 1 minuto não conta.")
             return
         atividade = ft.TextField(label="O que você estudou? (opcional)", value=self.aj["cronometro_atividade"] or "", dense=True, border_radius=10)
-        discs = sorted({q["disciplina"] for q in self.db.banco_de_questoes()} - {"Geral", ""})[:10] or [
+        discs = [d for d in self.db.disciplinas() if d not in ("Geral", "")][:10] or [
             "Língua Portuguesa", "Raciocínio Lógico", "Informática", "Direito Constitucional", "Direito Administrativo"]
 
         def escolher(d):

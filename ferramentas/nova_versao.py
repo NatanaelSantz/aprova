@@ -4,8 +4,9 @@ Uso (na pasta do Aprova):
     python ferramentas/nova_versao.py 1.9.1 "Primeira novidade" "Segunda novidade"
 
 Muda o número em aprova/__init__.py e escreve docs/versao.json. Depois é só enviar para o GitHub
-(git commit e git push na main). Em até 12 horas, quem tem o Aprova 1.9 ou mais novo vê o aviso
-"Nova versão" no Início e atualiza com um toque.
+(git commit e git push na main). O robô .github/workflows/publicar.yml cria a etiqueta vX.Y.Z e a
+página da versão (com o Aprova.zip). Quem tem o Aprova baixa sempre o .zip dessa etiqueta: o que
+for para a main depois (testes, rascunhos) só chega às pessoas na versão seguinte.
 """
 
 from __future__ import annotations
@@ -17,7 +18,9 @@ import sys
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
-ZIP = "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
+# .zip fixo da versão (a etiqueta é criada pelo robô publicar.yml quando o número muda na main)
+ZIP = "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v{versao}.zip"
+BAIXAR = "https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip"  # README e site
 
 
 def main(argv: list[str]) -> int:
@@ -40,7 +43,7 @@ def main(argv: list[str]) -> int:
         "versao": versao,
         "data": datetime.date.today().strftime("%d/%m/%Y"),
         "notas": notas or ["Melhorias e correções."],
-        "zip": ZIP,
+        "zip": ZIP.format(versao=versao),
     }
     (RAIZ / "docs" / "versao.json").write_text(json.dumps(dados, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Pronto: {atual} -> {versao}. Agora envie para o GitHub:")

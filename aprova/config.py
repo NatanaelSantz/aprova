@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
+import sys
 import threading
 from pathlib import Path
 
@@ -71,6 +73,59 @@ def garantir_pastas() -> None:
         p.mkdir(parents=True, exist_ok=True)
 
 
+# ---------------------------------------------------------------- segredos no ajustes.json
+# A chave da API e o login guardado não ficam em texto puro: no Windows são cifrados com a proteção
+# de dados do próprio Windows (DPAPI), presa à conta do usuário naquele computador. Copiado para outro
+# computador (ou outra conta), o segredo não abre: é só digitar a chave / entrar de novo.
+SEGREDOS = {"claude_api_key", "ranking_refresh"}
+PREFIXO_CIFRADO = "dpapi:"
+
+
+def _dpapi(dados: bytes, cifrar: bool) -> bytes:
+    import ctypes
+    from ctypes import wintypes
+
+    class Blob(ctypes.Structure):
+        _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_char))]
+
+    buf = ctypes.create_string_buffer(dados, len(dados))
+    entrada = Blob(len(dados), ctypes.cast(buf, ctypes.POINTER(ctypes.c_char)))
+    saida = Blob()
+    crypt32 = ctypes.windll.crypt32  # type: ignore[attr-defined]
+    funcao = crypt32.CryptProtectData if cifrar else crypt32.CryptUnprotectData
+    sem_janela = 0x01  # CRYPTPROTECT_UI_FORBIDDEN
+    if not funcao(ctypes.byref(entrada), None, None, None, None, sem_janela, ctypes.byref(saida)):
+        raise OSError("DPAPI recusou")
+    try:
+        return ctypes.string_at(saida.pbData, saida.cbData)
+    finally:
+        ctypes.windll.kernel32.LocalFree(ctypes.cast(saida.pbData, ctypes.c_void_p))  # type: ignore[attr-defined]
+
+
+def proteger(texto: str) -> str:
+    """Cifra um segredo para guardar no ajustes.json (no Windows). Fora do Windows, fica como está."""
+    if not texto or not isinstance(texto, str) or texto.startswith(PREFIXO_CIFRADO) or sys.platform != "win32":
+        return texto
+    try:
+        return PREFIXO_CIFRADO + base64.b64encode(_dpapi(texto.encode("utf-8"), True)).decode("ascii")
+    except Exception as e:  # noqa: BLE001 - sem a proteção, guarda como antes
+        registrar(f"segredo: não cifrou ({type(e).__name__}: {e})")
+        return texto
+
+
+def revelar(valor) -> str:
+    """Volta um segredo guardado para o texto. Cifrado em outro computador ou conta: vazio (pede de novo)."""
+    if not isinstance(valor, str) or not valor.startswith(PREFIXO_CIFRADO):
+        return valor
+    if sys.platform != "win32":
+        return ""
+    try:
+        return _dpapi(base64.b64decode(valor[len(PREFIXO_CIFRADO):]), False).decode("utf-8")
+    except Exception as e:  # noqa: BLE001
+        registrar(f"segredo: não abriu ({type(e).__name__}), vai pedir de novo")
+        return ""
+
+
 class Ajustes:
     """Ajustes persistidos em JSON. Seguro para uso entre threads."""
 
@@ -83,14 +138,30 @@ class Ajustes:
                 self._dados.update(json.loads(caminho.read_text(encoding="utf-8")))
         except (OSError, ValueError):
             pass
+        # segredos guardados em texto puro (versões antigas): cifra agora
+        if sys.platform == "win32" and any(
+            isinstance(self._dados.get(k), str) and self._dados.get(k) and not self._dados[k].startswith(PREFIXO_CIFRADO) for k in SEGREDOS
+        ):
+            with self._lock:
+                for k in SEGREDOS:
+                    if isinstance(self._dados.get(k), str):
+                        self._dados[k] = proteger(self._dados[k])
+                try:
+                    self._salvar()
+                except OSError:
+                    pass
 
     def __getitem__(self, chave: str):
-        return self._dados.get(chave, PADROES.get(chave))
+        valor = self._dados.get(chave, PADROES.get(chave))
+        return revelar(valor) if chave in SEGREDOS else valor
 
     def get(self, chave: str, padrao=None):
-        return self._dados.get(chave, padrao)
+        valor = self._dados.get(chave, padrao)
+        return revelar(valor) if chave in SEGREDOS else valor
 
     def set(self, chave: str, valor) -> None:
+        if chave in SEGREDOS and isinstance(valor, str):
+            valor = proteger(valor)
         with self._lock:
             self._dados[chave] = valor
             self._salvar()
@@ -103,7 +174,7 @@ class Ajustes:
 
     @property
     def chave_claude(self) -> str:
-        return (self._dados.get("claude_api_key") or os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+        return (self.get("claude_api_key") or os.environ.get("ANTHROPIC_API_KEY") or "").strip()
 
 
 class AjustesMemoria(Ajustes):

@@ -508,7 +508,6 @@ class TelaEstudar:
 
     def _grupo(self, nome: str, provas: list[dict], ultima: bool) -> ft.Control:
         app, c = self.app, self.app.c
-        from .. import coleta
         from .montar import abrir_gerador_ia, abrir_montador
 
         n_q = sum(p["n_questoes"] or 0 for p in provas)
@@ -765,7 +764,7 @@ class TelaEstudar:
         )
 
     async def _importar(self, e=None):
-        app, c = self.app, self.app.c
+        app, _c = self.app, self.app.c
         pdfs = await escolher_pdfs(app)
         if not pdfs:
             return

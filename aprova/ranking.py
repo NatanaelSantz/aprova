@@ -35,6 +35,11 @@ METRICAS = {
 MIN_QUESTOES_ACERTO = 30  # para entrar no ranking de acerto
 
 
+# plano grátis do Supabase: banco de 500 MB e 1 GB de arquivos
+LIMITE_BANCO = 500 * 1024 * 1024
+LIMITE_ARQUIVOS = 1024 * 1024 * 1024
+
+
 class ErroRanking(Exception):
     pass
 
@@ -907,6 +912,28 @@ class Ranking:
             json={"chave": chave, "valor": (valor or "").strip()},
             cabecalhos={"Prefer": "resolution=merge-duplicates,return=minimal"},
         )
+
+    # ---- espaço usado no servidor (admin)
+
+    def uso_do_servidor(self) -> dict | None:
+        """Quanto do plano grátis já foi usado: {"banco", "arquivos", "pastas": {pasta: (bytes, arquivos)}}.
+
+        None se o servidor ainda não tem a função (o admin precisa rodar o SQL novo)."""
+        try:
+            linhas = self._pedir("POST", "/rest/v1/rpc/uso_do_servidor", json={}).json()
+        except ErroRanking as e:
+            if "SQL novo" in str(e):
+                return None
+            raise
+        uso = {"banco": 0, "arquivos": 0, "pastas": {}}
+        for ln in linhas or []:
+            item, b = str(ln.get("item") or ""), int(ln.get("bytes") or 0)
+            if item == "banco":
+                uso["banco"] = b
+            elif item.startswith("arquivos:"):
+                uso["arquivos"] += b
+                uso["pastas"][item.split(":", 1)[1]] = (b, int(ln.get("arquivos") or 0))
+        return uso
 
     def chave_giphy(self) -> str:
         # vazia não fica guardada: o admin pode ligar os GIFs com o app de todo mundo aberto

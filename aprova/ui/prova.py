@@ -9,7 +9,7 @@ from pathlib import Path
 
 import flet as ft
 
-from .. import ajuda, config, pdfprova
+from .. import ajuda, pdfprova
 from . import comp
 from .tema import FONTE_TEXTO, FONTE_TITULO
 

@@ -495,3 +495,64 @@ language sql security definer set search_path = public as $$
 $$;
 revoke all on function public.apagar_minha_conta() from public, anon;
 grant execute on function public.apagar_minha_conta() to authenticated;
+
+-- ---------------------------------------------------------------- espaço usado (1.24, só o admin vê)
+-- O plano grátis tem limite de banco e de arquivos: o Admin mostra quanto já foi usado.
+create or replace function public.uso_do_servidor() returns table (item text, bytes bigint, arquivos bigint)
+language sql stable security definer set search_path = public, storage as $$
+    select 'banco'::text, pg_database_size(current_database())::bigint, null::bigint
+    where public.eh_admin()
+    union all
+    select 'arquivos:' || o.bucket_id, coalesce(sum((o.metadata ->> 'size')::bigint), 0)::bigint, count(*)::bigint
+    from storage.objects o
+    where public.eh_admin()
+    group by o.bucket_id;
+$$;
+revoke all on function public.uso_do_servidor() from public, anon;
+grant execute on function public.uso_do_servidor() to authenticated;
+
+-- ---------------------------------------------------------------- relatórios de erro (1.26)
+-- Só quem ligou "Enviar relatórios de erro" nos Ajustes manda. Vai o erro técnico (sem estudos, sem
+-- e-mail, sem o nome da pasta do usuário). Ninguém lê nem grava direto: o app envia pela função
+-- reportar_erro (com trava contra enxurrada) e só o admin lê e apaga.
+create table if not exists public.erros (
+    id bigserial primary key,
+    criado_em timestamptz not null default now(),
+    versao text not null check (char_length(versao) <= 20),
+    sistema text not null default '' check (char_length(sistema) <= 40),
+    onde text not null default '' check (char_length(onde) <= 120),
+    mensagem text not null check (char_length(mensagem) <= 300),
+    detalhe text not null default '' check (char_length(detalhe) <= 4000),
+    assinatura text not null check (assinatura ~ '^[a-f0-9]{12,40}$'),
+    usuario_id uuid
+);
+create index if not exists erros_quando on public.erros (criado_em desc);
+alter table public.erros enable row level security;
+drop policy if exists "erros: admin lê" on public.erros;
+create policy "erros: admin lê" on public.erros for select to authenticated using (public.eh_admin());
+drop policy if exists "erros: admin apaga" on public.erros;
+create policy "erros: admin apaga" on public.erros for delete to authenticated using (public.eh_admin());
+grant select, delete on public.erros to authenticated;
+
+create or replace function public.reportar_erro(versao_app text, sistema_op text, local text, msg text, rastro text, chave text)
+returns boolean
+language plpgsql security definer set search_path = public as $$
+begin
+    if chave is null or chave !~ '^[a-f0-9]{12,40}$' or coalesce(msg, '') = '' then
+        return false;
+    end if;
+    -- trava: no máximo 300 relatórios por dia no total e 20 do mesmo erro
+    if (select count(*) from public.erros where criado_em > now() - interval '1 day') >= 300 then
+        return false;
+    end if;
+    if (select count(*) from public.erros e where e.assinatura = chave and e.criado_em > now() - interval '1 day') >= 20 then
+        return false;
+    end if;
+    delete from public.erros where criado_em < now() - interval '90 days';
+    insert into public.erros (versao, sistema, onde, mensagem, detalhe, assinatura, usuario_id)
+    values (left(coalesce(versao_app, '?'), 20), left(coalesce(sistema_op, ''), 40), left(coalesce(local, ''), 120),
+            left(msg, 300), left(coalesce(rastro, ''), 4000), chave, auth.uid());
+    return true;
+end $$;
+revoke all on function public.reportar_erro(text, text, text, text, text, text) from public;
+grant execute on function public.reportar_erro(text, text, text, text, text, text) to anon, authenticated;

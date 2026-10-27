@@ -347,7 +347,6 @@ def dialogo_meta(app) -> None:
 
 def dialogo_lancar(app) -> None:
     """Lançar manualmente um tempo de estudo (ex.: estudou no ônibus)."""
-    c = app.c
     minutos = ft.TextField(label="Minutos", value="30", width=120, dense=True, border_radius=10, keyboard_type=ft.KeyboardType.NUMBER)
     atividade = ft.TextField(label="O que estudou", hint_text="Ex.: Direito Administrativo", dense=True, border_radius=10, expand=True)
     dia = ft.SegmentedButton(

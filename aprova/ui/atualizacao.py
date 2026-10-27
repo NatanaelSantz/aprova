@@ -43,7 +43,7 @@ async def verificar(app, forcar: bool = False) -> dict | None:
     if not forcar and agora - ultima < INTERVALO:
         info = app.sessao.get("atualizacao_info") or None
     else:
-        info = await app.em_segundo_plano(atualizar.verificar, __version__, url_versao())
+        info = await app.em_segundo_plano(atualizar.verificar, __version__, url_versao(), 8, config.DATA_DIR)
         app.sessao.set("atualizacao_verificada_em", agora)
         app.sessao.set("atualizacao_info", info or {})
     if info and not atualizar.mais_nova(str(info.get("versao") or ""), __version__):
@@ -174,16 +174,18 @@ async def abrir_pela_notificacao(app) -> None:
 
 def avisar_atualizado(app) -> None:
     """Primeira abertura depois de atualizar: conta o que mudou (uma vez)."""
+    ultima = atualizar.ultima(config.DATA_DIR)
+    if ultima.get("voltou") and app.sessao.get("volta_anunciada") != ultima.get("quando_voltou"):
+        # a versão nova não abriu neste computador e o app voltou sozinho para a anterior
+        app.sessao.set("volta_anunciada", ultima.get("quando_voltou"))
+        app.sessao.set("versao_anunciada", __version__)
+        _faixa(app, f"A versão {ultima.get('versao')} não abriu direito no seu computador, então o Aprova voltou para a {__version__}. "
+                    "Seus estudos estão intactos e a próxima versão chega sozinha.", "OK", lambda e: None)
+        return
     if app.sessao.get("versao_anunciada") == __version__:
         return
     anterior = app.sessao.get("versao_anunciada")
     app.sessao.set("versao_anunciada", __version__)
-    try:
-        import json
-
-        ultima = json.loads((config.DATA_DIR / atualizar.PASTA / "ultima.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        ultima = {}
     if not anterior and str(ultima.get("versao")) != __version__:
         return  # primeira vez com o app (ou instalado à mão): nada a anunciar
     info = app.sessao.get("atualizacao_info") or {}

@@ -149,6 +149,31 @@ def aplicar_atualizacao() -> None:
         _anotar("Falha ao aplicar a atualização:\n" + traceback.format_exc())
 
 
+def voltar_se_preciso(erro: str = "") -> str | None:
+    """A versão nova não abriu: devolve os arquivos da anterior. Devolve a versão para a qual voltou.
+
+    Sem `erro`, conta mais uma abertura da versão nova e só volta depois de várias sem a janela aparecer
+    (o app fechou sozinho). Com `erro` (deu erro ao abrir), volta na hora."""
+    try:
+        modulo = _modulo_atualizar()
+        if modulo is None or not hasattr(modulo, "voltar"):
+            return None
+        if erro:
+            if not modulo.em_teste(DADOS):
+                return None
+        elif not modulo.contar_abertura(DADOS):
+            return None
+        u = modulo.ultima(DADOS)
+        de = modulo.voltar(RAIZ, DADOS)
+        if de:
+            motivo = ("erro ao abrir:\n" + erro.strip()) if erro else "a janela não apareceu nas últimas aberturas"
+            _anotar(f"\n=== A versão {u.get('versao')} não abriu ({motivo}). Voltou para a {de} em {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        return de
+    except Exception:  # noqa: BLE001
+        _anotar("Falha ao voltar para a versão anterior:\n" + traceback.format_exc())
+        return None
+
+
 def _versao_instalada() -> str:
     try:
         m = re.search(r'__version__\s*=\s*"([^"]+)"', (RAIZ / "aprova" / "__init__.py").read_text(encoding="utf-8"))
@@ -180,7 +205,10 @@ def atualizar_ao_abrir(mostrar_tela: bool = True) -> str | None:
             return None
         url = os.environ.get("APROVA_ATUALIZACAO_URL") or modulo.URL_VERSAO
         try:
-            info = modulo.verificar(atual, url, timeout=4)
+            try:
+                info = modulo.verificar(atual, url, timeout=4, pasta=DADOS)
+            except TypeError:  # atualizar.py de antes da volta automática
+                info = modulo.verificar(atual, url, timeout=4)
         except modulo.ErroAtualizacao:
             return None  # sem internet agora
         if not info:
@@ -319,16 +347,23 @@ def abrir_app() -> None:
         return
     if _no_ambiente():
         _saida_em_arquivo()
+        voltar_se_preciso()  # a versão nova já fechou sozinha várias vezes: abre a anterior
         _mostrar_abertura()
         os.chdir(RAIZ)
         sys.path.insert(0, str(RAIZ))
-        sys.argv = [str(RAIZ / "main.py")] + sys.argv[1:]
+        argumentos = sys.argv[1:]
+        sys.argv = [str(RAIZ / "main.py")] + argumentos
         try:
             runpy.run_path(str(RAIZ / "main.py"), run_name="__main__")
         except SystemExit:
             pass
         except Exception:  # noqa: BLE001
-            _erro_ao_abrir(traceback.format_exc())
+            detalhe = traceback.format_exc()
+            if voltar_se_preciso(detalhe):
+                # abre de novo num processo novo: os módulos da versão nova já estão carregados neste
+                subprocess.Popen([sys.executable, str(RAIZ / "iniciar.pyw")] + argumentos, cwd=str(RAIZ), creationflags=SEM_JANELA)
+                return
+            _erro_ao_abrir(detalhe)
         return
     # ainda no Python do sistema: abre pelo Python do ambiente, sem console (repassa o convite, se houver)
     subprocess.Popen([str(PYW_VENV), str(RAIZ / "iniciar.pyw")] + sys.argv[1:], cwd=str(RAIZ), creationflags=SEM_JANELA)

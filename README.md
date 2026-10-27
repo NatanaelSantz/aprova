@@ -11,13 +11,13 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"><img alt="Baixar para Windows" src="https://img.shields.io/badge/Baixar%20para-Windows-2340A8?style=for-the-badge&logo=windows&logoColor=white"></a>
+  <a href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip"><img alt="Baixar para Windows" src="https://img.shields.io/badge/Baixar%20para-Windows-2340A8?style=for-the-badge&logo=windows&logoColor=white"></a>
   &nbsp;
   <a href="https://natanaelsantz.github.io/aprova/"><img alt="Site do Aprova" src="https://img.shields.io/badge/Site-natanaelsantz.github.io%2Faprova-C98E12?style=for-the-badge"></a>
 </p>
 
 <p align="center">
-  <img alt="Versão 1.23.0" src="https://img.shields.io/badge/vers%C3%A3o-1.23.0-2340A8">
+  <img alt="Versão 1.24.0" src="https://img.shields.io/badge/vers%C3%A3o-1.24.0-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -126,7 +126,7 @@
 
 ## Como instalar no Windows
 
-1. **[Baixe o Aprova](https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip)** e extraia o .zip numa pasta (ex.: `Documentos\Aprova`).
+1. **[Baixe o Aprova](https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip)** e extraia o .zip numa pasta (ex.: `Documentos\Aprova`).
 2. Dê dois cliques em **`Abrir Aprova.bat`**. Na primeira vez abre a janela *Preparando o Aprova*: se faltar o Python, ele é instalado, e depois vêm as bibliotecas do app (de 5 a 10 minutos, com internet).
 3. Pronto: o Aprova abre sozinho e cria o atalho **Aprova** na área de trabalho. Dali em diante, abra por ele.
 
@@ -193,7 +193,13 @@ A página do convite e a página do app ficam em [`docs/`](docs) e são publicad
 2. `python ferramentas/nova_versao.py 1.9.1 "O que mudou" "Outra novidade"`: muda o número da versão e escreve o [`docs/versao.json`](docs/versao.json), que é o que o app consulta.
 3. `git commit -am "Versão 1.9.1"` e `git push` na `main`.
 
-Em até 12 horas (ou na hora, em *Ajustes → Atualizações → Procurar atualização*), quem tem o Aprova 1.9 ou mais novo vê o aviso no Início. O app baixa o .zip da `main`, confere se a versão é mesmo mais nova e deixa tudo pronto; a troca dos arquivos acontece ao reabrir, pelo `iniciar.pyw`, que guarda uma cópia da versão anterior em `.aprova/atualizacao/anterior` e só reinstala bibliotecas se o `requirements.txt` mudou. O `ranking.json` e a pasta `.venv` nunca são trocados.
+O robô [`publicar.yml`](.github/workflows/publicar.yml) cria a etiqueta `v1.9.1` e a [página da versão](https://github.com/NatanaelSantz/aprova/releases) com o `Aprova.zip`. O `versao.json` aponta para o .zip dessa etiqueta: o que for para a `main` depois (testes, rascunhos) só chega às pessoas na versão seguinte. O botão de baixar do site e deste README sempre leva à última versão publicada.
+
+Em até 12 horas (ou na hora, em *Ajustes → Atualizações → Procurar atualização*), quem tem o Aprova vê o aviso no Início. O app baixa o .zip da versão, confere se ela é mesmo mais nova e deixa tudo pronto; a troca dos arquivos acontece ao reabrir, pelo `iniciar.pyw`, que guarda uma cópia da versão anterior em `.aprova/atualizacao/anterior` e só reinstala bibliotecas se o `requirements.txt` mudou. O `ranking.json` e a pasta `.venv` nunca são trocados.
+
+**Se a versão nova não abrir** (erro ao abrir, ou duas aberturas sem a janela aparecer), o `iniciar.pyw` devolve os arquivos da versão anterior, abre ela e pula a versão com problema até sair uma mais nova. Fica anotado em `.aprova/instalacao.log`.
+
+**Robôs do GitHub:** [`testes.yml`](.github/workflows/testes.yml) roda os testes no Windows a cada envio; [`vigias.yml`](.github/workflows/vigias.yml) roda todo dia, mantém o Supabase acordado (o plano grátis pausa depois de 7 dias sem uso) e confere se o app ainda lê o PCI e a FGV ([`ferramentas/conferir_sites.py`](ferramentas/conferir_sites.py)). Quando um deles falha, o GitHub manda e-mail.
 
 </details>
 
@@ -218,7 +224,7 @@ aprova/
   ia.py           recursos opcionais com a API do Claude
 supabase/         ranking.sql: tabelas, papéis e regras de acesso do servidor
 docs/             site no GitHub Pages (página do app, do convite, versao.json) e o guia completo
-ferramentas/      nova_versao.py (publicar atualização), abertura e instalação do Python
+ferramentas/      nova_versao.py (publicar atualização), conferir_sites.py, abertura e instalação do Python
 iniciar.pyw       abre o app sem console e instala o que faltar
 tests/            testes, servidor falso do Supabase e capturas de tela
 ```
@@ -239,6 +245,7 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
+| **1.24.0** | Atualização mais segura: cada versão vem de um .zip fixo (etiqueta no GitHub) e, se a versão nova não abrir, o app volta sozinho para a anterior; chave da IA e login cifrados no Windows; espaço usado no servidor no Admin; bibliotecas em versões fixas; robôs que testam no Windows, mantêm o servidor acordado e conferem os sites todo dia |
 | **1.23.0** | App para Android (APK, o mesmo app instalado no celular) e build do iPhone funcionando no simulador; no celular, pasta de dados do app, Compartilhar e alarme que vibra |
 | **1.22.0** | O personagem fala com você (frases motivacionais, engraçadas, dicas, lembretes do dia e as suas, com o seu nome) e dança; Admin → Personagens com a galeria de todo mundo |
 | **1.21.1** | Início sem espaço sobrando (personagem do lado da saudação, barras da semana baixinhas sem estudo), abas do personagem numa linha; vídeo tutorial atualizado |

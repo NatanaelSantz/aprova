@@ -107,7 +107,7 @@ def proximo_estudo(banco) -> dict | None:
             "acao": "Começar revisão",
         }
     des = analise.resumo_desempenho(banco)
-    disponiveis = {q["disciplina"] for q in banco.banco_de_questoes()}
+    disponiveis = set(banco.disciplinas())
     for d in des["fracas"]:
         if d["chave"] in disponiveis:
             return {

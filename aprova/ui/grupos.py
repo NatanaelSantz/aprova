@@ -201,7 +201,7 @@ class TelaGrupos:
     # ------------------------------------------------------------------ sem grupos
 
     def _sem_grupos(self) -> ft.Control:
-        app, c = self.app, self.app.c
+        _app, c = self.app, self.app.c
         codigo = ft.TextField(label="Código do grupo", hint_text="Ex.: DATAPREV-7A2F", border_radius=10, capitalization=ft.TextCapitalization.CHARACTERS)
         nome = ft.TextField(label="Nome do grupo", hint_text="Ex.: Turma Dataprev", border_radius=10, max_length=40)
         msg = ft.Container()
@@ -281,7 +281,7 @@ class TelaGrupos:
     # ------------------------------------------------------------------ com grupos
 
     def _com_grupos(self) -> ft.Control:
-        app, c = self.app, self.app.c
+        _app, _c = self.app, self.app.c
         g = self.grupo
         conteudo = ft.Column([self._cabecalho_grupo(g), self._sala(g), self._abas(), self._conteudo_aba(g)], spacing=16)
         if not self.duas_colunas:
@@ -329,7 +329,6 @@ class TelaGrupos:
         return comp.bloco(ft.Column([ft.Container(comp.apagado("Seus grupos", c, 12.5), padding=ft.Padding.only(left=10, top=4, bottom=4)), *itens], spacing=2), c, padding=8)
 
     def _seletor_grupo(self) -> ft.Control:
-        c = self.app.c
         novas = self.app.novidades_grupos()
         opcoes = []
         for g in (self.grupos or []) + ([self.visitando] if self.visitando else []):
@@ -1402,7 +1401,7 @@ class TelaGrupos:
         return ft.Column([ft.Row(info, spacing=6, wrap=True, run_spacing=6), ft.Column(linhas, spacing=8)], spacing=12)
 
     def _cartao_plano(self, p: dict, g: dict, ativo: dict) -> ft.Control:
-        app, c = self.app, self.app.c
+        _app, c = self.app, self.app.c
         em_uso = ativo.get("id") == p["id"] and ativo.get("codigo") == g["codigo"]
         cartao = self._cartao_post(p, g)
         usar = (
@@ -1656,7 +1655,7 @@ def dialogo_plano(app, g: dict, ao_publicar) -> None:
     msg = ft.Container()
 
     # começa com as disciplinas que a pessoa já estuda (ou as mais comuns)
-    conhecidas = sorted({q["disciplina"] for q in app.db.banco_de_questoes()} - {"Geral", ""})
+    conhecidas = [d for d in app.db.disciplinas() if d not in ("Geral", "")]
     iniciais = (conhecidas or ["Língua Portuguesa", "Raciocínio Lógico", "Informática", "Conhecimentos Específicos"])[:5]
     meta_atual = float(app.aj["meta_horas_semana"] or 10)
     por_disc = max(0.5, round(meta_atual / max(1, len(iniciais)) * 2) / 2)

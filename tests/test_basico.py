@@ -2118,3 +2118,194 @@ def test_https_pelo_sistema_e_erro_explicado():
     trecho = iniciar[iniciar.index("def main() -> None:"):]
     assert trecho.index("_confiar_certificados()") < trecho.index("atualizar_ao_abrir()")
     assert "truststore" in (Path(__file__).parent.parent / "requirements.txt").read_text()
+
+
+def test_versao_que_nao_abre_volta_sozinha(tmp_path, monkeypatch):
+    """1.24: a versão nova deu erro ao abrir (ou fechou sozinha várias vezes): volta para a anterior e pula essa versão."""
+    import http.server
+    import importlib.machinery
+    import importlib.util
+    import json
+    import shutil
+    import threading
+
+    from aprova import atualizar
+
+    app_dir, dados, site = tmp_path / "Aprova", tmp_path / "dados", tmp_path / "site"
+    (app_dir / "aprova").mkdir(parents=True)
+    site.mkdir()
+    shutil.copy(RAIZ / "iniciar.pyw", app_dir / "iniciar.pyw")
+    shutil.copy(RAIZ / "aprova" / "atualizar.py", app_dir / "aprova" / "atualizar.py")
+    (app_dir / "aprova" / "__init__.py").write_text('__version__ = "1.23.0"\n')
+    (app_dir / "main.py").write_text("print('velho')\n")
+    atual = (RAIZ / "aprova" / "atualizar.py").read_text()
+
+    def publicar(versao: str, main: str):
+        import io
+        import zipfile
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zz:
+            zz.writestr("aprova-main/main.py", main)
+            zz.writestr("aprova-main/aprova/__init__.py", f'__version__ = "{versao}"\n')
+            zz.writestr("aprova-main/aprova/novo.py", "X = 1\n")
+            zz.writestr("aprova-main/aprova/atualizar.py", atual)
+        z = buf.getvalue()
+        (site / f"v{versao}.zip").write_bytes(z)
+        (site / "versao.json").write_text(json.dumps({"versao": versao, "notas": ["x"], "zip": f"{url}/v{versao}.zip"}))
+
+    class Silencioso(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *a, **k):
+            super().__init__(*a, directory=str(site), **k)
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Silencioso)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{srv.server_port}"
+        monkeypatch.setenv("APROVA_DATA", str(dados))
+        monkeypatch.setenv("APROVA_ATUALIZACAO_URL", f"{url}/versao.json")
+        spec = importlib.util.spec_from_loader("iniciar_volta", importlib.machinery.SourceFileLoader("iniciar_volta", str(app_dir / "iniciar.pyw")))
+        ini = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ini)
+
+        publicar("1.24.0", "raise RuntimeError('quebrou')\n")
+        assert ini.atualizar_ao_abrir(mostrar_tela=False) == "1.24.0"
+        assert (app_dir / "aprova" / "novo.py").exists() and atualizar.em_teste(dados)
+        assert ini.voltar_se_preciso() is None  # 1ª abertura sem confirmar: ainda dá uma chance
+
+        # deu erro ao abrir: volta na hora para a 1.23.0, com os arquivos de antes
+        assert ini.voltar_se_preciso("Traceback...\nRuntimeError: quebrou") == "1.23.0"
+        assert (app_dir / "main.py").read_text() == "print('velho')\n"
+        assert '"1.23.0"' in (app_dir / "aprova" / "__init__.py").read_text()
+        assert not (app_dir / "aprova" / "novo.py").exists()  # arquivo que veio só na versão nova sai
+        assert atualizar.versao_pulada(dados) == "1.24.0" and atualizar.ultima(dados)["voltou"]
+        assert "não abriu" in (dados / "instalacao.log").read_text(encoding="utf-8")
+        # a versão que não abriu fica pulada; a correção (mais nova) chega normalmente
+        assert ini.atualizar_ao_abrir(mostrar_tela=False) is None
+        assert ini.voltar_se_preciso("outro erro") is None  # já voltou: não volta de novo
+        publicar("1.24.1", "print('consertado')\n")
+        assert ini.atualizar_ao_abrir(mostrar_tela=False) == "1.24.1"
+        assert (app_dir / "main.py").read_text() == "print('consertado')\n"
+        # a janela apareceu: a versão fica e as aberturas seguintes não contam mais
+        atualizar.confirmar(dados)
+        assert not atualizar.em_teste(dados)
+        for _ in range(5):
+            assert ini.voltar_se_preciso() is None
+        assert (app_dir / "main.py").read_text() == "print('consertado')\n"
+    finally:
+        srv.shutdown()
+
+
+def test_versao_que_fecha_sozinha_volta_na_terceira_abertura(tmp_path):
+    """Sem erro (a janela só não aparece): duas aberturas sem confirmar e na terceira volta."""
+    from aprova import atualizar
+
+    raiz, dados = tmp_path / "app", tmp_path / "dados"
+    raiz.mkdir()
+    (raiz / "main.py").write_text("velho")
+    novo = dados / atualizar.PASTA / "novo"
+    novo.mkdir(parents=True)
+    (novo / "main.py").write_text("novo")
+    (dados / atualizar.PASTA / "pronta.json").write_text('{"versao": "2.0.0", "de": "1.0.0"}')
+    assert atualizar.aplicar_pendente(raiz, dados) == "2.0.0"
+    assert (raiz / "main.py").read_text() == "novo"
+    assert [atualizar.contar_abertura(dados) for _ in range(3)] == [False, False, True]
+    assert atualizar.voltar(raiz, dados) == "1.0.0" and (raiz / "main.py").read_text() == "velho"
+    # versões antigas gravavam o ultima.json sem a marca: contam como confirmadas (nunca volta sozinho)
+    (dados / atualizar.PASTA / "ultima.json").write_text('{"versao": "2.0.0", "de": "1.0.0"}')
+    assert not atualizar.em_teste(dados) and not atualizar.contar_abertura(dados) and atualizar.voltar(raiz, dados) is None
+
+
+def test_versao_publicada_aponta_para_a_etiqueta(tmp_path, monkeypatch):
+    """1.24: o versao.json aponta para o .zip fixo da versão (etiqueta), não para a main."""
+    import importlib.util
+    import json
+    import shutil
+
+    from aprova import atualizar
+
+    raiz = tmp_path / "Aprova"
+    (raiz / "aprova").mkdir(parents=True)
+    (raiz / "docs").mkdir()
+    (raiz / "ferramentas").mkdir()
+    shutil.copy(RAIZ / "ferramentas" / "nova_versao.py", raiz / "ferramentas" / "nova_versao.py")
+    (raiz / "aprova" / "__init__.py").write_text('__version__ = "1.23.0"\n')
+    (raiz / "pyproject.toml").write_text('[project]\nname = "aprova"\nversion = "1.23.0"\n')
+    spec = importlib.util.spec_from_file_location("nova_versao_copia", raiz / "ferramentas" / "nova_versao.py")
+    nv = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(nv)
+    assert nv.main(["x", "1.24.0", "Novidade"]) == 0
+    dados = json.loads((raiz / "docs" / "versao.json").read_text(encoding="utf-8"))
+    assert dados["zip"] == "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.24.0.zip"
+    assert atualizar.zip_confiavel(dados["zip"])
+    assert 'version = "1.24.0"' in (raiz / "pyproject.toml").read_text()
+    # o README e o site baixam a última versão publicada, nunca a main
+    for arq in (RAIZ / "README.md", RAIZ / "docs" / "index.html", RAIZ / "docs" / "convite" / "index.html"):
+        texto = arq.read_text(encoding="utf-8")
+        assert "refs/heads/main.zip" not in texto and "releases/latest/download/Aprova.zip" in texto, arq.name
+
+
+def test_segredos_cifrados_no_windows(tmp_path, monkeypatch):
+    """1.24: chave da API e login guardados cifrados (DPAPI no Windows); de outro computador, pede de novo."""
+    import json
+    import sys
+
+    from aprova import config
+
+    if sys.platform != "win32":  # aqui finge o Windows com uma "cifra" reversível
+        monkeypatch.setattr(sys, "platform", "win32")
+        monkeypatch.setattr(config, "_dpapi", lambda dados, cifrar: dados[::-1] if dados != b"QUEBRADO"[::-1] else (_ for _ in ()).throw(OSError("x")))
+    arq = tmp_path / "ajustes.json"
+    arq.write_text(json.dumps({"claude_api_key": "sk-ant-antiga", "nome": "Ana"}), encoding="utf-8")
+    aj = config.Ajustes(arq)  # texto puro de versões antigas: cifra ao abrir
+    guardado = json.loads(arq.read_text(encoding="utf-8"))
+    assert guardado["claude_api_key"].startswith("dpapi:") and "sk-ant" not in arq.read_text(encoding="utf-8")
+    assert aj["claude_api_key"] == "sk-ant-antiga" and aj.chave_claude == "sk-ant-antiga" and aj["nome"] == "Ana"
+    aj.set("ranking_refresh", "token-123")
+    assert "token-123" not in arq.read_text(encoding="utf-8") and config.Ajustes(arq).get("ranking_refresh", "") == "token-123"
+    # cifrado em outro computador (não abre aqui): fica vazio e o app pede de novo, sem quebrar
+    if sys.platform == "win32" and config._dpapi.__name__ != "_dpapi":
+        arq.write_text(json.dumps({"claude_api_key": "dpapi:" + __import__("base64").b64encode(b"QUEBRADO"[::-1]).decode()}), encoding="utf-8")
+        assert config.Ajustes(arq)["claude_api_key"] == ""
+
+
+def test_lista_de_disciplinas_leve(tmp_path):
+    """1.24: as telas pegam só os nomes das disciplinas (sem montar o banco de questões inteiro)."""
+    from aprova.db import Banco
+
+    b = Banco(tmp_path / "a.db")
+    p = b.criar_prova(titulo="P", origem_url="u1")
+    b.salvar_questoes(p, [{"numero": 1, "enunciado": "x", "disciplina": "Matemática", "alternativas": {"A": "a"}},
+                          {"numero": 2, "enunciado": "y", "disciplina": "Língua Portuguesa", "alternativas": {"A": "a"}},
+                          {"numero": 3, "enunciado": "", "disciplina": "Vazia", "alternativas": {}}])
+    s = b.criar_prova(titulo="Simulado", origem_url="aprova://simulado/1")
+    b.salvar_questoes(s, [{"numero": 1, "enunciado": "z", "disciplina": "Só no simulado", "alternativas": {"A": "a"}}])
+    assert b.disciplinas() == sorted({q["disciplina"] for q in b.banco_de_questoes()}) == ["Língua Portuguesa", "Matemática"]
+
+
+def test_espaco_usado_no_servidor(tmp_path):
+    """1.24: o Admin vê quanto do plano grátis já foi usado; servidor sem o SQL novo não quebra a tela."""
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from servidor_falso import CHAVE, ServidorFalso
+
+    from aprova import config, ranking
+
+    srv = ServidorFalso().iniciar()
+    try:
+        r = ranking.Ranking(config.Ajustes(tmp_path / "a.json"), {"url": srv.url, "chave": CHAVE})
+        r.criar_conta("admin@exemplo.com", "segredo1", "Natan")
+        assert r.eh_admin  # a primeira conta com e-mail vira admin
+        uso = r.uso_do_servidor()
+        assert uso["banco"] == 38 * 1024 * 1024 and uso["arquivos"] >= 212 * 1024 * 1024 and "anexos" in uso["pastas"]
+        aluno = ranking.Ranking(config.Ajustes(tmp_path / "b.json"), {"url": srv.url, "chave": CHAVE})
+        aluno.criar_conta("aluno@exemplo.com", "segredo1", "Aluno")
+        assert aluno.uso_do_servidor() == {"banco": 0, "arquivos": 0, "pastas": {}}  # aluno não vê nada
+        srv.dados.sem_sql_124 = True
+        assert r.uso_do_servidor() is None  # servidor antigo: a tela pede para rodar o SQL novo
+    finally:
+        srv.parar()

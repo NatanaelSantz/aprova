@@ -7,8 +7,8 @@ from pathlib import Path
 import flet as ft
 
 from .. import __version__, config, rede
-from . import comp, tema
-from .tema import FONTE_TEXTO, FONTE_TITULO
+from . import comp
+from .tema import FONTE_TEXTO
 
 MODELOS = [
     ("claude-haiku-5-5", "Claude Haiku 5.5 (mais barato e rápido)"),
@@ -59,7 +59,7 @@ class TelaAjustes:
 
     def _tamanho(self) -> ft.Control:
         """Zoom da interface inteira (cabe mais coisa na tela, ou tudo fica maior)."""
-        app, c = self.app, self.app.c
+        app, _c = self.app, self.app.c
         escolha = str(app.sessao.get("escala_interface") or "auto")
         opcoes = [("auto", "Automático"), ("0.8", "80%"), ("0.9", "90%"), ("1.0", "100%"), ("1.1", "110%"), ("1.25", "125%")]
         if escolha not in {k for k, _ in opcoes}:
@@ -131,7 +131,7 @@ class TelaAjustes:
         )
 
     def _pausa(self) -> ft.Control:
-        app, c = self.app, self.app.c
+        app, _c = self.app, self.app.c
 
         def alternar(e):
             app.aj.set("pausa_olhos", bool(e.control.value))

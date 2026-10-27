@@ -1,3 +1,7 @@
 *.bat text eol=crlf
 *.sh text eol=lf
 *.ps1 text eol=crlf
+# fora do .zip que as pessoas baixam (site com vídeo, testes e robôs do GitHub)
+docs/ export-ignore
+tests/ export-ignore
+.github/ export-ignore

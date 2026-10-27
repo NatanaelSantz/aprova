@@ -39,7 +39,7 @@ grant usage on schema public to anon, authenticated;
 create schema storage;
 create table storage.buckets (id text primary key, name text not null, public boolean default false,
     file_size_limit bigint, allowed_mime_types text[]);
-create table storage.objects (id bigserial primary key, bucket_id text references storage.buckets (id), name text not null,
+create table storage.objects (id bigserial primary key, bucket_id text references storage.buckets (id), name text not null, metadata jsonb,
     owner uuid default auth.uid(), unique (bucket_id, name));
 create function storage.foldername(name text) returns text[] language plpgsql immutable as $f$
 declare partes text[] := string_to_array(name, '/');
@@ -323,5 +323,44 @@ def test_avatar_e_foto(db):
     assert "permission denied" in db.como(None).falha("set role anon; select count(*) from storage.objects where bucket_id = 'avatares'")
     db.como(None)
     db.como(A).q(f"delete from storage.objects where bucket_id = 'avatares' and name = '{C}.webp'")
-    assert db.como(None).q(f"select count(*) from storage.objects where bucket_id = 'avatares'") == [(0,)]
+    assert db.como(None).q("select count(*) from storage.objects where bucket_id = 'avatares'") == [(0,)]
     assert db.como(None).q("select file_size_limit, allowed_mime_types from storage.buckets where id = 'avatares'") == [(307200, ["image/webp"])]
+
+
+def test_espaco_usado_so_o_admin_ve(db):
+    db.como(None).q("insert into storage.objects (bucket_id, name, metadata) values ('anexos', 'X/1/a.pdf', '{\"size\": 1000}'), "
+                    "('anexos', 'X/1/b.pdf', '{\"size\": 500}'), ('avatares', 'y.webp', '{\"size\": 70}')")
+    uso = dict((item, (b, n)) for item, b, n in db.como(A).q("select * from uso_do_servidor()"))
+    assert uso["arquivos:anexos"][0] == 1500 and uso["arquivos:anexos"][1] >= 2 and uso["arquivos:avatares"][0] >= 70 and uso["banco"][0] > 0
+    assert db.como(B).q("select * from uso_do_servidor()") == []  # aluno não vê nada
+    cur = db.como(None).con.cursor()
+    cur.execute("set role anon")
+    try:
+        cur.execute("select * from uso_do_servidor()")
+        raise AssertionError("anon não pode ver o espaço usado")
+    except psycopg.Error as e:
+        assert "permission denied" in str(e)
+    cur.execute("reset role")
+
+
+def test_relatorios_de_erro(db):
+    chave = "ab12cd34ef56"
+    # quem não tem conta (visitante) também manda; ninguém lê nem grava direto na tabela
+    cur = db.como(None).con.cursor()
+    cur.execute("set role anon")
+    cur.execute("select reportar_erro('1.26.0', 'Windows 11', 'Início', 'KeyError: x', 'Traceback...', %s)", (chave,))
+    assert cur.fetchall() == [(True,)]
+    cur.execute("reset role")
+    assert db.como(B).q("select reportar_erro('1.26.0', 'Windows 10', 'Painel', 'KeyError: x', '', %s)", (chave,)) == [(True,)]
+    assert db.como(B).q("select reportar_erro('1.26.0', '', '', 'x', '', 'NAO-HEX')") == [(False,)]
+    assert db.como(B).q("select count(*) from erros") == [(0,)]  # aluno não lê
+    assert "permission denied" in db.como(B).falha("insert into erros (versao, mensagem, assinatura) values ('1', 'x', %s)", (chave,))
+    linhas = db.como(A).q("select versao, sistema, onde, mensagem, usuario_id from erros order by id")
+    assert [(v, s, o, m) for v, s, o, m, _ in linhas] == [("1.26.0", "Windows 11", "Início", "KeyError: x"), ("1.26.0", "Windows 10", "Painel", "KeyError: x")]
+    assert linhas[0][4] is None and str(linhas[1][4]) == B
+    # trava: no máximo 20 do mesmo erro por dia
+    for _ in range(25):
+        db.como(B).q("select reportar_erro('1.26.0', '', '', 'KeyError: x', '', %s)", (chave,))
+    assert db.como(A).q("select count(*) from erros where assinatura = %s", (chave,)) == [(20,)]
+    db.como(A).q("delete from erros where assinatura = %s", (chave,))
+    assert db.como(A).q("select count(*) from erros") == [(0,)]

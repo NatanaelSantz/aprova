@@ -23,8 +23,9 @@ class Dados:
         self.usuarios: dict[str, dict] = {}  # id -> {email, senha}
         self.tabelas: dict[str, list[dict]] = {
             "perfis": [], "estatisticas": [], "grupos": [], "membros": [], "comunicados": [],
-            "forum_posts": [], "forum_respostas": [], "forum_uteis": [], "config": [],
+            "forum_posts": [], "forum_respostas": [], "forum_uteis": [], "config": [], "erros": [],
         }
+        self.sem_sql_124 = False  # finge um servidor sem o SQL da 1.24/1.26 (espaço usado e relatórios de erro)
         self.arquivos: dict[str, tuple[bytes, str]] = {}  # Storage: caminho na pasta "anexos" -> (dados, tipo)
         self.sem_anexos = False  # finge um servidor sem o SQL da 1.10
         self.sem_entrar_no_grupo = False  # finge um servidor sem o SQL da 1.12 (grupos visíveis para todos)
@@ -275,6 +276,17 @@ class Manipulador(BaseHTTPRequestHandler):
                 g = next((g for g in d.tabelas["grupos"] if g["codigo"] == cod), None)
                 n = sum(1 for m in d.tabelas["membros"] if m["codigo"] == cod)
                 return self._json(200, [{"codigo": g["codigo"], "nome": g["nome"], "membros": n}] if g else [])
+            if caminho == "/rest/v1/rpc/reportar_erro":
+                if d.sem_sql_124:
+                    return self._json(404, {"code": "PGRST202", "message": "Could not find the function public.reportar_erro in the schema cache"})
+                c = self._corpo() or {}
+                if not re.fullmatch(r"[a-f0-9]{12,40}", str(c.get("chave") or "")) or not c.get("msg"):
+                    return self._json(200, False)
+                d._seq += 1
+                d.tabelas["erros"].append({"id": d._seq, "criado_em": "2026-10-27T20:00:00", "versao": c.get("versao_app"), "sistema": c.get("sistema_op"),
+                                           "onde": c.get("local"), "mensagem": c.get("msg"), "detalhe": c.get("rastro") or "",
+                                           "assinatura": c["chave"], "usuario_id": self._uid()})
+                return self._json(200, True)
             if caminho == "/auth/v1/signup":
                 c = self._corpo() or {}
                 if not c.get("email"):
@@ -341,6 +353,16 @@ class Manipulador(BaseHTTPRequestHandler):
                 if not d.eh_membro(uid, cod):
                     d.tabelas["membros"].append({"codigo": cod, "usuario_id": uid})
                 return self._json(200, [{"codigo": g["codigo"], "nome": g["nome"]}])
+            if caminho == "/rest/v1/rpc/uso_do_servidor":
+                if d.sem_sql_124:
+                    return self._json(404, {"code": "PGRST202", "message": "Could not find the function public.uso_do_servidor in the schema cache"})
+                if not d.eh_admin(uid):
+                    return self._json(200, [])
+                anexos = sum(len(v[0]) for v in d.arquivos.values())
+                fotos = sum(len(v) for v in d.fotos.values())
+                return self._json(200, [{"item": "banco", "bytes": 38 * 1024 * 1024, "arquivos": None},
+                                        {"item": "arquivos:anexos", "bytes": anexos + 212 * 1024 * 1024, "arquivos": len(d.arquivos) + 37},
+                                        {"item": "arquivos:avatares", "bytes": fotos, "arquivos": len(d.fotos)}])
             if caminho == "/rest/v1/rpc/apagar_minha_conta":
                 d.usuarios.pop(uid, None)
                 for t in d.tabelas:
@@ -362,6 +384,8 @@ class Manipulador(BaseHTTPRequestHandler):
                     linhas = d.ranking_semana()
                 elif tabela == "ranking_grupo":
                     linhas = d.ranking_grupo()
+                elif tabela == "erros":
+                    linhas = d.tabelas["erros"] if d.eh_admin(uid) else []
                 elif tabela == "comunicados" and not d.eh_admin(uid):
                     linhas = [c for c in d.tabelas[tabela] if c["ativo"]]
                 elif tabela == "forum_feed":
@@ -487,6 +511,9 @@ class Manipulador(BaseHTTPRequestHandler):
                 elif tabela == "comunicados":
                     if admin:
                         d.tabelas["comunicados"] = [c for c in d.tabelas["comunicados"] if c not in alvo]
+                elif tabela == "erros":
+                    if admin:
+                        d.tabelas["erros"] = [c for c in d.tabelas["erros"] if c not in alvo]
                 else:
                     d.tabelas[tabela] = [l for l in d.tabelas[tabela] if l not in alvo or l.get("usuario_id") != uid]
                 return self._json(204)

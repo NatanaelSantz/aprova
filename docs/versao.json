@@ -1,10 +1,11 @@
 {
-  "versao": "1.23.0",
+  "versao": "1.24.0",
   "data": "27/10/2026",
   "notas": [
-    "App do Aprova para Android: o mesmo app, instalado no celular, sem precisar do computador ligado",
-    "iPhone em preparação: o build do iOS já funciona no simulador",
-    "No celular: pasta de dados do próprio app, arquivos pelo menu Compartilhar e alarme que vibra"
+    "Atualização mais segura: cada versão vem de um pacote fixo, e se a versão nova não abrir o Aprova volta sozinho para a anterior",
+    "No Windows, a chave da IA e o login guardado ficam cifrados",
+    "Admin: espaço usado no servidor (banco e arquivos) perto do limite do plano grátis",
+    "Bibliotecas em versões fixas e testadas no Windows"
   ],
-  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
+  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.24.0.zip"
 }
