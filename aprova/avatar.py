@@ -52,7 +52,8 @@ CORES_CALCA = [("#2F3B5C", "Jeans"), ("#2A2D3A", "Preta"), ("#6B7280", "Cinza"),
 
 CABELOS = [("curto", "Curto"), ("lateral", "Repartido de lado"), ("espetado", "Espetado"), ("moicano", "Moicano"), ("longo", "Longo"),
            ("franja", "Chanel"), ("coque", "Coque"), ("rabo", "Rabo de cavalo"), ("chiquinhas", "Maria-chiquinha"), ("trancas", "Tranças"),
-           ("cacheado", "Cacheado"), ("afro", "Black power"), ("careca", "Careca")]
+           ("cacheado", "Cacheado"), ("afro", "Black power"), ("entradas", "Com entradas"), ("calvo", "Calvo"),
+           ("careca", "Careca")]
 BARBAS = [("nenhuma", "Sem barba"), ("por_fazer", "Por fazer"), ("bigode", "Bigode"), ("cavanhaque", "Cavanhaque"), ("cheia", "Barba cheia")]
 OLHOS = [("normal", "Normal"), ("feliz", "Feliz"), ("determinado", "Determinado"), ("sonolento", "Sonolento"), ("piscadinha", "Piscadinha")]
 BOCAS = [("sorriso", "Sorriso"), ("sorrisao", "Sorrisão"), ("neutra", "Séria"), ("lingua", "Língua de fora"), ("surpresa", "Surpresa")]
@@ -463,6 +464,23 @@ CABELO_FRENTE = {
         18: "hh............Hh",
         19: ".hh..........hh.",
         20: "..h..........h..",
+    },
+    "entradas": {  # calvície começando: a testa sobe nos cantos e fica um topete no meio
+        11: "....hhhhhhhh....",
+        12: "...hhLLhhhhhh...",
+        13: "..hhhzhhhhzhhh..",
+        14: "..hhz..hh..zhh..",
+        15: "..hH...hh...Hh..",
+        16: "..h..........h..",
+        17: "..h..........h..",
+    },
+    "calvo": {  # topo da cabeça sem cabelo ("z" = cabelo ralo); cabelo dos lados, mais cheio por fora
+        12: "...z........z...",
+        13: "..zh........hz..",
+        14: ".hhh........hhh.",
+        15: ".hH..........Hh.",
+        16: ".hh..........hh.",
+        17: "..h..........h..",
     },
     "careca": {},
 }
@@ -1000,7 +1018,7 @@ def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: b
             i = yy * L + x
             if orig[i][4] == M_CABELO and orig[i + L][4] == M_CABELO:
                 out[i] = _clara(orig[i], t + (0.14 if (x - 20) % 6 == 1 and yy == topo + 2 else 0))[:4] + (M_CABELO,)
-    if cfg["cabelo"] == "careca":
+    if cfg["cabelo"] in ("careca", "calvo"):  # brilho no alto da cabeça
         for y in (26 + d2, 27 + d2):
             for x in range(25, 30):
                 i = y * L + x

@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.19.1" src="https://img.shields.io/badge/vers%C3%A3o-1.19.1-2340A8">
+  <img alt="Versão 1.20.0" src="https://img.shields.io/badge/vers%C3%A3o-1.20.0-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -239,6 +239,7 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
+| **1.20.0** | Cabelos novos: calvo (sem cabelo no alto da cabeça, com cabelo dos lados) e com entradas |
 | **1.19.1** | Barba e bigode acompanham a boca: bigode com as pontas para cima e barba contornando o sorriso |
 | **1.19.0** | Pixel art com sombreamento de jogo (luz quente, sombra fria, contorno seletivo) e cenários redesenhados com luz e partículas animadas; vídeo tutorial com a arte nova |
 | **1.18.0** | Personagens com olhos grandes e mais detalhes, 4 cores de olhos novas; figurinha e GIF vão para a prévia da mensagem antes de enviar |

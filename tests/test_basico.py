@@ -1839,6 +1839,11 @@ def test_personagem_validar_e_desenhar():
     branco = av.CORES_OLHOS.index(next(c for c in av.CORES_OLHOS if c[1] == "Brancos"))
     olho_branco = {c for _, c in av.boneco({**av.PADRAO, "cor_olhos": branco}).crop(caixa_olho).getcolors(100)}
     assert (150, 200, 255, 255) in olho_branco
+    # calvo: o alto da cabeça fica como o do careca, mas com cabelo dos lados; com entradas: a testa aparece nos cantos
+    careca, calvo, curto, entradas = (av.boneco(av.validar({**av.PADRAO, "cabelo": c})) for c in ("careca", "calvo", "curto", "entradas"))
+    assert calvo.getpixel((32, 25)) == careca.getpixel((32, 25)) != curto.getpixel((32, 25))
+    assert calvo.crop((14, 26, 22, 36)).tobytes() != careca.crop((14, 26, 22, 36)).tobytes()
+    assert entradas.getpixel((27, 29)) != curto.getpixel((27, 29)) and entradas.getpixel((32, 25)) == curto.getpixel((32, 25))
     # barba e bigode contornam a boca: nenhum pelo encosta do lado ou embaixo da boca (o bigode fica em cima)
     for barba in ("cheia", "bigode", "cavanhaque"):
         for boca, _ in av.BOCAS:
