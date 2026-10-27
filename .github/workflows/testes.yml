@@ -26,4 +26,17 @@ jobs:
           cache: pip
       - run: python -m pip install -r requirements.txt pytest
       # sem PYTHONUTF8: o teste vê o Windows como ele é na casa das pessoas (acentos, cp1252)
-      - run: python -m pytest -q tests
+      - name: Testes
+        shell: bash
+        run: |
+          python -m pytest -q tests -p no:cacheprovider --junitxml=resultado.xml && exit 0
+          # cada falha vira um aviso na página da execução (dá para ler sem baixar o log)
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          raiz = ET.parse("resultado.xml").getroot()
+          for caso in raiz.iter("testcase"):
+              for f in caso.findall("failure") + caso.findall("error"):
+                  texto = ((f.get("message") or "") + "\n" + (f.text or "")[-2500:]).replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+                  print(f"::error title={caso.get('name')}::{texto}")
+          PY
+          exit 1
