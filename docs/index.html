@@ -157,6 +157,10 @@ em.it { font-style: italic; font-weight: 500; }
 .recurso-texto { display: grid; gap: 16px; min-width: 0; align-content: center; }
 .recurso-texto p { color: var(--tinta2); max-width: 32em; }
 .tela { margin: 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--linha); box-shadow: var(--sombra); background: var(--folha); min-width: 0; }
+.cinema { margin: 0; border-radius: 16px; overflow: hidden; border: 1px solid var(--linha); box-shadow: var(--sombra); background: #0D1428; }
+.cinema video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #0D1428; }
+.cinema figcaption { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--folha); border-top: 1px solid var(--linha); font-size: 0.92rem; color: var(--tinta2); }
+.cinema figcaption strong { color: var(--tinta); font-weight: 700; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 0; padding: 0; list-style: none; }
 .chips li { font-size: 0.86rem; padding: 5px 12px; border-radius: 999px; background: var(--azul-suave); color: var(--tinta); }
 @media (max-width: 860px) {
@@ -266,6 +270,7 @@ footer a { color: var(--tinta2); }
 /* ---------------------------------------------------------------- movimento
    Tudo começa visível: as animações da rolagem só mexem em posição, escala e no traço do
    marca-texto, nunca escondem texto. Quem pede menos movimento no sistema não vê nada disso. */
+main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a página no celular */
 .vitrine { perspective: 1400px; }
 .janela { transform: rotate(0.6deg) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .5s cubic-bezier(.2, .7, .2, 1); }
 .gabarito { translate: calc(var(--px, 0px) * -1.4) calc(var(--py, 0px) * -1.4); transition: translate .5s cubic-bezier(.2, .7, .2, 1); }
@@ -300,7 +305,7 @@ footer a { color: var(--tinta2); }
 
   @supports (animation-timeline: view()) {
     /* telas e cartões sobem (e vêm de lado) quando entram na tela */
-    .recurso .tela, .turma-vitrine .tela, .temas figure, .passos li, .revisao, .duas .mini, .conforto .mini, .perguntas details, .aviso-atualiza, .diario {
+    .recurso .tela, .turma-vitrine .tela, .temas figure, .passos li, .revisao, .duas .mini, .conforto .mini, .perguntas details, .aviso-atualiza, .diario, .cinema {
       animation: subir linear both;
       animation-timeline: view();
       animation-range: entry 0% entry 75%;
@@ -356,6 +361,7 @@ footer a { color: var(--tinta2); }
   <div class="caixa">
     <a class="marca-app" href="#inicio" aria-label="Aprova, voltar ao topo"><img src="icon.png" alt="" width="38" height="38"><span>Aprova</span></a>
     <nav aria-label="Seções">
+      <a href="#videos">Vídeo</a>
       <a href="#recursos">O que faz</a>
       <a href="#turma">Grupos</a>
       <a href="#olhos">Leitura</a>
@@ -406,6 +412,21 @@ footer a { color: var(--tinta2); }
       <li><strong>Sem repetir questão</strong><span>as que você nunca fez vêm primeiro</span></li>
       <li><strong>Convite por link</strong><span>a turma entra com um clique</span></li>
     </ul></div>
+  </section>
+
+  <section class="secao" id="videos">
+    <div class="caixa">
+      <div class="cabeca">
+        <span class="rotulo">Veja funcionando</span>
+        <h2>O Aprova em <span class="marcado rolar">menos de um minuto</span>.</h2>
+      </div>
+      <figure class="cinema">
+        <video controls preload="none" playsinline poster="video/capa-promo.webp" width="1920" height="1080" aria-label="Vídeo de apresentação do Aprova">
+          <source src="video/aprova-promo.mp4" type="video/mp4">
+        </video>
+        <figcaption><span><strong>Apresentação</strong> · provas reais, simulados, revisão, painel e grupos</span><span>49 s · com som</span></figcaption>
+      </figure>
+    </div>
   </section>
 
   <section class="secao" id="recursos">
