@@ -142,7 +142,7 @@ em.it { font-style: italic; font-weight: 500; }
 
 /* ---------------------------------------------------------------- fatos */
 .fatos { border-block: 1px solid var(--linha); background: var(--folha); }
-.fatos ul { list-style: none; margin: 0; padding-block: 22px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
+.fatos ul { list-style: none; margin: 0; padding: 22px 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
 .fatos li { display: grid; gap: 2px; min-width: 0; }
 .fatos strong { font-family: var(--f-titulo); font-weight: 600; font-size: 1.32rem; line-height: 1.2; }
 .fatos span { font-size: 0.92rem; color: var(--tinta2); }
@@ -298,6 +298,27 @@ footer .marca-app img { width: 30px; height: 30px; border-radius: 8px; }
 footer nav { display: flex; flex-wrap: wrap; gap: 18px; }
 footer a { color: var(--tinta2); }
 
+/* ---------------------------------------------------------------- celular
+   No celular, as telas do app (feitas no computador, 1440 px) aparecem com zoom na parte que importa,
+   em vez da janela inteira encolhida; e nada passa da largura da tela. */
+html, body { overflow-x: clip; }
+@media (max-width: 560px) {
+  .selo { font-size: 0.8rem; gap: 6px; padding: 5px 12px 5px 6px; }
+  .selo b { font-size: 0.66rem; padding: 2px 8px; }
+  .tela.zoom { position: relative; aspect-ratio: var(--zr); }
+  .tela.zoom img { position: absolute; left: 0; top: 0; width: var(--zw); max-width: none; height: auto; translate: var(--zx) var(--zy); }
+  .temas .tela { aspect-ratio: 1.15; position: relative; }
+  .temas .tela img { position: absolute; left: 0; top: 0; width: 165%; max-width: none; height: auto; }
+  .trilha { margin-inline: 10px 18px; }
+  .trilha .parada:nth-child(2) { left: 15%; } .trilha .parada:nth-child(3) { left: 31%; }
+  .trilha .parada:nth-child(4) { left: 49%; } .trilha .parada:nth-child(5) { left: 72%; }
+  .so-largo { display: none; }
+  .diario th:nth-child(4), .diario td:nth-child(4) { display: none; }
+  .diario table { font-size: 0.86rem; }
+  .turma .adesivo { width: 74px; }
+  .novo-cel { width: 200px; }
+}
+
 /* ---------------------------------------------------------------- movimento
    Tudo começa visível: as animações da rolagem só mexem em posição, escala e no traço do
    marca-texto, nunca escondem texto. Quem pede menos movimento no sistema não vê nada disso. */
@@ -310,6 +331,15 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
 .diario td.nome { position: relative; }
 .carimbo { position: absolute; left: 64px; top: 50%; translate: 0 -50%; transform: rotate(-11deg); z-index: 1; font-family: var(--f-mono); font-weight: 600; font-size: 0.9rem;
   letter-spacing: 0.14em; text-transform: uppercase; color: var(--certo); border: 3px solid currentColor; border-radius: 6px; padding: 3px 10px; opacity: .88; pointer-events: none; }
+@media (max-width: 560px) {
+  .carimbo { left: 46px; font-size: 0.7rem; letter-spacing: 0.1em; border-width: 2px; padding: 2px 7px; }
+}
+@media (max-width: 380px) {
+  .selo { font-size: 0.74rem; }
+  .diario { padding-inline: 14px; }
+  .diario table { font-size: 0.8rem; }
+  .diario th, .diario td { padding-inline: 4px; }
+}
 
 @media (prefers-reduced-motion: no-preference) {
   .janela { animation: entrar .9s .1s cubic-bezier(.2, .7, .2, 1) backwards; }
@@ -367,6 +397,11 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
     @keyframes marcar-nome { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
     .carimbo { animation: carimbar linear both; animation-timeline: --diario; animation-range: cover 40% cover 50%; }
     @keyframes carimbar { from { scale: 2.4; opacity: 0; } 75% { scale: .92; opacity: .9; } to { scale: 1; opacity: .88; } }
+    @media (max-width: 560px) {
+      /* tela de celular é alta: a linha termina de crescer antes de chegar no meio da tela */
+      .trilha::before { animation-range: cover 10% cover 30%; }
+      .parada i { animation-range: cover calc(10% + var(--d) * .67%) cover calc(16% + var(--d) * .67%); }
+    }
   }
 }
 
@@ -525,7 +560,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
           <p>Cada simulado traz primeiro as questões que você nunca fez. Questão com texto quebrado ou alternativa faltando fica de fora.</p>
           <ul class="chips"><li>Sem repetir questão</li><li>Modo simulado</li><li>Modo estudo</li><li>Atalhos de A a E</li></ul>
         </div>
-        <figure class="tela"><img src="img/prova.png" width="1440" height="900" alt="Questão de Língua Portuguesa em modo estudo, com a alternativa B certa e a explicação da crase" loading="lazy"></figure>
+        <figure class="tela zoom" style="--zx:-4.0%;--zy:-4.0%;--zw:161.3%;--zr:1.378"><img src="img/prova.png" width="1440" height="900" alt="Questão de Língua Portuguesa em modo estudo, com a alternativa B certa e a explicação da crase" loading="lazy"></figure>
       </article>
 
       <article class="recurso inverte">
@@ -547,7 +582,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
           <p>No resultado, leve todos os seus erros para a IA e receba o que revisar e um plano de 3 dias. Com a chave do Claude, a IA trabalha dentro do app e cria questões novas para os seus simulados.</p>
           <ul class="chips"><li>Claude</li><li>ChatGPT</li><li>Plano de 3 dias</li></ul>
         </div>
-        <figure class="tela"><img src="img/ia-ajuda.webp" width="1440" height="900" alt="Ajuda da questão de crase com a dica de como pensar, as fontes e os botões Perguntar ao Claude e Perguntar ao ChatGPT" loading="lazy"></figure>
+        <figure class="tela zoom" style="--zx:-75.5%;--zy:-9.5%;--zw:408.2%;--zr:0.648"><img src="img/ia-ajuda.webp" width="1440" height="900" alt="Ajuda da questão de crase com a dica de como pensar, as fontes e os botões Perguntar ao Claude e Perguntar ao ChatGPT" loading="lazy"></figure>
       </article>
 
       <article class="recurso inverte">
@@ -559,7 +594,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
           <p>No Início, escolha a disciplina, por exemplo Conhecimentos Específicos, e faça uma mini prova só dela. Você decide de qual prova vêm as questões, quantas são e se é com cronômetro ou no modo estudo.</p>
           <ul class="chips"><li>Precisa melhorar</li><li>Acerto por assunto</li><li>Contagem para a prova</li><li>Mini prova por disciplina</li></ul>
         </div>
-        <figure class="tela"><img src="img/painel.png" width="1440" height="900" alt="Painel com a taxa de acerto por disciplina: Matemática e Raciocínio Lógico precisam melhorar, Língua Portuguesa está forte" loading="lazy"></figure>
+        <figure class="tela zoom" style="--zx:-17.0%;--zy:-0.0%;--zw:149.3%;--zr:1.128"><img src="img/painel.png" width="1440" height="900" alt="Painel com a taxa de acerto por disciplina: Matemática e Raciocínio Lógico precisam melhorar, Língua Portuguesa está forte" loading="lazy"></figure>
       </article>
 
       <article class="recurso">
@@ -579,7 +614,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
               <div class="parada" style="--d:15"><b>15</b><i></i></div>
               <div class="parada fim" style="--d:30"><b>30</b><i></i><small>dominada</small></div>
             </div>
-            <span class="legenda-trilha">Dias depois do erro, em escala.</span>
+            <span class="legenda-trilha">Dias depois do erro<span class="so-largo">, em escala</span>.</span>
           </div>
           <div class="duas">
             <div class="mini"><h3>Meta da semana sem culpa</h3><p>Meta em horas, cronômetro e as horas de cada dia. A primeira semana conta a partir do dia em que você começou.</p></div>
@@ -597,7 +632,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
             <span class="cor" style="--c:#FFD84D">amarelo</span><span class="cor" style="--c:#86E08F">verde</span><span class="cor" style="--c:#8CC2FF">azul</span><span class="cor" style="--c:#F7A3D3">rosa</span>
           </div>
         </div>
-        <figure class="tela"><img src="img/marcador.png" width="1440" height="900" alt="Artigo 37 da Constituição com trechos marcados em amarelo e verde, um sublinhado e notas na lista ao lado" loading="lazy"></figure>
+        <figure class="tela zoom" style="--zx:-0.0%;--zy:-0.0%;--zw:151.5%;--zr:1.354"><img src="img/marcador.png" width="1440" height="900" alt="Artigo 37 da Constituição com trechos marcados em amarelo e verde, um sublinhado e notas na lista ao lado" loading="lazy"></figure>
       </article>
     </div>
   </section>
