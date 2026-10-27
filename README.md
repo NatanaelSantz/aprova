@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.16.1" src="https://img.shields.io/badge/vers%C3%A3o-1.16.1-2340A8">
+  <img alt="Versão 1.17.0" src="https://img.shields.io/badge/vers%C3%A3o-1.17.0-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -239,6 +239,7 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
+| **1.17.0** | Tipo de corpo do personagem (magro, médio, forte, gordinho; médio por padrão), barba, boca, detalhes do rosto, 5 cabelos, 5 roupas e 4 itens novos, cor da calça |
 | **1.16.1** | Figurinhas na conversa: mensagem compacta e sem moldura, aparece na hora ao mandar, aba Recentes e abas visíveis no celular |
 | **1.16.0** | Mini prova por disciplina no Onde focar: escolha a disciplina, a prova de origem, quantas questões e se é com cronômetro |
 | **1.15.0** | Personagens com o dobro de detalhe, 7 modelos de óculos com 8 cores e 14 acessórios novos (cabeça, pescoço e costas) |

@@ -320,15 +320,15 @@ def sala_da_turma(app, membros: list[dict], cenario: str = "biblioteca", largura
 
 # ---------------------------------------------------------------------- criador de personagem
 
-ABAS_CRIADOR = [("rosto", "Rosto"), ("cabelo", "Cabelo"), ("oculos", "Óculos"), ("roupa", "Roupa"), ("acessorios", "Acessórios"),
+ABAS_CRIADOR = [("corpo", "Corpo"), ("rosto", "Rosto"), ("cabelo", "Cabelo"), ("oculos", "Óculos"), ("roupa", "Roupa"), ("acessorios", "Acessórios"),
                 ("cenario", "Cenário"), ("foto", "Foto")]
 
 
-def abrir_criador(app, ao_salvar=None, aba: str = "rosto") -> None:
+def abrir_criador(app, ao_salvar=None, aba: str = "corpo") -> None:
     c = app.c
     estado = {
         "cfg": dict(meu(app)) if tenho_personagem(app) else av.sortear(app.ranking.usuario_id or app.aj.get("nome") or None),
-        "aba": aba if aba in dict(ABAS_CRIADOR) else "rosto",
+        "aba": aba if aba in dict(ABAS_CRIADOR) else "corpo",
         "foto": None,  # foto nova escolhida agora (bytes)
         "apagar_foto": False,
         "gesto": "lobby",
@@ -416,12 +416,19 @@ def abrir_criador(app, ao_salvar=None, aba: str = "rosto") -> None:
 
     def montar_opcoes():
         aba = estado["aba"]
-        if aba == "rosto":
-            filhos = [linha_cores("Pele", "pele", av.PELES), linha_estilos("Olhos", "olhos", av.OLHOS), linha_cores("Cor dos olhos", "cor_olhos", av.CORES_OLHOS)]
+        if aba == "corpo":
+            filhos = [linha_estilos("Tipo de corpo", "corpo", av.CORPOS), linha_cores("Pele", "pele", av.PELES),
+                      comp.apagado("Toda roupa, capa e mochila se ajusta ao tipo de corpo.", c, 12)]
+        elif aba == "rosto":
+            filhos = [linha_estilos("Olhos", "olhos", av.OLHOS), linha_cores("Cor dos olhos", "cor_olhos", av.CORES_OLHOS),
+                      linha_estilos("Boca", "boca", av.BOCAS), linha_estilos("Detalhes", "marca", av.MARCAS)]
         elif aba == "cabelo":
-            filhos = [linha_estilos("Corte", "cabelo", av.CABELOS), linha_cores("Cor", "cor_cabelo", av.CORES_CABELO)]
+            filhos = [linha_estilos("Corte", "cabelo", av.CABELOS), linha_cores("Cor", "cor_cabelo", av.CORES_CABELO),
+                      linha_estilos("Barba e bigode", "barba", av.BARBAS),
+                      comp.apagado("A barba usa a cor do cabelo.", c, 12)]
         elif aba == "roupa":
-            filhos = [linha_estilos("Roupa", "roupa", av.ROUPAS), linha_cores("Cor", "cor_roupa", av.CORES_ROUPA)]
+            filhos = [linha_estilos("Roupa", "roupa", av.ROUPAS), linha_cores("Cor", "cor_roupa", av.CORES_ROUPA),
+                      linha_cores("Cor da calça", "cor_calca", av.CORES_CALCA)]
         elif aba == "oculos":
             filhos = [linha_estilos("Modelo", "oculos", av.OCULOS), linha_cores("Cor da armação", "cor_oculos", av.CORES_OCULOS),
                       comp.apagado("Os óculos combinam com qualquer chapéu ou acessório.", c, 12)]

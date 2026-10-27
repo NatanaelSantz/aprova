@@ -1775,11 +1775,55 @@ def test_personagem_validar_e_desenhar():
         for oc, _ in av.OCULOS:
             for cor in range(len(av.CORES_OCULOS)):
                 av.boneco({**av.PADRAO, "cabelo": cab, "oculos": oc, "cor_oculos": cor, "olhos": "determinado"})
-    for roupa, _ in av.ROUPAS:
-        for item, _ in av.ITENS:
-            for extra, _ in av.EXTRAS:
-                for kw in ({}, {"braco": "aceno", "aceno": 1}, {"braco": "dois", "pulo": 5}, {"respira": 1, "piscando": True}):
-                    av.boneco({**av.PADRAO, "roupa": roupa, "item": item, "extra": extra, "olhos": "feliz"}, **kw)
+    gestos = ({}, {"braco": "aceno", "aceno": 1}, {"braco": "dois", "pulo": 5}, {"respira": 1, "piscando": True})
+    for corpo, _ in av.CORPOS:  # cada roupa e cada extra em cada tipo de corpo, com todos os gestos
+        for i, (roupa, _) in enumerate(av.ROUPAS):
+            for j, (extra, _) in enumerate(av.EXTRAS):
+                item = av.ITENS[(i + j) % len(av.ITENS)][0]
+                av.boneco({**av.PADRAO, "corpo": corpo, "roupa": roupa, "item": item, "extra": extra, "olhos": "feliz"}, **gestos[(i + j) % 4])
+        for k, (item, _) in enumerate(av.ITENS):
+            for kw in gestos:
+                av.boneco({**av.PADRAO, "corpo": corpo, "item": item, "cabelo": av.CABELOS[k % len(av.CABELOS)][0]}, **kw)
+    for barba, _ in av.BARBAS:  # rosto: barba x boca, olhos x detalhes
+        for boca, _ in av.BOCAS:
+            av.boneco({**av.PADRAO, "barba": barba, "boca": boca, "cabelo": "careca" if boca == "neutra" else "curto"})
+    for olhos, _ in av.OLHOS:
+        for marca, _ in av.MARCAS:
+            for kw in ({}, {"piscando": True}, {"alegre": True}):
+                av.boneco({**av.PADRAO, "olhos": olhos, "marca": marca}, **kw)
+    for i in range(len(av.CORES_CALCA)):
+        av.boneco({**av.PADRAO, "cor_calca": i})
+    # tipo de corpo: quem salvou antes (sem "corpo") fica com o médio, mais magro que o desenho antigo
+    assert av.validar({"cabelo": "longo", "t": 5})["corpo"] == "medio"
+    largura = {}
+    for corpo, _ in av.CORPOS:
+        b = av.boneco({**av.PADRAO, "corpo": corpo, "item": "nenhum"})
+        largura[corpo] = b.crop((0, 52, 64, 62)).getbbox()[2] - b.crop((0, 52, 64, 62)).getbbox()[0]  # altura da barriga
+    assert largura["magro"] < largura["medio"] < largura["gordinho"] and largura["medio"] <= largura["forte"]
+    ombro = {c: (lambda b: b[2] - b[0])(av.boneco({**av.PADRAO, "corpo": c, "item": "nenhum"}).crop((0, 50, 64, 52)).getbbox()) for c in ("medio", "forte")}
+    assert ombro["forte"] > ombro["medio"]
+    # a mão (e o que ela segura) acompanha o corpo: o livro do magro fica mais perto do meio
+    def direita(c):
+        return av.boneco({**av.PADRAO, "item": "livro", "corpo": c}).getbbox()[2]
+    assert direita("magro") < direita("gordinho")
+    # cabe no servidor (perfis.avatar: até 600 letras, chaves e valores simples), mesmo com os nomes mais longos
+    import json as _json
+    import re as _re
+
+    maior = {**av.PADRAO, "t": 10**10, "foto": 10**10, "usar_foto": True}
+    for chave, opcoes in av.CATEGORIAS.items():
+        maior[chave] = max((o[0] for o in opcoes), key=len)
+    for chave, lista in av.CORES.items():
+        maior[chave] = len(lista) - 1
+    texto = _json.dumps(av.validar(maior), separators=(", ", ": "))
+    assert len(texto) <= 600, len(texto)
+    for k, v in av.validar(maior).items():
+        assert _re.fullmatch(r"[a-z_]{1,16}", k) and (not isinstance(v, str) or _re.fullmatch(r"[a-z0-9_-]{0,24}", v))
+    # busto: cabelo alto (black power) ou chapéu cabem no recorte
+    for alto in ({"cabelo": "afro"}, {"cabelo": "moicano"}, {"acessorio": "chapeu"}):
+        busto = Image.open(_io.BytesIO(av.rosto({**av.PADRAO, **alto}, 1, piscar=False))).convert("RGBA")
+        assert busto.size == (40, 40) and busto.getbbox()[1] >= 0
+        assert not any(busto.getpixel((x, 0))[3] for x in range(40)) or alto.get("acessorio")
     # 1.14.0 tinha óculos como acessório: vira o óculos redondo
     antigo = av.validar({"acessorio": "oculos", "t": 5})
     assert antigo["acessorio"] == "nenhum" and antigo["oculos"] == "redondo"

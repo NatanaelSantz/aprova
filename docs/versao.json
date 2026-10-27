@@ -1,11 +1,10 @@
 {
-  "versao": "1.16.1",
-  "data": "26/10/2026",
+  "versao": "1.17.0",
+  "data": "27/10/2026",
   "notas": [
-    "Figurinhas na conversa: a mensagem que é só figurinha ficou compacta, sem moldura e sem espaço sobrando",
-    "A figurinha aparece na hora, como 'enviando…', e a lista não pisca mais ao mandar",
-    "Nova aba Recentes com as últimas figurinhas usadas; as abas não somem mais no celular",
-    "Figurinhas animadas do GIPHY aparecem sem o fundo cinza; nas respostas, figurinha sem balão"
+    "Personagens mais magros: o corpo agora é médio por padrão, e dá para escolher magro, médio, forte ou gordinho",
+    "Mais opções: 5 cortes de cabelo novos (black power, tranças, maria-chiquinha, moicano, repartido), barba e bigode, boca, sardas e outros detalhes, olhos sonolento e piscadinha",
+    "Roupas novas: toga, farda, jaleco, jaqueta e regata, e a cor da calça; itens novos: Vade Mecum, marca-texto, diploma e troféu"
   ],
   "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
 }

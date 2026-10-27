@@ -45,10 +45,18 @@ CORES_OLHOS = [("#5A3A28", "Castanhos"), ("#24232B", "Pretos"), ("#3B7AD4", "Azu
 CORES_ROUPA = [("#2340A8", "Azul Aprova"), ("#C2413A", "Vermelho"), ("#2E8B57", "Verde"), ("#E2B42F", "Amarelo"), ("#6E4BB8", "Roxo"),
                ("#E07B2C", "Laranja"), ("#D9578C", "Rosa"), ("#16928E", "Turquesa"), ("#6B7280", "Cinza"), ("#2A2D3A", "Preto"), ("#EFEFEF", "Branco")]
 
-CABELOS = [("curto", "Curto"), ("espetado", "Espetado"), ("longo", "Longo"), ("franja", "Chanel"), ("coque", "Coque"),
-           ("rabo", "Rabo de cavalo"), ("cacheado", "Cacheado"), ("careca", "Careca")]
-OLHOS = [("normal", "Normal"), ("feliz", "Feliz"), ("determinado", "Determinado")]
-ROUPAS = [("moletom", "Moletom"), ("camiseta", "Camiseta"), ("vestido", "Vestido"), ("terno", "Terno"), ("manto", "Manto de mago"), ("armadura", "Armadura")]
+CORES_CALCA = [("#2F3B5C", "Jeans"), ("#2A2D3A", "Preta"), ("#6B7280", "Cinza"), ("#C9B48C", "Bege"), ("#6B4A2E", "Marrom"),
+               ("#4A5D3A", "Verde-oliva"), ("#EDEDED", "Branca")]
+
+CABELOS = [("curto", "Curto"), ("lateral", "Repartido de lado"), ("espetado", "Espetado"), ("moicano", "Moicano"), ("longo", "Longo"),
+           ("franja", "Chanel"), ("coque", "Coque"), ("rabo", "Rabo de cavalo"), ("chiquinhas", "Maria-chiquinha"), ("trancas", "Tranças"),
+           ("cacheado", "Cacheado"), ("afro", "Black power"), ("careca", "Careca")]
+BARBAS = [("nenhuma", "Sem barba"), ("por_fazer", "Por fazer"), ("bigode", "Bigode"), ("cavanhaque", "Cavanhaque"), ("cheia", "Barba cheia")]
+OLHOS = [("normal", "Normal"), ("feliz", "Feliz"), ("determinado", "Determinado"), ("sonolento", "Sonolento"), ("piscadinha", "Piscadinha")]
+BOCAS = [("sorriso", "Sorriso"), ("sorrisao", "Sorrisão"), ("neutra", "Séria"), ("lingua", "Língua de fora"), ("surpresa", "Surpresa")]
+MARCAS = [("nenhuma", "Nada"), ("sardas", "Sardas"), ("pinta", "Pinta"), ("corado", "Bochecha corada"), ("curativo", "Curativo")]
+ROUPAS = [("moletom", "Moletom"), ("camiseta", "Camiseta"), ("regata", "Regata"), ("jaqueta", "Jaqueta"), ("vestido", "Vestido"),
+          ("terno", "Terno"), ("toga", "Toga"), ("farda", "Farda"), ("jaleco", "Jaleco"), ("manto", "Manto de mago"), ("armadura", "Armadura")]
 ACESSORIOS = [("nenhum", "Nenhum"), ("bone", "Boné"), ("gorro", "Gorro"), ("capelo", "Capelo de formatura"), ("coroa", "Coroa"), ("tiara", "Tiara"),
               ("chapeu", "Chapéu de mago"), ("viking", "Capacete viking"), ("fone", "Fone"), ("laco", "Laço"), ("flor", "Flor"),
               ("gato", "Orelhas de gato"), ("aureola", "Auréola"), ("faixa", "Faixa")]
@@ -58,14 +66,18 @@ CORES_OCULOS = [("#2A2A36", "Preto"), ("#6B4A2E", "Tartaruga"), ("#D9A21C", "Dou
                 ("#2F6BD8", "Azul"), ("#E56FA5", "Rosa"), ("#F2F2F2", "Branco")]
 EXTRAS = [("nenhum", "Nada"), ("cachecol", "Cachecol"), ("medalha", "Medalha"), ("gravata", "Gravata-borboleta"), ("colar", "Colar"),
           ("capa", "Capa de herói"), ("mochila", "Mochila")]
-ITENS = [("nenhum", "Nada"), ("livro", "Livro"), ("lapis", "Lápis gigante"), ("cafe", "Café"), ("espada", "Espada"), ("cajado", "Cajado")]
+ITENS = [("nenhum", "Nada"), ("livro", "Livro"), ("vade", "Vade Mecum"), ("lapis", "Lápis gigante"), ("marcatexto", "Marca-texto"),
+         ("cafe", "Café"), ("diploma", "Diploma"), ("trofeu", "Troféu"), ("espada", "Espada"), ("cajado", "Cajado")]
+CORPOS = [("magro", "Magro"), ("medio", "Médio"), ("forte", "Forte"), ("gordinho", "Gordinho")]
 CENARIOS = [("biblioteca", "Biblioteca"), ("floresta", "Floresta"), ("noite", "Noite na cidade"), ("castelo", "Castelo"), ("sala", "Sala de aula")]
 
-CATEGORIAS = {"cabelo": CABELOS, "olhos": OLHOS, "roupa": ROUPAS, "acessorio": ACESSORIOS, "oculos": OCULOS, "extra": EXTRAS, "item": ITENS,
+CATEGORIAS = {"corpo": CORPOS, "cabelo": CABELOS, "barba": BARBAS, "olhos": OLHOS, "boca": BOCAS, "marca": MARCAS, "roupa": ROUPAS, "acessorio": ACESSORIOS, "oculos": OCULOS, "extra": EXTRAS, "item": ITENS,
               "cenario": CENARIOS}
-CORES = {"pele": PELES, "cor_cabelo": CORES_CABELO, "cor_olhos": CORES_OLHOS, "cor_roupa": CORES_ROUPA, "cor_oculos": CORES_OCULOS}
+CORES = {"pele": PELES, "cor_cabelo": CORES_CABELO, "cor_olhos": CORES_OLHOS, "cor_roupa": CORES_ROUPA, "cor_calca": CORES_CALCA,
+         "cor_oculos": CORES_OCULOS}
 
-PADRAO = {"v": 1, "pele": 1, "cabelo": "curto", "cor_cabelo": 1, "olhos": "normal", "cor_olhos": 0, "roupa": "moletom", "cor_roupa": 0,
+PADRAO = {"v": 1, "corpo": "medio", "pele": 1, "cabelo": "curto", "cor_cabelo": 1, "barba": "nenhuma", "olhos": "normal", "cor_olhos": 0,
+          "boca": "sorriso", "marca": "nenhuma", "roupa": "moletom", "cor_roupa": 0, "cor_calca": 0,
           "acessorio": "nenhum", "oculos": "nenhum", "cor_oculos": 0, "extra": "nenhum", "item": "livro", "cenario": "biblioteca",
           "usar_foto": False, "foto": 0, "t": 0}
 
@@ -106,6 +118,15 @@ def sortear(semente: str | None = None) -> dict:
         cfg[chave] = rnd.choice(opcoes)[0]
     for chave, lista in CORES.items():
         cfg[chave] = rnd.randrange(len(lista))
+    cfg["corpo"] = rnd.choice(["magro", "medio", "medio", "medio", "forte", "gordinho"])
+    if rnd.random() < 0.7:
+        cfg["barba"] = "nenhuma"
+    if rnd.random() < 0.6:
+        cfg["boca"] = "sorriso"
+    if rnd.random() < 0.7:
+        cfg["marca"] = "nenhuma"
+    if rnd.random() < 0.5:
+        cfg["cor_calca"] = 0
     if rnd.random() < 0.45:
         cfg["acessorio"] = "nenhum"
     if rnd.random() < 0.6:
@@ -216,6 +237,54 @@ ROUPA_MOLDES = {
         33: "....CCC..CCC....",
         34: "....CCC..CCC....",
     },
+    "regata": {
+        24: ".....cSSSSc.....",
+        25: ".ssccccccccccss.",
+        26: ".SsccccccccccsS.",
+        27: ".SsccccccccccsS.",
+    },
+    "jaqueta": {
+        24: "....CCwwwwCC....",
+        25: ".ccccCwwwwCcccc.",
+        26: ".CcccCwwwwCcccC.",
+        27: ".CcccCwwwwCcccC.",
+        28: ".sscccwwwwcccss.",
+        29: ".ssCccwwwwcccss.",
+        30: "...CccwwwwccC...",
+    },
+    "toga": {
+        24: "....cwwSSwwc....",
+        25: "cccccwwwwwwccccc",
+        26: "cCccccwwwwccccCc",
+        27: "cCcccccwwcccccCc",
+        28: ".ssccccccccccss.",
+        29: ".ssCcccccccccss.",
+        30: "...cccccccccc...",
+        31: "...cccccccccc...",
+        32: "...cccccccccc...",
+        33: "..cCccccccccCc..",
+        34: "..CCCCCCCCCCCC..",
+    },
+    "farda": {
+        24: "....CcSSSScC....",
+        25: ".CCccccSSccccCC.",
+        26: ".CcccCCccCCcccC.",
+        27: ".CcccACccCCcccC.",
+        28: ".ssccccccccccss.",
+        29: ".ssCcccccccccss.",
+        30: "...BBBBAABBBB...",
+    },
+    "jaleco": {
+        24: "....wwcSScww....",
+        25: ".wwwwwccccwwwww.",
+        26: ".wwwwwccccwwwww.",
+        27: ".wwwAwccccwwwww.",
+        28: ".sswwwccccwwwss.",
+        29: ".sswwwccccwwwss.",
+        30: "...wwwccccwww...",
+        31: "...www....www...",
+        32: "...www....www...",
+    },
     "manto": {
         24: "....ccdSSdcc....",
         25: "ccccccdccdcccccc",
@@ -314,10 +383,98 @@ CABELO_FRENTE = {
         14: "..hhh.hhhh.hhh..",
         15: "..hH..h..h..Hh..",
     },
+    "lateral": {
+        10: ".....hhhhhhh....",
+        11: "...hhhhhhhhhhh..",
+        12: "..hhhhLLhhhhhhh.",
+        13: "..hhhhhhhhhhhhh.",
+        14: "..hhhhhhhhhhhhh.",
+        15: "..hH.hhhhhhhHhh.",
+        16: "..h......hhhHhh.",
+        17: "..h.........Hh..",
+    },
+    "moicano": {
+        5: "......hh........",
+        6: ".....hhhh.......",
+        7: "......hhhh......",
+        8: ".....hhhhh......",
+        9: "......hhhhh.....",
+        10: ".....hhhhhh.....",
+        11: "....HhhhhhhH....",
+        12: "...H.hhLhhh.H...",
+        13: "..H.H.hhhh.H.H..",
+        14: "..H.H......H.H..",
+    },
+    "chiquinhas": {
+        11: "....hhhhhhhh....",
+        12: "...hhLLhhhhhh...",
+        13: ".dhhhhhhhhhhhhd.",
+        14: ".dhhhhhhhhhhhhd.",
+        15: "..hhHhhhhhhHhh..",
+        16: "..hH........Hh..",
+        17: "..h..........h..",
+    },
+    "trancas": {
+        11: "....hhhhhhhh....",
+        12: "...hhLLhhhhhh...",
+        13: "..hhhhhhhhhhhh..",
+        14: "..hhhhhhhhhhhh..",
+        15: "..hhhhhHhhhhhh..",
+        16: "..hh........hh..",
+        17: ".hh..........hh.",
+        18: ".hH..........Hh.",
+        19: ".hh..........hh.",
+        20: ".Hh..........hH.",
+        21: ".hh..........hh.",
+        22: ".hH..........Hh.",
+        23: "..hh........hh..",
+        24: "..Hh........hH..",
+        25: "..hh........hh..",
+        26: "..hH........Hh..",
+        27: "..dd........dd..",
+        28: "..hh........hh..",
+    },
+    "afro": {
+        8: "....hhhhhhhh....",
+        9: "..hhhhhhhhhhhh..",
+        10: ".hhhhhLLhhhhhhh.",
+        11: ".hhhhhhhhhhhhhh.",
+        12: "hhhhhhhhhhhhhhhh",
+        13: "hhhhhhhhhhhhhhhh",
+        14: "hhhhhhhhhhhhhhhh",
+        15: "hhHhhhHhhHhhHhhh",
+        16: "hhh..........hhh",
+        17: "hH............hh",
+        18: "hh............Hh",
+        19: ".hh..........hh.",
+        20: "..h..........h..",
+    },
     "careca": {},
 }
 
 CABELO_ATRAS = {
+    "afro": {
+        6: ".....hhhhhh.....",
+        7: "...hhhhHhhhhh...",
+        8: "..hhhhhhhhhHhh..",
+        9: ".hhhhhhhhhhhhhh.",
+        **{y: ("hhhhhhhhhhhhhhhh" if y % 3 else "Hhhhhhhhhhhhhhhh" if y % 2 else "hhhhhhhhhhhhhhhH") for y in range(10, 20)},
+        20: ".hhhhhhhhhhhhhh.",
+        21: "..hhhhhhhhhhhh..",
+        22: "....hhhhhhhh....",
+    },
+    "chiquinhas": ({  # 20 colunas (a partir de x = 6): os rabinhos saem dos lados da cabeça
+        12: "..hh............hh..",
+        13: ".hhhh..........hhhh.",
+        14: ".hHhh..........hhHh.",
+        15: "hhhh............hhhh",
+        16: "hHh..............hHh",
+        17: "hhh..............hhh",
+        18: "hh................hh",
+        19: "hH................Hh",
+        20: ".h................h.",
+    }, 6),
+    "lateral": {13: "..............h.", 14: "..............h."},
     "longo": {**{13: ".hhhhhhhhhhhhhh."}, **{y: ".hh..........hh." for y in range(14, 28)}, 28: ".HH..........HH."},
     "franja": {y: ".h............h." for y in range(13, 21)},
     "rabo": {12: "..............h.", 13: ".............hhh", **{y: "..............hH" for y in range(14, 22)}, 22: "..............H."},
@@ -438,6 +595,10 @@ ITEM_MOLDES = {
     "cafe": ({26: "jjjj.", 27: "iiiii", 28: "iiii.i", 29: "iiiiii", 30: "iiii."}, 22),
     "espada": ({**{y: ".jJ.." for y in range(12, 26)}, 11: "..J..", 26: "iiiii", 27: ".II..", 28: ".II..", 29: ".II..", 30: "..i.."}, 21),
     "cajado": ({8: ".jJ.", 9: "jJjj", 10: "jjjj", 11: ".jj.", **{y: "..i." for y in range(12, 37)}}, 21),
+    "vade": ({24: "iiiiij", 25: "iIIIij", 26: "iiiiij", 27: "iKKKij", 28: "iiiiij", 29: "iiiiij", 30: "iIIIij", 31: "iiiiij"}, 21),
+    "marcatexto": ({20: "k.", 21: "kk", 22: "jj", **{y: "iI" for y in range(23, 29)}, 29: "jj"}, 21),
+    "diploma": ({**{y: "jJ" for y in range(21, 31)}, 25: "rr", 26: "rR", 31: ".r"}, 21),
+    "trofeu": ({21: "iiiii", 22: "iJiii", 23: "iiiii", 24: ".iii.", 25: "..i..", 26: "..i..", 27: ".III.", 28: ".jjj."}, 20),
 }
 CORES_ITEM = {
     "livro": {"i": "#B83A3A", "I": "#E8C15A", "j": "#F4EAD2"},
@@ -445,7 +606,85 @@ CORES_ITEM = {
     "cafe": {"i": "#F4F1EA", "j": "#6B3E26"},
     "espada": {"j": "#C9D1DC", "J": "#F4F7FB", "i": "#D9A21C", "I": "#7A4E2D"},
     "cajado": {"j": "#5CC8E8", "J": "#E6FBFF", "i": "#8A5A34"},
+    "vade": {"i": "#1E4E8C", "I": "#E8C15A", "K": "#F4EAD2", "j": "#F4EAD2"},
+    "marcatexto": {"k": "#C6F03A", "j": "#2A2D3A", "i": "#E6F542", "I": "#C9D62E"},
+    "diploma": {"j": "#F6EFDD", "J": "#E2D6B8", "r": "#C2413A", "R": "#8A2A2A"},
+    "trofeu": {"i": "#F2C230", "J": "#FFF0A8", "I": "#C9962A", "j": "#5A3E2B"},
 }
+
+# ---------------------------------------------------------------- tipo de corpo
+# Os moldes do tronco e das pernas foram desenhados no corpo largo ("gordinho"). Os outros corpos tiram
+# colunas do meio do tronco e das pernas (na linha de 16 colunas) e centralizam de novo, então toda roupa,
+# capa e mochila serve em qualquer corpo. As colunas 1-2 e 13-14 são os braços: eles chegam para dentro.
+# Cada corpo: (primeira linha, última linha, "tira" ou "dobra", colunas). "dobra" repete as colunas (fica mais largo).
+OPERACOES_CORPO = {
+    "magro": [(23, 30, "tira", {3, 4, 11, 12}), (31, 39, "tira", {4, 11})],
+    "medio": [(23, 30, "tira", {4, 11}), (31, 39, "tira", {4, 11})],
+    "forte": [(24, 24, "dobra", {4, 11}), (28, 30, "tira", {4, 11}), (31, 39, "tira", {4, 11})],  # ombro largo, cintura fina
+    "gordinho": [(30, 39, "dobra", {4, 11})],  # barriga e pernas mais cheias
+}
+SOMBRA_CORPO = {"magro": 19, "medio": 21, "forte": 23, "gordinho": 26}
+
+
+def _operacao(y: int, corpo: str) -> tuple[str, set]:
+    for de, ate, tipo, cols in OPERACOES_CORPO.get(corpo, []):
+        if de <= y <= ate:
+            return tipo, cols
+    return "", set()
+
+
+def _tira(y: int, corpo: str) -> set:
+    tipo, cols = _operacao(y, corpo)
+    return cols if tipo == "tira" else set()
+
+
+def recuo(y: int, corpo: str) -> int:
+    """Quanto o braço (ou a mão, ou o que ela segura) chega para dentro nesta linha (negativo: para fora)."""
+    tipo, cols = _operacao(y, corpo)
+    n = sum(1 for c in cols if c < 8)
+    return n if tipo == "tira" else -n if tipo == "dobra" else 0
+
+
+def _alargar(linha: str, dobra: set) -> str:
+    """Repete as colunas e corta as pontas vazias (se a linha já vai até a borda, fica como está)."""
+    if len(linha) != 16:
+        return linha
+    esq = sum(1 for c in dobra if c < 8)
+    dir_ = len(dobra) - esq
+    if linha[:esq].strip(". ") or linha[16 - dir_:].strip(". "):
+        return linha
+    novo = "".join(ch * (2 if i in dobra else 1) for i, ch in enumerate(linha))
+    return novo[esq: len(novo) - dir_]
+
+
+def _estreitar(linha: str, tira: set, juntar: bool = False) -> str:
+    """Tira as colunas e centraliza de novo. juntar: o que estava numa coluna tirada (alça, borda) passa para a vizinha."""
+    if not tira or len(linha) != 16:
+        return linha
+    ch = list(linha)
+    if juntar:
+        for c in sorted(tira, key=lambda c: abs(c - 7.5)):
+            if ch[c] in ". ":
+                continue
+            passo = 1 if c < 8 else -1
+            viz = c + passo
+            while viz in tira:
+                viz += passo
+            if 0 <= viz < 16 and ch[viz] in ". ":
+                ch[viz] = ch[c]
+    resto = "".join(x for i, x in enumerate(ch) if i not in tira)
+    esq = sum(1 for c in tira if c < 8)
+    return "." * esq + resto + "." * (len(tira) - esq)
+
+
+def _moldar(molde: dict, corpo: str, juntar: bool = False) -> dict:
+    """O molde (linhas de 16 colunas) no tipo de corpo escolhido."""
+    saida = {}
+    for y, l in molde.items():
+        tipo, cols = _operacao(y, corpo)
+        saida[y] = _estreitar(l, cols, juntar) if tipo == "tira" else _alargar(l, cols) if tipo == "dobra" else l
+    return saida
+
 
 # braço levantado (para o aceno e para o pulo): pixels de manga ("c") e mão ("s")
 BRACO_ACIMA_ESQ = [((9, 24), "c"), ((9, 23), "c"), ((8, 22), "c"), ((8, 21), "c"), ((7, 20), "s"), ((8, 20), "s"), ((7, 19), "s"), ((8, 19), "s")]
@@ -460,12 +699,14 @@ def _paleta(cfg: dict) -> dict[str, tuple]:
         "moletom": "#F4F4F4", "manto": "#E8C15A", "armadura": "#7A4E2D",
         "terno": "#C2413A" if cfg["cor_roupa"] not in (1, 6) else "#2340A8",
     }.get(cfg["roupa"], "#F4F4F4")
+    calca = _rgb(CORES_CALCA[cfg.get("cor_calca", 0)][0])
+    claro = _luz(calca) > 0.7
     return {
         "s": pele, "S": _escura(pele, 0.16), "r": _mistura(pele, (255, 110, 130), 0.42),
         "h": cab, "H": _escura(cab, 0.28), "L": cab,  # o brilho do cabelo é feito na grade final
         "e": _rgb(CORES_OLHOS[cfg["cor_olhos"]][0]), "w": (255, 255, 255, 255), "m": (128, 52, 58, 255),
         "c": roupa, "C": _escura(roupa, 0.22) if _luz(roupa) > 0.2 else _clara(roupa, 0.12), "d": _rgb(detalhe),
-        "A": _rgb("#C9D1DC"), "p": _rgb("#2F3B5C"), "P": _rgb("#232C46"), "b": _rgb("#5A3E2B"), "B": _rgb("#3F2A1D"),
+        "A": _rgb("#C9D1DC"), "p": calca, "P": _escura(calca, 0.12 if claro else 0.25), "b": _rgb("#5A3E2B"), "B": _rgb("#3F2A1D"),
     }
 
 
@@ -520,26 +761,39 @@ def _base(cfg: dict, respira: int = 0, braco: str = "", aceno: int = 0, vapor: i
     corta = (ACESSORIO_MOLDES[acess][1] if acess in ACESSORIO_MOLDES else 0) or None
     extra = cfg["extra"]
 
+    corpo = cfg.get("corpo", "medio")
+
     # costas: capa e mochila; cabelo de trás
     if extra in EXTRA_MOLDES and EXTRA_MOLDES[extra][1]:
-        _pintar(img, mat, EXTRA_MOLDES[extra][1], _cores_extra(cfg, pal), M_EXTRA, dy=d)
+        _pintar(img, mat, _moldar(EXTRA_MOLDES[extra][1], corpo, juntar=True), _cores_extra(cfg, pal), M_EXTRA, dy=d)
+    pal_cabelo = {**pal, "d": _rgb("#E0507E")}  # "d" no cabelo = elástico
     if cfg["cabelo"] in CABELO_ATRAS:
-        _pintar(img, mat, CABELO_ATRAS[cfg["cabelo"]], pal, M_CABELO, dy=d, desde_y=corta)
+        atras = CABELO_ATRAS[cfg["cabelo"]]
+        molde_atras, x_atras = atras if isinstance(atras, tuple) else (atras, 8)
+        _pintar(img, mat, _moldar(molde_atras, corpo, juntar=True), pal_cabelo, M_CABELO, x0=x_atras, dy=d, desde_y=corta)
 
     # corpo: pernas fixas, tronco acompanha a respiração
-    pernas = {y: l for y, l in CORPO.items() if y >= 31}
-    tronco = {y: l for y, l in CORPO.items() if y < 31}
-    roupa = ROUPA_MOLDES.get(cfg["roupa"], {})
+    pernas = _moldar({y: l for y, l in CORPO.items() if y >= 31}, corpo)
+    tronco = _moldar({y: l for y, l in CORPO.items() if y < 31}, corpo)
+    roupa = _moldar(ROUPA_MOLDES.get(cfg["roupa"], {}), corpo)
     _pintar(img, mat, pernas, pal, MAT_CORPO)
     _pintar(img, mat, {y: l for y, l in roupa.items() if y >= 31}, pal, MAT_CORPO)
     roupa_cima = {y: l for y, l in roupa.items() if y < 31}
     if braco:
         # some com o braço de baixo do lado que levanta
-        tronco = {y: (".." + l[2:] if y >= 25 else l) for y, l in tronco.items()}
-        roupa_cima = {y: (".." + l[2:] if y >= 25 else l) for y, l in roupa_cima.items()}
+        def sem_esq(y, l):
+            n = 2 + recuo(y, corpo)
+            return "." * n + l[n:] if y >= 25 else l
+
+        def sem_dir(y, l):
+            n = 14 - recuo(y, corpo)
+            return l[:n] + "." * (16 - n) if y >= 25 else l
+
+        tronco = {y: sem_esq(y, l) for y, l in tronco.items()}
+        roupa_cima = {y: sem_esq(y, l) for y, l in roupa_cima.items()}
         if braco == "dois":
-            tronco = {y: (l[:14] + ".." if y >= 25 else l) for y, l in tronco.items()}
-            roupa_cima = {y: (l[:14] + ".." if y >= 25 else l) for y, l in roupa_cima.items()}
+            tronco = {y: sem_dir(y, l) for y, l in tronco.items()}
+            roupa_cima = {y: sem_dir(y, l) for y, l in roupa_cima.items()}
     _pintar(img, mat, tronco, pal, MAT_CORPO, dy=d)
     _pintar(img, mat, roupa_cima, pal, MAT_CORPO, dy=d)
 
@@ -547,24 +801,34 @@ def _base(cfg: dict, respira: int = 0, braco: str = "", aceno: int = 0, vapor: i
     if braco:
         manga = "s" if cfg["roupa"] == "vestido" else "c"
         lados = [BRACO_ACIMA_ESQ] + ([BRACO_ACIMA_DIR] if braco == "dois" else [])
+        # corpo mais estreito: o ombro chega para dentro e o braço sobe em diagonal; a mão fica do lado da cabeça
+        k = recuo(25, corpo)
         for lado in lados:
+            sinal = 1 if lado is BRACO_ACIMA_ESQ else -1
+            pontos = []
             for (x, y), ch in lado:
-                xx = x - (1 if aceno and lado is BRACO_ACIMA_ESQ and y <= 20 else 0)
+                x -= 1 if aceno and lado is BRACO_ACIMA_ESQ and y <= 20 else 0
+                if y >= 23:  # ombro: estica da posição antiga até o ombro novo
+                    pontos += [(x + sinal * j, y, ch) for j in range(k + 1)]
+                else:
+                    pontos.append((x, y, ch))
+            for xx, y, ch in pontos:
                 if cfg["roupa"] == "armadura" and ch == "s":
                     px[xx, y + d], pm[xx, y + d] = pal["A"], M_METAL
                 else:
                     letra = manga if ch == "c" else "s"
                     px[xx, y + d], pm[xx, y + d] = pal[letra], MAT_CORPO[letra]
+    k_mao = recuo(28, corpo)
     if cfg["roupa"] == "armadura" and not braco:
-        for x in (9, 10, 21, 22):
+        for x in (9 + k_mao, 10 + k_mao, 21 - k_mao, 22 - k_mao):
             for y in (28, 29):
                 px[x, y + d], pm[x, y + d] = pal["A"], M_METAL
 
     # pescoço (cachecol, medalha...), cabeça, cabelo, acessório, óculos
     if extra in EXTRA_MOLDES and EXTRA_MOLDES[extra][0]:
-        _pintar(img, mat, EXTRA_MOLDES[extra][0], _cores_extra(cfg, pal), M_EXTRA, dy=d)
+        _pintar(img, mat, _moldar(EXTRA_MOLDES[extra][0], corpo, juntar=True), _cores_extra(cfg, pal), M_EXTRA, dy=d)
     _pintar(img, mat, CABECA, pal, MAT_CORPO, dy=d)
-    _pintar(img, mat, CABELO_FRENTE.get(cfg["cabelo"], {}), pal, M_CABELO, dy=d, desde_y=corta)
+    _pintar(img, mat, _moldar(CABELO_FRENTE.get(cfg["cabelo"], {}), corpo, juntar=True), pal_cabelo, M_CABELO, dy=d, desde_y=corta)
     if acess in ACESSORIO_MOLDES:
         _pintar(img, mat, ACESSORIO_MOLDES[acess][0], _cores_camada(CORES_ACESSORIO[acess], pal), M_ACESS, dy=d)
 
@@ -572,11 +836,11 @@ def _base(cfg: dict, respira: int = 0, braco: str = "", aceno: int = 0, vapor: i
     item = cfg["item"]
     if item in ITEM_MOLDES and braco != "dois":
         molde, x0 = ITEM_MOLDES[item]
-        _pintar(img, mat, molde, {k: _rgb(v) for k, v in CORES_ITEM[item].items()}, M_ITEM, x0=x0, dy=d)
+        _pintar(img, mat, molde, {k: _rgb(v) for k, v in CORES_ITEM[item].items()}, M_ITEM, x0=x0 - k_mao, dy=d)
         if item == "cafe" and vapor:
             for i, (x, y) in enumerate(((23, 24), (24, 23), (23, 22))):
                 if (vapor + i) % 3:
-                    xx = x + (vapor % 2)
+                    xx = x + (vapor % 2) - k_mao
                     px[xx, y + d], pm[xx, y + d] = (255, 255, 255, 255), M_ROSTO
     return img, mat, pal
 
@@ -678,18 +942,40 @@ def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: b
     cilio = _mistura(CONTORNO, e, 0.15)
     estilo = "feliz" if alegre else cfg["olhos"]
     sobrancelha = pal["H"] if cfg["cabelo"] != "careca" else _escura(pele, 0.45)
+
+    def fechado(x0, y0, fora, feliz):
+        if feliz:
+            for dx, dy in ((-1, 3), (0, 2), (1, 1), (2, 1), (3, 2), (4, 3)):
+                pinta(x0 + dx, y0 + dy, cilio)
+        else:
+            for k in range(4):
+                pinta(x0 + k, y0 + 2, cilio)
+            pinta(fora, y0 + 2, cilio)
+
     if not cfg["oculos"] in OCULOS_COBREM_OLHOS:
         for x0, lado in ((26, -1), (34, 1)):
             y0 = 34 + d2
             fora = x0 - 1 if lado < 0 else x0 + 4
             if piscando:
-                for k in range(4):
-                    pinta(x0 + k, y0 + 2, cilio)
-                pinta(fora, y0 + 2, cilio)
+                fechado(x0, y0, fora, False)
                 continue
-            if estilo == "feliz":
-                for dx, dy in ((-1, 3), (0, 2), (1, 1), (2, 1), (3, 2), (4, 3)):
-                    pinta(x0 + dx, y0 + dy, cilio)
+            if estilo == "feliz" or (estilo == "piscadinha" and lado > 0):
+                fechado(x0, y0, fora, True)
+                if estilo == "piscadinha":
+                    for dx in (1, 2):
+                        pinta(x0 + dx, y0 - 2, _mistura(sobrancelha, pele, 0.3))
+                continue
+            if estilo == "sonolento":  # pálpebra pesada: só a metade de baixo do olho aparece
+                for k in range(4):
+                    pinta(x0 + k, y0, _escura(pele, 0.1))
+                    pinta(x0 + k, y0 + 1, cilio)
+                pinta(fora, y0 + 1, cilio)
+                for k, cor in enumerate((e, _escura(e, 0.6), _escura(e, 0.6), e)):
+                    pinta(x0 + k, y0 + 2, cor)
+                for k in range(4):
+                    pinta(x0 + k, y0 + 3, _clara(e, 0.32))
+                for dx in (0, 1, 2, 3):
+                    pinta(x0 + dx, y0 - 2, _mistura(sobrancelha, pele, 0.55))
                 continue
             for k in range(4):
                 pinta(x0 + k, y0, cilio)
@@ -707,22 +993,97 @@ def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: b
             else:
                 for dx in (1, 2):
                     pinta(x0 + dx, y0 - 2, _mistura(sobrancelha, pele, 0.45))
-    # bochechas, nariz e boca
-    for x, y in ((23, 38), (25, 38), (24, 39), (38, 38), (40, 38), (39, 39)):
-        pinta(x, y + d2, pal["r"])
-    pinta(31, 39 + d2, _escura(pele, 0.12))
+
+    # barba e bigode (antes das bochechas e da boca, que ficam por cima)
+    barba = cfg.get("barba", "nenhuma")
+    pelo = pal["h"] if cfg["cabelo"] != "careca" else _rgb("#3B2A20")
+    pelo_escuro = _escura(pelo, 0.25)
+    com_barba: set = set()
+
+    def na_barba(x, y):
+        yy = y - d2
+        return (yy >= 36 and (x <= 24 or x >= 39)) or yy >= 42 or (yy == 41 and (x <= 28 or x >= 35)) or (yy >= 39 and (x <= 25 or x >= 38))
+
+    def bigode(cor):
+        for x in range(28, 36):
+            pinta(x, 39 + d2, cor)
+            com_barba.add((x, 39 + d2))
+        for x in (28, 29, 34, 35):
+            pinta(x, 40 + d2, cor)
+            com_barba.add((x, 40 + d2))
+
+    if barba in ("cheia", "por_fazer"):
+        for y in range(34 + d2, 48 + d2):
+            for x in range(20, 44):
+                if orig[y * L + x][4] != M_PELE or not na_barba(x, y):
+                    continue
+                if barba == "cheia":
+                    baixo = orig[(y + 1) * L + x][4] != M_PELE
+                    pinta(x, y, pelo_escuro if baixo else pelo)
+                    com_barba.add((x, y))
+                else:  # por fazer: sombra leve com pontinhos espalhados
+                    pinta(x, y, _mistura(pele, pelo, 0.36 if (3 * x + 5 * y) % 7 == 0 else 0.14))
+        if barba == "cheia":
+            bigode(pelo)
+    elif barba in ("bigode", "cavanhaque"):
+        bigode(pelo)
+        if barba == "cavanhaque":
+            for y, xs in ((43, range(30, 34)), (44, range(30, 34)), (45, range(31, 33))):
+                for x in xs:
+                    pinta(x, y + d2, pelo if y < 45 else pelo_escuro)
+                    com_barba.add((x, y + d2))
+
+    # bochechas, detalhes do rosto e nariz
+    marca = cfg.get("marca", "nenhuma")
+    rosado = pal["r"]
+    bochechas = [(23, 38), (25, 38), (24, 39), (38, 38), (40, 38), (39, 39)]
+    if marca == "corado":
+        bochechas += [(22, 39), (26, 39), (23, 40), (25, 40), (37, 39), (41, 39), (38, 40), (40, 40), (24, 38), (39, 38)]
+        rosado = _mistura(pal["r"], (232, 90, 110, 255), 0.35)
+    for x, y in bochechas:
+        if (x, y + d2) not in com_barba:
+            pinta(x, y + d2, rosado)
+    if marca == "sardas":
+        for x, y in ((22, 38), (24, 39), (26, 39), (23, 40), (37, 39), (39, 40), (41, 38), (40, 39)):
+            if (x, y + d2) not in com_barba:
+                pinta(x, y + d2, _escura(pele, 0.24))
+    elif marca == "pinta":
+        pinta(37, 41 + d2, _escura(pele, 0.55))
+    elif marca == "curativo":
+        fita, borda, gaze = _rgb("#F2CF96"), _rgb("#C9965A"), _rgb("#FFF4DE")
+        for x, y, cor in ((22, 37, borda), (23, 37, fita), (24, 37, fita), (25, 37, borda),
+                          (21, 38, borda), (22, 38, fita), (23, 38, gaze), (24, 38, gaze), (25, 38, fita), (26, 38, borda),
+                          (22, 39, borda), (23, 39, fita), (24, 39, fita), (25, 39, borda)):
+            pinta(x, y + d2, cor)
+    if (31, 39 + d2) not in com_barba:
+        pinta(31, 39 + d2, _escura(pele, 0.12))
+
+    # boca
     boca, lingua = pal["m"], (232, 112, 122, 255)
     y0 = 40 + d2
-    if alegre:
+    tipo_boca = "sorrisao" if alegre else cfg.get("boca", "sorriso")
+    if tipo_boca == "sorrisao":
         for k in range(4):
             pinta(30 + k, y0, boca)
         for k, cor in enumerate((boca, lingua, lingua, boca)):
             pinta(30 + k, y0 + 1, cor)
         pinta(31, y0 + 2, boca)
         pinta(32, y0 + 2, boca)
+    elif tipo_boca == "neutra":
+        for k in range(4):
+            pinta(30 + k, y0 + 1, boca)
+    elif tipo_boca == "surpresa":
+        for x, y in ((31, y0), (32, y0), (30, y0 + 1), (33, y0 + 1), (31, y0 + 2), (32, y0 + 2)):
+            pinta(x, y, boca)
+        pinta(31, y0 + 1, _escura(boca, 0.45))
+        pinta(32, y0 + 1, _escura(boca, 0.45))
     else:
         for x, y in ((30, y0), (31, y0 + 1), (32, y0 + 1), (33, y0)):
             pinta(x, y, boca)
+        if tipo_boca == "lingua":
+            pinta(32, y0 + 2, lingua)
+            pinta(33, y0 + 2, _escura(lingua, 0.15))
+            pinta(32, y0 + 3, _escura(lingua, 0.1))
 
     # óculos (linhas finas na grade final), por cima dos olhos
     oc = cfg["oculos"]
@@ -997,8 +1358,8 @@ def _ampliar(img: Image.Image, escala: int) -> Image.Image:
     return img if escala == 1 else img.resize((img.width * escala, img.height * escala), Image.NEAREST)
 
 
-def _sombra_pulo(kw: dict) -> Image.Image:
-    return _sombra(24 - min(12, 2 * kw.get("pulo", 0)))
+def _sombra_pulo(kw: dict, corpo: str = "medio") -> Image.Image:
+    return _sombra(SOMBRA_CORPO.get(corpo, 22) - min(12, 2 * kw.get("pulo", 0)))
 
 
 def animacao(cfg: dict, anim: str = "lobby", escala: int = 2, cenario: bool = True, largura: int = 64) -> bytes:
@@ -1013,11 +1374,11 @@ def animacao(cfg: dict, anim: str = "lobby", escala: int = 2, cenario: bool = Tr
         b = boneco(cfg, **kw)
         if cenario:
             q = _quadro_cena(cfg["cenario"], largura, i).copy()
-            q.alpha_composite(_sombra_pulo(kw), (x, 0))
+            q.alpha_composite(_sombra_pulo(kw, cfg["corpo"]), (x, 0))
             q.alpha_composite(b, (x, 0))
         else:
             q = Image.new("RGBA", (W2, H2), (0, 0, 0, 0))
-            q.alpha_composite(_sombra_pulo(kw))
+            q.alpha_composite(_sombra_pulo(kw, cfg["corpo"]))
             q.alpha_composite(b)
         quadros.append((_ampliar(q, escala), dur))
     return _webp(quadros)
@@ -1029,7 +1390,7 @@ def membro(cfg: dict, semente: str, escala: int = 1) -> bytes:
     quadros = []
     for kw, dur in _sequencia_membro(semente):
         q = Image.new("RGBA", (W2, H2), (0, 0, 0, 0))
-        q.alpha_composite(_sombra_pulo(kw))
+        q.alpha_composite(_sombra_pulo(kw, cfg["corpo"]))
         q.alpha_composite(boneco(cfg, **kw))
         quadros.append((_ampliar(q, escala), dur))
     return _webp(quadros)
@@ -1048,7 +1409,11 @@ def cenario_png(nome: str, largura: int = 64, escala: int = 1, quadros: int = 1)
 def rosto(cfg: dict, escala: int = 1, piscar: bool = True) -> bytes:
     """Busto (cabeça e ombros) para as listas: 40 x 40 por escala, fundo transparente, com uma piscada de vez em quando."""
     cfg = validar(cfg)
-    caixa = (12, 14, 52, 54) if cfg["acessorio"] not in ("chapeu", "aureola") else (12, 4, 52, 44)
+    caixa = (12, 14, 52, 54)
+    topo = boneco(cfg).getbbox()  # cabelo alto (black power, moicano) ou chapéu: o recorte sobe para caber
+    if topo and topo[1] < 15:
+        y0 = max(4, topo[1] - 1)
+        caixa = (12, y0, 52, y0 + 40)
 
     def recorte(img):
         return _ampliar(img.crop(caixa), escala)

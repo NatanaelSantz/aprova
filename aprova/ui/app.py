@@ -783,7 +783,7 @@ class App:
         elif nome == "personagem":
             from .personagem import abrir_criador
 
-            abrir_criador(self, aba=arg or "rosto")
+            abrir_criador(self, aba=arg or "corpo")
         elif nome == "guia_chave":
             from .chat import dialogo_chave
 
