@@ -159,15 +159,23 @@ class VisorAnexos:
             return comp.apagado("(figurinha nova: atualize o Aprova para ver)", c, 12.5)
         return ft.Image(src=f"figurinhas/{ident}.png", width=tamanho, height=tamanho, fit=ft.BoxFit.CONTAIN, tooltip=figurinhas.LEGENDAS.get(ident, ""))
 
-    def anexos(self, anexos: list[dict], compacto: bool = False) -> ft.Control | None:
+    def lembrar(self, anexo: dict) -> None:
+        """Usa os bytes que já estão no computador (ex.: a figurinha que você acabou de mandar), sem baixar de novo."""
+        chave = anexo.get("caminho") or ""
+        if chave and chave not in self._bytes:
+            dados = rk._ler_cache(chave)
+            if dados:
+                self._bytes[chave] = dados
+
+    def anexos(self, anexos: list[dict], compacto: bool = False, lado_adesivo: int | None = None) -> ft.Control | None:
         if not anexos:
             return None
-        adesivos = [a for a in anexos if a.get("figurinha") and a.get("caminho")]
+        adesivos = [a for a in anexos if e_adesivo(a)]
         visuais = [a for a in anexos if a.get("tipo") in ("imagem", "gif") and a not in adesivos]
         arquivos = [a for a in anexos if a.get("tipo") == "arquivo"]
         filhos: list[ft.Control] = []
         if adesivos:
-            filhos.append(ft.Row([self._adesivo(a, compacto) for a in adesivos], wrap=True, spacing=8))
+            filhos.append(ft.Row([self._adesivo(a, compacto, lado_adesivo) for a in adesivos], wrap=True, spacing=8))
         if visuais:
             sozinho = len(visuais) == 1
             filhos.append(ft.Row([self._visual(a, sozinho, compacto) for a in visuais], wrap=True, spacing=8, run_spacing=8))
@@ -213,9 +221,12 @@ class VisorAnexos:
                 self.app.page.run_task(self._carregar, a, caixa, w, h, ajuste)
         return caixa
 
-    def _adesivo(self, a: dict, compacto: bool) -> ft.Control:
-        """Figurinha de alguém (das "minhas figurinhas" dele): sem moldura, como no WhatsApp."""
-        lado = 110 if compacto else 150
+    def _adesivo(self, a: dict, compacto: bool, lado: int | None = None) -> ft.Control:
+        """Figurinha de alguém (das "minhas figurinhas" dele ou animada do GIPHY): sem moldura, como no WhatsApp."""
+        lado = lado or (110 if compacto else 150)
+        if _gif_giphy(a):
+            return ft.Container(ft.Image(src=a["url"], width=lado, height=lado, fit=ft.BoxFit.CONTAIN, gapless_playback=True),
+                                width=lado, height=lado, alignment=ft.Alignment.CENTER, tooltip="Figurinha animada")
         caixa = ft.Container(width=lado, height=lado, alignment=ft.Alignment.CENTER, on_click=lambda e, a=a: self.abrir_adesivo(a), tooltip="Figurinha")
         chave = a.get("caminho") or ""
         if chave in self._bytes:
@@ -361,6 +372,60 @@ class VisorAnexos:
         )
 
 
+def e_adesivo(a: dict) -> bool:
+    """Anexo que é figurinha (das suas ou animada do GIPHY): aparece sem moldura."""
+    return bool(a.get("figurinha")) and (bool(a.get("caminho")) or _gif_giphy(a))
+
+
+def so_figurinha(m: dict) -> bool:
+    """Mensagem (ou resposta) que é só uma figurinha, sem texto: aparece compacta, como numa conversa."""
+    if (m.get("texto") or "").strip() or (m.get("titulo") or "").strip() or m.get("plano"):
+        return False
+    anexos = m.get("anexos") or []
+    if m.get("figurinha"):
+        return all(e_adesivo(a) for a in anexos)
+    return bool(anexos) and all(e_adesivo(a) for a in anexos)
+
+
+def previa_envio(app, tipo: str, valor, lado: int) -> ft.Control:
+    """O desenho da figurinha (ou GIF) que está indo, para aparecer na hora na conversa."""
+    if tipo == "figurinha":
+        return ft.Image(src=f"figurinhas/{valor}.png", width=lado, height=lado, fit=ft.BoxFit.CONTAIN)
+    if tipo == "minha":
+        item = next((i for i in colecao(app).lista() if i["id"] == valor), None)
+        if item:
+            return ft.Image(src=str(colecao(app).caminho(item)), width=lado, height=lado, fit=ft.BoxFit.CONTAIN, gapless_playback=True)
+    elif isinstance(valor, dict) and _gif_giphy(valor):
+        return ft.Image(src=valor["url"], width=lado, height=lado, fit=ft.BoxFit.CONTAIN, gapless_playback=True, border_radius=0 if valor.get("figurinha") else 10)
+    return ft.Icon(ft.Icons.EMOJI_EMOTIONS_OUTLINED, size=lado // 2, color=app.c["texto2"])
+
+
+RECENTES_MAX = 15
+
+
+def lembrar_recente(app, tipo: str, valor) -> None:
+    """Guarda a figurinha usada na aba "Recentes" (a última primeiro, sem repetir)."""
+    chave = valor.get("url") if isinstance(valor, dict) else valor
+    lista = [r for r in (app.aj.get("figurinhas_recentes") or []) if isinstance(r, dict) and r.get("chave") != chave]
+    lista.insert(0, {"tipo": tipo, "valor": valor, "chave": chave})
+    app.aj.set("figurinhas_recentes", lista[:RECENTES_MAX])
+
+
+def recentes(app) -> list[dict]:
+    """As recentes que ainda existem (figurinha do Aprova que este app conhece, sua que não foi apagada)."""
+    minhas = {i["id"] for i in colecao(app).lista()}
+    saida = []
+    for r in app.aj.get("figurinhas_recentes") or []:
+        if not isinstance(r, dict):
+            continue
+        tipo, valor = r.get("tipo"), r.get("valor")
+        if (tipo == "figurinha" and figurinhas.caminho(str(valor)) is not None) or (tipo == "minha" and valor in minhas) or (
+            tipo == "gif" and isinstance(valor, dict) and _gif_giphy(valor)
+        ):
+            saida.append(r)
+    return saida
+
+
 def _nome_local(a: dict) -> str:
     return rk.nome_local_seguro(a)[0]
 
@@ -410,19 +475,52 @@ COMO_TRAZER = [
 ]
 
 
+ABAS_FIGURINHAS = [
+    ("recentes", "Recentes", ft.Icons.HISTORY),
+    ("aprova", "Do Aprova", ft.Icons.EMOJI_EMOTIONS_OUTLINED),
+    ("minhas", "Minhas", ft.Icons.FAVORITE_BORDER),
+    ("gifs", "GIFs", ft.Icons.GIF_BOX_OUTLINED),
+    ("animadas", "Animadas", ft.Icons.AUTO_AWESOME_OUTLINED),
+]
+ALTURA_GRADE = 330
+
+
+def colunas_grade(largura: float) -> int:
+    """Quantas figurinhas por linha cabem na janela (3 no celular, 5 no computador)."""
+    return max(3, min(6, int((largura + 8) // 104)))
+
+
+def altura_grade(n: int, largura: float, maximo: int = ALTURA_GRADE) -> int:
+    """Altura da grade para n figurinhas: só o necessário, até o máximo (depois rola)."""
+    if n <= 0:
+        return 0
+    cols = colunas_grade(largura)
+    lado = (largura - 8 * (cols - 1)) / cols
+    linhas = -(-n // cols)
+    return int(min(maximo, linhas * lado + 8 * (linhas - 1)))
+
+
 def dialogo_figurinhas_gifs(app, ao_escolher) -> None:
-    """Escolher uma figurinha (do Aprova ou das suas), um GIF ou uma figurinha animada do GIPHY.
+    """Escolher uma figurinha (recentes, do Aprova ou das suas), um GIF ou uma figurinha animada do GIPHY.
 
     ao_escolher(tipo, valor): tipo "figurinha" (valor = id do Aprova), "minha" (valor = id da coleção)
-    ou "gif" (valor = anexo)."""
+    ou "gif" (valor = anexo). Um toque já manda, como no WhatsApp."""
     c = app.c
-    aba_salva = app.aj.get("ultima_aba_figurinhas") or "aprova"
-    estado = {"aba": aba_salva if aba_salva in ("aprova", "minhas", "gifs", "animadas") else "aprova", "apagando": False, "ajuda": False}
-    grade = ft.GridView(max_extent=118, spacing=8, run_spacing=8, height=330, expand=False)
+    largura = min(580, (app.page.width or 600) - 48) - 2
+    tem_recentes = bool(recentes(app))
+    aba_salva = app.aj.get("ultima_aba_figurinhas") or ("recentes" if tem_recentes else "aprova")
+    validas = {k for k, _, _ in ABAS_FIGURINHAS}
+    estado = {"aba": aba_salva if aba_salva in validas else "aprova", "apagando": False, "ajuda": False}
+    if estado["aba"] == "recentes" and not tem_recentes:
+        estado["aba"] = "aprova"
+    cols = colunas_grade(largura)
+    grade = ft.GridView(runs_count=cols, child_aspect_ratio=1.0, spacing=8, run_spacing=8, height=ALTURA_GRADE, expand=False)
     busca = ft.TextField(hint_text="Buscar no GIPHY (ex.: estudando, cansado, comemorando)", dense=True, border_radius=20, prefix_icon=ft.Icons.SEARCH, expand=True)
     linha_busca = ft.Row([busca], visible=False)
     linha_minhas = ft.Row(visible=False, wrap=True, spacing=6, run_spacing=6)
+    abas = ft.Row(wrap=True, spacing=6, run_spacing=6)  # quebram linha: todas à vista no celular
     aviso = ft.Container()
+    dica = comp.apagado("Toque numa figurinha para mandar.", c, 12)
     rodape = comp.apagado("GIFs: Powered by GIPHY", c, 11.5)
     corpo = ft.Column(spacing=10, tight=True)
 
@@ -431,22 +529,57 @@ def dialogo_figurinhas_gifs(app, ao_escolher) -> None:
 
     def escolher(tipo, valor):
         fechar_colar()
+        lembrar_recente(app, tipo, valor)
         app.page.pop_dialog()
         ao_escolher(tipo, valor)
 
+    def ladrilho(conteudo: ft.Control, ao_clicar, dica_: str = "", fundo: str | None = None, padding: int = 6) -> ft.Container:
+        """Uma figurinha na grade: cresce um pouco e ganha fundo quando o mouse passa."""
+
+        def passar(e):
+            dentro = e.data in (True, "true")
+            e.control.scale = 1.06 if dentro else 1.0
+            e.control.bgcolor = c["sup2"] if dentro or fundo else None
+            e.control.update()
+
+        return ft.Container(
+            conteudo,
+            tooltip=dica_ or None,
+            bgcolor=fundo,
+            border_radius=12,
+            padding=padding,
+            ink=True,
+            clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+            alignment=ft.Alignment.CENTER,
+            scale=1.0,
+            animate_scale=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
+            on_hover=passar,
+            on_click=ao_clicar,
+        )
+
+    def mostrar(controles: list[ft.Control], maximo: int = ALTURA_GRADE):
+        grade.controls = controles
+        grade.height = altura_grade(len(controles), largura, maximo)
+        dica.visible = bool(controles) and not estado["apagando"]
+
     def mostrar_aprova():
-        grade.controls = [
-            ft.Container(
-                ft.Image(src=f"figurinhas/{ident}.png", fit=ft.BoxFit.CONTAIN),
-                tooltip=legenda,
-                border_radius=12,
-                padding=6,
-                ink=True,
-                on_click=lambda e, i=ident: escolher("figurinha", i),
-            )
+        mostrar([
+            ladrilho(ft.Image(src=f"figurinhas/{ident}.png", fit=ft.BoxFit.CONTAIN), lambda e, i=ident: escolher("figurinha", i), legenda)
             for ident, legenda in figurinhas.FIGURINHAS
             if figurinhas.caminho(ident)
-        ]
+        ])
+
+    def mostrar_recentes():
+        itens = []
+        for r in recentes(app):
+            tipo, valor = r["tipo"], r["valor"]
+            if tipo == "gif":
+                previa = ft.Image(src=valor["url"], fit=ft.BoxFit.CONTAIN if valor.get("figurinha") else ft.BoxFit.COVER, gapless_playback=True)
+                itens.append(ladrilho(previa, lambda e, v=valor: escolher("gif", v), "Figurinha animada" if valor.get("figurinha") else "GIF",
+                                      None if valor.get("figurinha") else c["sup2"], 6 if valor.get("figurinha") else 0))
+            else:
+                itens.append(ladrilho(previa_envio(app, tipo, valor, 96), lambda e, t=tipo, v=valor: escolher(t, v), figurinhas.LEGENDAS.get(str(valor), "")))
+        mostrar(itens)
 
     # ------------------------------------------------ minhas figurinhas
 
@@ -483,30 +616,28 @@ def dialogo_figurinhas_gifs(app, ao_escolher) -> None:
                 )
             )
         if not itens:
-            grade.controls = []
-            grade.height = 0
+            mostrar([])
             aviso.content = ft.Column(
                 [comp.apagado("Você ainda não tem figurinhas suas. Importe as do WhatsApp ou guarde as que aparecerem no grupo (clique nelas).", c, 13.5), ajuda()],
                 spacing=10,
             )
             return
-        grade.height = 210 if estado["ajuda"] else 330
         if estado["ajuda"]:
             aviso.content = ajuda()
 
-        def ladrilho(item):
+        def item_minha(item):
             imagem = ft.Image(src=str(colecao(app).caminho(item)), fit=ft.BoxFit.CONTAIN, gapless_playback=True)
             if estado["apagando"]:
                 conteudo = ft.Stack(
                     [
-                        ft.Container(imagem, opacity=0.55, padding=6),
+                        ft.Container(imagem, opacity=0.55, padding=6, alignment=ft.Alignment.CENTER),
                         ft.Container(ft.Icon(ft.Icons.CLOSE, color="#FFFFFF", size=16), bgcolor=c["erro"], border_radius=12, width=24, height=24, alignment=ft.Alignment.CENTER, right=2, top=2),
                     ]
                 )
                 return ft.Container(conteudo, border_radius=12, ink=True, tooltip="Apagar", on_click=lambda e, i=item["id"]: apagar(i))
-            return ft.Container(imagem, border_radius=12, padding=6, ink=True, on_click=lambda e, i=item["id"]: escolher("minha", i))
+            return ladrilho(imagem, lambda e, i=item["id"]: escolher("minha", i))
 
-        grade.controls = [ladrilho(i) for i in itens]
+        mostrar([item_minha(i) for i in itens], 210 if estado["ajuda"] else ALTURA_GRADE)
 
     def depois_de_importar(res: dict | None, vazio: str):
         estado["apagando"] = False
@@ -557,72 +688,87 @@ def dialogo_figurinhas_gifs(app, ao_escolher) -> None:
     async def buscar(e=None):
         animadas = estado["aba"] == "animadas"
         grade.controls = [ft.Container(comp.carregando("Buscando…", c), padding=10)]
+        grade.height = 60
         aviso.content = None
         app.page.update()
         try:
             achados = await app.em_segundo_plano(app.ranking.buscar_gifs, busca.value or "", animadas)
         except rk.ErroRanking as ex:
-            grade.controls = []
+            mostrar([])
             aviso.content = comp.aviso(str(ex), c, "info")
             app.page.update()
             return
         if estado["aba"] not in ("gifs", "animadas"):
             return  # trocou de aba enquanto buscava
-        grade.controls = [
-            ft.Container(
-                ft.Image(src=g["previa"], fit=ft.BoxFit.COVER if not animadas else ft.BoxFit.CONTAIN, gapless_playback=True),
-                tooltip=g["titulo"] or "GIF",
-                border_radius=10,
-                clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
-                bgcolor=c["sup2"] if not animadas else None,
-                ink=True,
-                on_click=lambda e, g=g: escolher("gif", g["anexo"]),
-            )
-            for g in achados
-        ] or [comp.apagado("Nada encontrado. Tente outra palavra.", c, 13.5)]
+        if not achados:
+            mostrar([])
+            aviso.content = comp.apagado("Nada encontrado. Tente outra palavra.", c, 13.5)
+        else:
+            mostrar([
+                ladrilho(
+                    ft.Image(src=g["previa"], fit=ft.BoxFit.CONTAIN if animadas else ft.BoxFit.COVER, gapless_playback=True),
+                    lambda e, g=g: escolher("gif", g["anexo"]),
+                    g["titulo"] or "GIF",
+                    None if animadas else c["sup2"],
+                    6 if animadas else 0,
+                )
+                for g in achados
+            ])
         app.page.update()
 
     busca.on_submit = buscar
 
-    def trocar(e):
-        estado["aba"] = e.control.selected[0] if e.control.selected else "aprova"
+    def montar_abas():
+        visiveis = [a for a in ABAS_FIGURINHAS if a[0] != "recentes" or recentes(app)]
+        abas.controls = [
+            ft.Container(
+                ft.Row(
+                    [ft.Icon(icone, size=17, color=c["tinta"] if k == estado["aba"] else c["texto2"]),
+                     ft.Text(rotulo, size=13.5, weight=ft.FontWeight.W_700 if k == estado["aba"] else ft.FontWeight.W_500,
+                             color=c["tinta"] if k == estado["aba"] else c["texto2"])],
+                    spacing=6,
+                    tight=True,
+                ),
+                bgcolor=c["tinta_suave"] if k == estado["aba"] else None,
+                border=ft.Border.all(1.4, c["tinta"] if k == estado["aba"] else c["borda"]),
+                border_radius=10,
+                padding=ft.Padding.symmetric(horizontal=11, vertical=7),
+                on_click=lambda e, k=k: trocar(k),
+                ink=True,
+            )
+            for k, rotulo, icone in visiveis
+        ]
+
+    def trocar(aba: str):
+        estado["aba"] = aba
         estado["apagando"] = False
-        app.aj.set("ultima_aba_figurinhas", estado["aba"])
+        app.aj.set("ultima_aba_figurinhas", aba)
         desenhar()
         app.page.update()
 
     def desenhar():
         aviso.content = None
-        grade.height = 330
+        montar_abas()
         linha_busca.visible = estado["aba"] in ("gifs", "animadas")
         linha_minhas.visible = estado["aba"] == "minhas"
         rodape.visible = estado["aba"] in ("gifs", "animadas")
         if estado["aba"] != "minhas":
             app._ao_colar = None
-        if estado["aba"] == "aprova":
+        if estado["aba"] == "recentes":
+            mostrar_recentes()
+        elif estado["aba"] == "aprova":
             mostrar_aprova()
         elif estado["aba"] == "minhas":
             mostrar_minhas()
         else:
             app.page.run_task(buscar)
 
-    abas = ft.SegmentedButton(
-        selected=[estado["aba"]],
-        segments=[
-            ft.Segment(value="aprova", label=ft.Text("Do Aprova"), icon=ft.Icon(ft.Icons.EMOJI_EMOTIONS_OUTLINED)),
-            ft.Segment(value="minhas", label=ft.Text("Minhas"), icon=ft.Icon(ft.Icons.FAVORITE_BORDER)),
-            ft.Segment(value="gifs", label=ft.Text("GIFs"), icon=ft.Icon(ft.Icons.GIF_BOX_OUTLINED)),
-            ft.Segment(value="animadas", label=ft.Text("Animadas"), icon=ft.Icon(ft.Icons.AUTO_AWESOME_OUTLINED)),
-        ],
-        show_selected_icon=False,
-        on_change=trocar,
-    )
     desenhar()
-    corpo.controls = [ft.Row([abas], scroll=ft.ScrollMode.AUTO), linha_busca, linha_minhas, aviso, grade, rodape]
+    corpo.controls = [abas, linha_busca, linha_minhas, aviso, grade, ft.Row([dica, ft.Container(expand=True), rodape])]
     app.page.show_dialog(
         ft.AlertDialog(
             title=ft.Text("Figurinhas e GIFs", font_family=FONTE_TITULO, size=21),
-            content=ft.Container(corpo, width=min(580, (app.page.width or 600) - 48)),
+            content=ft.Container(corpo, width=largura),
             actions=[ft.TextButton("Fechar", on_click=lambda e: (fechar_colar(), app.page.pop_dialog()))],
             on_dismiss=fechar_colar,
             scrollable=True,

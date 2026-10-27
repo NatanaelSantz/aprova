@@ -1,10 +1,11 @@
 {
-  "versao": "1.16.0",
+  "versao": "1.16.1",
   "data": "26/10/2026",
   "notas": [
-    "Onde focar: escolha uma disciplina (ex.: Conhecimentos Específicos) e faça uma mini prova só dela",
-    "Na mini prova você escolhe de qual prova vêm as questões, quantas (5, 10, 20, 30 ou todas) e se é com cronômetro ou no modo estudo",
-    "Ver todas as disciplinas no Onde focar, não só as 6 principais"
+    "Figurinhas na conversa: a mensagem que é só figurinha ficou compacta, sem moldura e sem espaço sobrando",
+    "A figurinha aparece na hora, como 'enviando…', e a lista não pisca mais ao mandar",
+    "Nova aba Recentes com as últimas figurinhas usadas; as abas não somem mais no celular",
+    "Figurinhas animadas do GIPHY aparecem sem o fundo cinza; nas respostas, figurinha sem balão"
   ],
   "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
 }

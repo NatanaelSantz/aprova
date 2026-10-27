@@ -947,12 +947,10 @@ class Ranking:
             previa = imgs.get("fixed_width_small") or imgs.get("fixed_height_small") or envio
             url_envio, url_previa = envio.get("url") or "", previa.get("url") or ""
             if GIPHY.match(url_envio) and GIPHY.match(url_previa):
-                saida.append({
-                    "id": g.get("id"),
-                    "titulo": g.get("title") or "",
-                    "previa": url_previa,
-                    "anexo": {"tipo": "gif", "url": url_envio, "largura": int(envio.get("width") or 0), "altura": int(envio.get("height") or 0), "nome": "GIF"},
-                })
+                anexo = {"tipo": "gif", "url": url_envio, "largura": int(envio.get("width") or 0), "altura": int(envio.get("height") or 0), "nome": "GIF"}
+                if figurinhas:  # figurinha animada (fundo transparente): aparece sem moldura, como as outras
+                    anexo.update(figurinha=True, nome="Figurinha")
+                saida.append({"id": g.get("id"), "titulo": g.get("title") or "", "previa": url_previa, "anexo": anexo})
         if resp.status_code == 200:
             if len(self._gifs_buscados) > 60:
                 self._gifs_buscados.clear()

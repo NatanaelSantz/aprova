@@ -109,6 +109,7 @@ class TelaGrupos:
         self.visor = VisorAnexos(app)
         self._pendentes: list[dict] = []  # fotos/arquivos já enviados, esperando o "Publicar"
         self._enviando: list[str] = []  # nomes dos arquivos subindo agora
+        self._rapidos: list[dict] = []  # figurinhas e GIFs indo agora: {"tipo", "valor", "post": id da mensagem (resposta) ou None}
 
     @property
     def r(self) -> rk.Ranking:
@@ -537,6 +538,16 @@ class TelaGrupos:
         if self.codigo == cod:
             self._redesenhar()
 
+    async def _atualizar_conversa(self, cod: str) -> None:
+        """Busca a conversa de novo sem apagar a lista da tela (nada de "Buscando as mensagens…" piscando)."""
+        try:
+            self.posts[(cod, "conversa")] = await self.app.em_segundo_plano(self.r.forum, cod, "conversa")
+        except rk.ErroRanking:
+            self.posts.pop((cod, "conversa"), None)
+            await self.carregar_grupo()
+            return
+        self._marcar_visto(cod)
+
     def _marcar_visto(self, cod: str):
         datas = [p["criado_em"] for chave in ("conversa", "planos") for p in self.posts.get((cod, chave), [])]
         if not datas:
@@ -568,10 +579,15 @@ class TelaGrupos:
         posts = self._precisa("conversa")
         if posts is None:
             filhos.append(comp.carregando("Buscando as mensagens…", c))
-        elif not posts:
+        elif not posts and not self._rapidos:
             filhos.append(comp.vazio(ft.Icons.FORUM_OUTLINED, "Nenhuma mensagem ainda", "Comece a conversa: combine um simulado, pergunte algo ou mande um material.", c))
-        else:
-            filhos.extend(self._cartao_post(p, g) for p in posts)
+        posts = posts or []
+        fixados = 0  # a figurinha que está indo aparece logo abaixo das fixadas, onde a mensagem nova vai ficar
+        while fixados < len(posts) and posts[fixados].get("fixado"):
+            fixados += 1
+        filhos.extend(self._cartao_post(p, g) for p in posts[:fixados])
+        filhos.extend(self._cartao_enviando(r) for r in self._rapidos if r["post"] is None)
+        filhos.extend(self._cartao_post(p, g) for p in posts[fixados:])
         return ft.Column(filhos, spacing=12)
 
     def _caixa_nova_mensagem(self, g: dict) -> ft.Control:
@@ -619,8 +635,8 @@ class TelaGrupos:
             self._rascunho = ""
             self._pendentes = []
             self.tipo_novo = "conversa"
-            self.posts.pop((g["codigo"], "conversa"), None)
-            await self.carregar_grupo()
+            await self._atualizar_conversa(g["codigo"])
+            self._redesenhar()
 
         async def anexar(e):
             from .anexos import escolher_arquivos
@@ -704,26 +720,114 @@ class TelaGrupos:
             self._redesenhar()
 
     async def _mandar_rapido(self, g: dict, tipo: str, valor):
-        """Figurinha ou GIF vai na hora, como numa conversa."""
+        """Figurinha ou GIF vai na hora, como numa conversa: aparece na lista já, enquanto sobe."""
         from .anexos import conteudo_rapido
 
+        item = {"tipo": tipo, "valor": valor, "post": None}
+        self._rapidos.append(item)
+        self._redesenhar()
         try:
             extra = await conteudo_rapido(self.app, g["codigo"], tipo, valor)
+            for a in extra.get("anexos") or []:
+                self.visor.lembrar(a)
             await self.app.em_segundo_plano(lambda: self.r.forum_publicar(g["codigo"], "", **extra))
+            await self._atualizar_conversa(g["codigo"])
         except rk.ErroRanking as ex:
-            self.app.msg(str(ex))
-            return
-        self.posts.pop((g["codigo"], "conversa"), None)
-        await self.carregar_grupo()
+            self.app.msg(f"A figurinha não foi: {ex}")
+        finally:
+            self._rapidos = [r for r in self._rapidos if r is not item]
+            self._redesenhar()
+
+    def _linha_autor(self, m: dict, nome_tamanho: float = 14.5) -> list[ft.Control]:
+        c = self.app.c
+        linha = [ft.Text(m.get("apelido") or "?", size=nome_tamanho, weight=ft.FontWeight.W_700, color=c["texto"])]
+        if m.get("meu"):
+            linha.append(comp.pilula("você", c["tinta_suave"], c["tinta"], tamanho=10.5))
+        linha.append(comp.apagado(quando_texto(m.get("criado_em")) + (" · editada" if m.get("editado_em") else ""), c, 12.5))
+        return linha
+
+    def _lado_figurinha(self, resposta: bool = False) -> int:
+        if resposta:
+            return 104 if self.app.largo else 92
+        return 128 if self.app.largo else 112
+
+    def _cartao_figurinha(self, p: dict, g: dict) -> ft.Control:
+        """Mensagem que é só figurinha: compacta e sem moldura em volta do desenho, como numa conversa."""
+        app, c = self.app, self.app.c
+        lado = self._lado_figurinha()
+        if p.get("figurinha"):
+            desenho = self.visor.figurinha(p["figurinha"], lado)
+        else:
+            desenho = self.visor.anexos(p.get("anexos") or [], lado_adesivo=lado) or ft.Container()
+        linha = self._linha_autor(p)
+        if p.get("fixado"):
+            linha.append(comp.pilula("Fixada", c["marca_suave"], c["marca"], ft.Icons.PUSH_PIN, 11))
+        filhos: list[ft.Control] = [
+            ft.Row(
+                [
+                    busto(app, p.get("avatar"), p.get("apelido") or "?", 36, p.get("autor")),
+                    ft.Column(
+                        [
+                            ft.Row(linha, spacing=8, wrap=True, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                            ft.Row([desenho, self._acoes_post(p, g)], spacing=8, wrap=True, vertical_alignment=ft.CrossAxisAlignment.END),
+                        ],
+                        spacing=2,
+                        expand=True,
+                    ),
+                    self._menu_post(p, g),
+                ],
+                spacing=12,
+                vertical_alignment=ft.CrossAxisAlignment.START,
+            )
+        ]
+        if p["id"] in self.abertos:
+            filhos.append(self._respostas(p, g))
+        cartao = comp.bloco(ft.Column(filhos, spacing=8), c, padding=ft.Padding.only(left=16, right=8, top=12, bottom=8))
+        if p.get("fixado"):
+            cartao.border = ft.Border.all(1.4, c["marca"])
+        return cartao
+
+    def _enviando_figurinha(self, r: dict, lado: int, tamanho_busto: int) -> ft.Control:
+        """A sua figurinha aparecendo na hora, meio apagada, enquanto vai para o grupo."""
+        from .anexos import previa_envio
+
+        c = self.app.c
+        return ft.Row(
+            [
+                busto(self.app, None, self.r.apelido or "?", tamanho_busto, self.r.usuario_id),
+                ft.Column(
+                    [
+                        ft.Row(
+                            [
+                                ft.Text(self.r.apelido or "Você", size=14 if tamanho_busto > 30 else 13.5, weight=ft.FontWeight.W_700, color=c["texto"]),
+                                ft.ProgressRing(width=12, height=12, stroke_width=2, color=c["tinta"]),
+                                comp.apagado("enviando…", c, 12.5),
+                            ],
+                            spacing=8,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
+                        ft.Container(previa_envio(self.app, r["tipo"], r["valor"], lado), opacity=0.6, animate_opacity=200),
+                    ],
+                    spacing=2,
+                    expand=True,
+                ),
+            ],
+            spacing=12 if tamanho_busto > 30 else 10,
+            vertical_alignment=ft.CrossAxisAlignment.START,
+        )
+
+    def _cartao_enviando(self, r: dict) -> ft.Control:
+        return comp.bloco(self._enviando_figurinha(r, self._lado_figurinha(), 36), self.app.c, padding=ft.Padding.only(left=16, right=8, top=12, bottom=12))
 
     def _cartao_post(self, p: dict, g: dict) -> ft.Control:
+        from .anexos import so_figurinha
+
+        if so_figurinha(p):
+            return self._cartao_figurinha(p, g)
         app, c = self.app, self.app.c
         tipo = p.get("tipo") or "conversa"
         nome_tipo = rk.TIPOS_FORUM.get(tipo, ("Conversa", ""))[0]
-        linha_autor = [ft.Text(p.get("apelido") or "?", size=14.5, weight=ft.FontWeight.W_700, color=c["texto"])]
-        if p.get("meu"):
-            linha_autor.append(comp.pilula("você", c["tinta_suave"], c["tinta"], tamanho=10.5))
-        linha_autor.append(comp.apagado(quando_texto(p.get("criado_em")) + (" · editada" if p.get("editado_em") else ""), c, 12.5))
+        linha_autor = self._linha_autor(p)
         topo = ft.Row(
             [
                 busto(app, p.get("avatar"), p.get("apelido") or "?", 36, p.get("autor")),
@@ -817,7 +921,11 @@ class TelaGrupos:
         if lista is None:
             filhos.append(comp.carregando("Carregando respostas…", c))
         else:
+            from .anexos import so_figurinha
+
+            lado_resp = self._lado_figurinha(resposta=True)
             for r in lista:
+                so_fig = so_figurinha(r)  # só figurinha: sem o balão cinza em volta, como numa conversa
                 filhos.append(
                     ft.Row(
                         [
@@ -831,13 +939,13 @@ class TelaGrupos:
                                         ),
                                     ]
                                     + ([ft.Text(r["texto"], size=14, color=c["texto"], selectable=True)] if r.get("texto") else [])
-                                    + ([self.visor.figurinha(r["figurinha"], 110)] if r.get("figurinha") else [])
-                                    + ([v] if (v := self.visor.anexos(r.get("anexos") or [], compacto=True)) is not None else []),
+                                    + ([self.visor.figurinha(r["figurinha"], lado_resp)] if r.get("figurinha") else [])
+                                    + ([v] if (v := self.visor.anexos(r.get("anexos") or [], compacto=True, lado_adesivo=lado_resp)) is not None else []),
                                     spacing=4,
                                 ),
-                                bgcolor=c["sup2"],
+                                bgcolor=None if so_fig else c["sup2"],
                                 border_radius=12,
-                                padding=ft.Padding.symmetric(horizontal=12, vertical=8),
+                                padding=ft.Padding.only(left=2, top=2) if so_fig else ft.Padding.symmetric(horizontal=12, vertical=8),
                                 expand=True,
                             ),
                         ]
@@ -850,6 +958,7 @@ class TelaGrupos:
                         vertical_alignment=ft.CrossAxisAlignment.START,
                     )
                 )
+        filhos.extend(self._enviando_figurinha(r, self._lado_figurinha(resposta=True), 28) for r in self._rapidos if r["post"] == p["id"])
         if not g.get("visitante"):
             campo = ft.TextField(hint_text="Escreva uma resposta…", dense=True, border_radius=20, expand=True, multiline=True, min_lines=1, max_lines=5, shift_enter=True)
 
@@ -893,13 +1002,21 @@ class TelaGrupos:
             async def rapido(tipo, valor):
                 from .anexos import conteudo_rapido
 
+                item = {"tipo": tipo, "valor": valor, "post": p["id"]}
+                self._rapidos.append(item)
+                self._redesenhar()
                 try:
                     extra = await conteudo_rapido(app, g["codigo"], tipo, valor)
+                    for a in extra.get("anexos") or []:
+                        self.visor.lembrar(a)
                     await app.em_segundo_plano(lambda: self.r.forum_responder(p["id"], "", **extra))
+                    self.respostas[p["id"]] = await app.em_segundo_plano(self.r.forum_respostas, p["id"])
+                    p["respostas"] = len(self.respostas[p["id"]])
                 except rk.ErroRanking as ex:
-                    app.msg(str(ex))
-                    return
-                await recarregar()
+                    app.msg(f"A figurinha não foi: {ex}")
+                finally:
+                    self._rapidos = [r for r in self._rapidos if r is not item]
+                    self._redesenhar()
 
             def figurinhas_gifs(e):
                 from .anexos import dialogo_figurinhas_gifs

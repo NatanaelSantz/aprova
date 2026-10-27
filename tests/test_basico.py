@@ -1101,8 +1101,15 @@ def test_anexos_figurinhas_e_gifs_no_grupo(tmp_path, monkeypatch):
         achados = aluno.buscar_gifs("estudar")
         assert [g["id"] for g in achados] == ["1"] and achados[0]["anexo"]["largura"] == 267
         assert pedidos[0][0].endswith("/gifs/search") and pedidos[0][1]["q"] == "estudar" and pedidos[0][1]["rating"] == "pg"
-        aluno.buscar_gifs("", figurinhas=True)
+        animadas = aluno.buscar_gifs("", figurinhas=True)
         assert pedidos[1][0].endswith("/stickers/trending")
+        # figurinha animada vai marcada como figurinha (aparece sem moldura) e o servidor aceita
+        assert animadas[0]["anexo"]["figurinha"] is True and "figurinha" not in achados[0]["anexo"]
+        aluno.forum_publicar(cod, "", anexos=[animadas[0]["anexo"]])
+        from aprova.ui.anexos import so_figurinha
+
+        enviada = next(p for p in aluno.forum(cod) if p.get("anexos") and p["anexos"][0].get("url") == animadas[0]["anexo"]["url"])
+        assert so_figurinha(enviada)
         # a chave grátis tem 100 buscas por hora para o app todo: a mesma busca não vai de novo ao GIPHY
         assert aluno.buscar_gifs("Estudar ") == achados and len(pedidos) == 2
         _json.dumps(achados)  # o anexo vai como JSON para o servidor
@@ -1383,6 +1390,43 @@ def test_mini_prova_por_disciplina_e_por_prova(tmp_path):
     assert opcoes_quantidade(19) == [(5, "5"), (10, "10"), (19, "Todas (19)")]
     assert opcoes_quantidade(200) == [(5, "5"), (10, "10"), (20, "20"), (30, "30")]
     assert quantidade_padrao(19) == 10 and quantidade_padrao(4) == 4
+
+
+def test_figurinhas_na_conversa(tmp_path):
+    """Mensagem só de figurinha fica compacta; recentes guardam a última primeiro; a grade tem a altura certa."""
+    from aprova import config
+    from aprova.ui import anexos as ax
+
+    giphy = {"tipo": "gif", "url": "https://media1.giphy.com/media/x/200.gif", "figurinha": True}
+    minha = {"tipo": "imagem", "caminho": "G/u/a.webp", "figurinha": True}
+    foto = {"tipo": "imagem", "caminho": "G/u/foto.png"}
+    assert ax.e_adesivo(giphy) and ax.e_adesivo(minha) and not ax.e_adesivo(foto)
+    assert not ax.e_adesivo({"tipo": "gif", "url": "https://outro.com/x.gif", "figurinha": True})
+    assert ax.so_figurinha({"texto": "", "figurinha": "valeu"})
+    assert ax.so_figurinha({"texto": " ", "anexos": [minha]}) and ax.so_figurinha({"anexos": [giphy]})
+    assert not ax.so_figurinha({"texto": "oi", "figurinha": "valeu"})
+    assert not ax.so_figurinha({"titulo": "Plano", "figurinha": "valeu"})
+    assert not ax.so_figurinha({"anexos": [minha, foto]}) and not ax.so_figurinha({"anexos": []})
+
+    class App:
+        aj = config.Ajustes(tmp_path / "aj.json")
+        pasta_conta = tmp_path / "conta"
+
+    app = App()
+    for i in ("valeu", "kkkk", "valeu"):
+        ax.lembrar_recente(app, "figurinha", i)
+    ax.lembrar_recente(app, "gif", giphy)
+    ax.lembrar_recente(app, "minha", "apagada-ja")
+    ax.lembrar_recente(app, "figurinha", "nao-existe-mais")
+    assert [(r["tipo"], r["chave"]) for r in ax.recentes(app)] == [("gif", giphy["url"]), ("figurinha", "valeu"), ("figurinha", "kkkk")]
+    for i in range(30):
+        ax.lembrar_recente(app, "figurinha", f"x{i}")
+    assert len(app.aj.get("figurinhas_recentes")) == ax.RECENTES_MAX
+
+    assert ax.colunas_grade(532) == 5 and ax.colunas_grade(300) == 3
+    assert ax.altura_grade(0, 532) == 0
+    assert ax.altura_grade(1, 532) == ax.altura_grade(5, 532) < ax.altura_grade(6, 532)
+    assert ax.altura_grade(400, 532) == ax.ALTURA_GRADE
 
 
 def test_resposta_antiga_sem_referencia_nao_confunde(tmp_path):

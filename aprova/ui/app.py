@@ -714,6 +714,34 @@ class App:
             bt = next((a for a in (dlg.actions if dlg else []) if isinstance(a, ft.FilledButton)), None)
             if bt and bt.on_click:
                 bt.on_click(None)
+        elif nome == "figurinhas":
+            # abre o "Figurinhas e GIFs" da conversa do grupo (arg = aba)
+            from .anexos import dialogo_figurinhas_gifs
+
+            t = self._tela("grupos")
+            for _ in range(30):
+                if t.grupo:
+                    break
+                await asyncio.sleep(0.5)
+            if arg:
+                self.aj.set("ultima_aba_figurinhas", arg)
+            if t.grupo:
+                dialogo_figurinhas_gifs(self, lambda tipo, valor, g=t.grupo: self.page.run_task(t._mandar_rapido, g, tipo, valor))
+        elif nome in ("mandar_figurinha", "figurinha_indo"):
+            # manda uma figurinha do Aprova na conversa (ou só mostra ela "enviando…", para a captura de tela)
+            from .anexos import lembrar_recente
+
+            t = self._tela("grupos")
+            for _ in range(30):
+                if t.grupo and t.posts.get((t.codigo, "conversa")) is not None:
+                    break
+                await asyncio.sleep(0.5)
+            lembrar_recente(self, "figurinha", arg or "valeu")
+            if nome == "figurinha_indo":
+                t._rapidos.append({"tipo": "figurinha", "valor": arg or "valeu", "post": None})
+                t._redesenhar()
+            elif t.grupo:
+                await t._mandar_rapido(t.grupo, "figurinha", arg or "valeu")
         elif nome == "foco_todas":
             t = self._tela("inicio")
             t._alternar_foco()
