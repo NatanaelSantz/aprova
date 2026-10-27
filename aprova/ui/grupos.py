@@ -183,7 +183,7 @@ class TelaGrupos:
 
         app, c = self.app, self.app.c
         acao = None
-        if not app.modo_web:
+        if app.desktop:
             acao = comp.botao(
                 "Configurar servidor",
                 lambda e: dialogo_servidor(app, lambda: (self.r.recarregar_config(), app.recarregar_tela())),
@@ -1873,6 +1873,10 @@ def dialogo_convidar(app, g: dict) -> None:
 def _abrir_pasta(app, pasta: Path) -> None:
     import os
     import sys
+
+    if app.celular:
+        app.msg("No celular, os arquivos ficam guardados dentro do Aprova. Abra cada um pelo botão dele.")
+        return
 
     try:
         if sys.platform == "win32":

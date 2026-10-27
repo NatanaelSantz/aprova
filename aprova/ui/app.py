@@ -10,7 +10,7 @@ from pathlib import Path
 
 import flet as ft
 
-from .. import amostras, config, convite
+from .. import amostras, config, convite, plataforma
 from ..db import Banco
 from ..fontes import Centralizador
 from ..pci import ClientePCI
@@ -91,6 +91,7 @@ class App:
     def __init__(self, page: ft.Page, modo_web: bool = False):
         self.page = page
         self.modo_web = modo_web or bool(page.web)
+        self.celular = plataforma.CELULAR  # app instalado no Android ou no iPhone (sem janela, sem atualizador do PC)
         self.pci, self.central = _recursos()
         self.sessao = _sessao_maquina(self.modo_web)
         self.conta_id: str | None = None
@@ -143,8 +144,8 @@ class App:
 
         "auto": usa o tamanho da tela (a maior janela vista nesta sessão) para caber mais coisa;
         ou o valor que a pessoa escolheu em Ajustes (ou com Ctrl + e Ctrl −)."""
-        if self.modo_web:
-            return 1.0
+        if not self.desktop:
+            return 1.0  # navegador e celular cuidam do tamanho sozinhos
         w, h = self.page.width or 1200, self.page.height or 800
         if w < 900:
             return 1.0  # janela estreita (modo celular): sem zoom
@@ -443,8 +444,13 @@ class App:
         return self._novidades[1]
 
     @property
+    def desktop(self) -> bool:
+        """Rodando como programa no computador (nem no navegador, nem no app do celular)."""
+        return not self.modo_web and not self.celular
+
+    @property
     def tem_voz(self) -> bool:
-        return not self.modo_web and self.leitor.disponivel
+        return self.desktop and self.leitor.disponivel
 
     def msg(self, texto: str) -> None:
         comp.mensagem(self.page, texto)
@@ -463,7 +469,7 @@ class App:
         p.fonts = tema.FONTES
         p.padding = 0
         p.spacing = 0
-        if not self.modo_web:
+        if self.desktop:
             try:
                 p.window.min_width = 380
                 p.window.min_height = 520
@@ -480,7 +486,7 @@ class App:
                     p.window.title_bar_buttons_hidden = True
             except Exception:  # noqa: BLE001
                 pass
-        if not self.modo_web:
+        if self.desktop:
             icone = config.ASSETS_DIR / "aprova.ico"
             if icone.exists():
                 try:
@@ -505,7 +511,7 @@ class App:
         self._agendar_pausa()
         p.run_task(self._relogio_estudo)
         p.run_task(self._tique_cronometro)
-        if not self.modo_web:
+        if self.desktop:
             p.run_task(self._vigiar_convites)
             import threading
 
@@ -530,7 +536,7 @@ class App:
 
     def pintar_barra_windows(self) -> None:
         """Barra de título do Windows com as cores do tema (só pinta; não esconde nada)."""
-        if self.modo_web or self.barra_propria or self._tema_pintado == self.aj["tema"]:
+        if not self.desktop or self.barra_propria or self._tema_pintado == self.aj["tema"]:
             return
         esperar = 20.0 if self._tema_pintado is None else 3.0  # na abertura, espera a janela aparecer
         self._tema_pintado = self.aj["tema"]
@@ -1196,7 +1202,7 @@ class App:
 
         Desligada por padrão: na 1.9.2 ela impediu o app de abrir no Windows. Fica disponível para
         testes com APROVA_BARRA_PROPRIA=1 até ser conferida num Windows de verdade."""
-        return not self.modo_web and os.environ.get("APROVA_BARRA_PROPRIA") == "1"
+        return self.desktop and os.environ.get("APROVA_BARRA_PROPRIA") == "1"
 
     @property
     def baixa(self) -> bool:
@@ -1740,7 +1746,12 @@ class App:
 
     async def disparar_lembrete(self, lem: dict) -> None:
         c = self.c
-        if not self.modo_web:
+        if self.celular:
+            try:
+                await ft.HapticFeedback().heavy_impact()  # o celular vibra com o alarme
+            except Exception:  # noqa: BLE001
+                pass
+        elif not self.modo_web:
             import threading
 
             threading.Thread(target=_bipe, daemon=True).start()
@@ -1784,6 +1795,15 @@ class App:
                 ],
             )
         )
+
+    async def compartilhar_arquivo(self, caminho) -> None:
+        """No celular não dá para "abrir no Explorer": o arquivo vai para o menu Compartilhar do sistema
+        (salvar em Arquivos, mandar no WhatsApp, abrir em outro app)."""
+        try:
+            await ft.Share().share_files([ft.ShareFile.from_path(str(caminho))])
+        except Exception as e:  # noqa: BLE001
+            config.registrar(f"compartilhar: {e!r}")
+            self.msg("Não consegui abrir o menu de compartilhar neste celular.")
 
     async def abrir_url(self, url: str) -> None:
         if not str(url).lower().startswith(("http://", "https://", "file:", "mailto:")):

@@ -22,8 +22,9 @@ def url_versao() -> str:
 
 
 def disponivel(app) -> bool:
-    """Só no app do computador (no celular quem atualiza é o computador que serve o app)."""
-    if app.modo_web:
+    """Só no app do computador. No navegador quem atualiza é o computador que serve o app; no app do celular,
+    a versão nova vem pela loja (ou pelo APK novo do site)."""
+    if not app.desktop:
         return False
     return not config.FIXTURES_DIR or bool(os.environ.get("APROVA_ATUALIZACAO_URL"))
 

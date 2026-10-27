@@ -43,7 +43,7 @@ async def escolher_pdfs(app, titulo: str = "Escolha a prova e o gabarito (PDF)",
         file_type=ft.FilePickerFileType.CUSTOM,
         allowed_extensions=["pdf"],
         allow_multiple=varios,
-        with_data=app.modo_web,
+        with_data=not app.desktop,
     )
     caminhos: list[Path] = []
     for f in arquivos or []:

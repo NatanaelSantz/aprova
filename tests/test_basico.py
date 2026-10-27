@@ -1925,6 +1925,33 @@ def test_danca_e_retrato_do_personagem():
     assert r.format == "PNG" and r.size == (160, 160)
 
 
+def test_app_do_celular_usa_a_pasta_do_aparelho(tmp_path):
+    """Empacotado para Android/iPhone (FLET_PLATFORM), o Aprova guarda tudo na pasta privada do app
+    e desliga o que só existe no computador (notificação do Windows, voz por programa do sistema)."""
+    import json
+    import os
+    import subprocess
+
+    codigo = (
+        "import json; from aprova import config, notificar, plataforma, voz; "
+        "print(json.dumps([str(config.DATA_DIR), config.PADROES['pasta_downloads'], plataforma.CELULAR, plataforma.nome(), "
+        "notificar.mostrar('a', 'b'), voz.Leitor().disponivel]))"
+    )
+    raiz = Path(__file__).resolve().parent.parent
+    for sistema, nome in (("android", "Android"), ("ios", "iPhone")):
+        env = {k: v for k, v in os.environ.items() if k not in ("APROVA_DATA", "APROVA_SIMULAR_CELULAR")}
+        env.update(FLET_PLATFORM=sistema, FLET_APP_STORAGE_DATA=str(tmp_path))
+        saida = subprocess.run([sys.executable, "-c", codigo], cwd=raiz, env=env, capture_output=True, text=True, timeout=60)
+        dados, downloads, celular, nome_lido, notificou, tem_voz = json.loads(saida.stdout.strip().splitlines()[-1])
+        assert Path(dados) == tmp_path / "aprova" and Path(downloads) == tmp_path / "aprova" / "downloads"
+        assert celular and nome_lido == nome and not notificou and not tem_voz
+    # no computador, nada muda
+    env = {k: v for k, v in os.environ.items() if k not in ("FLET_PLATFORM", "APROVA_SIMULAR_CELULAR", "APROVA_DATA")}
+    saida = subprocess.run([sys.executable, "-c", codigo], cwd=raiz, env=env, capture_output=True, text=True, timeout=60)
+    dados, _, celular, nome_lido, _, _ = json.loads(saida.stdout.strip().splitlines()[-1])
+    assert Path(dados) == Path.home() / ".aprova" and not celular and nome_lido == "computador"
+
+
 def test_falas_do_personagem():
     import random
 

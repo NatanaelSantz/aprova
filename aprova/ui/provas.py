@@ -564,7 +564,7 @@ async def _fluxo_navegador(app, corpo: ft.Column, it: ProvaItem, arquivos: list[
         comp.texto("2. Clique em “Baixar” nestes arquivos:", c, 15),
         lista_nomes if nomes else comp.apagado("A prova e o gabarito (PDF).", c, 14),
     ]
-    if app.modo_web:
+    if not app.desktop:
         passos += [
             comp.texto("3. Depois, escolha os arquivos baixados:", c, 15),
             comp.botao_contorno("Escolher PDFs", escolher, ft.Icons.UPLOAD_FILE),
@@ -577,7 +577,7 @@ async def _fluxo_navegador(app, corpo: ft.Column, it: ProvaItem, arquivos: list[
         ]
     corpo.controls = passos
     app.page.update()
-    if app.modo_web or not nomes:
+    if not app.desktop or not nomes:
         return
     # espera até 15 minutos pelos arquivos
     achou_prova_em = None

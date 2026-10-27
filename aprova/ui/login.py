@@ -386,7 +386,7 @@ class TelaLogin:
                 style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10), padding=ft.Padding.symmetric(vertical=16)),
             ),
         ]
-        if not app.modo_web:
+        if app.desktop:
             filhos += [
                 comp.divisor(c),
                 comp.apagado("É quem cuida do app? Ligue as contas com um projeto grátis do Supabase (passo a passo no README).", c, 12.5),

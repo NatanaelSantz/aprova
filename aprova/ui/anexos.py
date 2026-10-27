@@ -42,7 +42,7 @@ async def escolher_arquivos(app) -> list[Path]:
         file_type=ft.FilePickerFileType.CUSTOM,
         allowed_extensions=list(rk.TIPOS_ARQUIVO),
         allow_multiple=True,
-        with_data=app.modo_web,
+        with_data=not app.desktop,
     )
     caminhos: list[Path] = []
     for f in arquivos or []:
@@ -86,7 +86,7 @@ async def escolher_figurinhas(app) -> list[Path]:
         file_type=ft.FilePickerFileType.CUSTOM,
         allowed_extensions=list(mf.TIPOS) + list(mf.PACOTES),
         allow_multiple=True,
-        with_data=app.modo_web,
+        with_data=not app.desktop,
     )
     caminhos: list[Path] = []
     for f in arquivos or []:
@@ -456,6 +456,9 @@ def _livre(destino: Path) -> Path:
 
 
 def _abrir_no_sistema(app, caminho: Path) -> None:
+    if app.celular:
+        app.page.run_task(app.compartilhar_arquivo, caminho)
+        return
     try:
         if sys.platform == "win32":
             os.startfile(str(caminho))  # noqa: S606

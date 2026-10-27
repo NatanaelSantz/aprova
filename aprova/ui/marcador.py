@@ -647,6 +647,10 @@ def _abrir_arquivo(app, caminho: Path) -> None:
     import os
     import sys
 
+    if app.celular:
+        app.page.run_task(app.compartilhar_arquivo, caminho)
+        return
+
     try:
         if sys.platform == "win32":
             os.startfile(str(caminho))  # noqa: S606

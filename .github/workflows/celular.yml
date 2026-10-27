@@ -1,0 +1,99 @@
+# Monta o Aprova para celular a cada versão:
+# - Android: um APK para instalar direto (sai como artefato desta execução);
+# - iPhone: o app para o simulador (confere que o build do iOS funciona; o iPhone de verdade
+#   precisa da conta Apple Developer, do certificado e do perfil de distribuição).
+name: App do celular
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "aprova/**"
+      - "main.py"
+      - "assets/**"
+      - "pyproject.toml"
+      - ".github/workflows/celular.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: celular-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUTF8: "1"
+  FLET_CLI_NO_RICH_OUTPUT: "1"
+
+jobs:
+  android:
+    name: Android (APK)
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Instalar o Flet
+        run: pip install "flet[cli]==1.0.5"
+
+      - name: Versão
+        id: versao
+        run: echo "valor=$(python -c "import re;print(re.search(r'__version__ = \"([^\"]+)\"', open('aprova/__init__.py', encoding='utf-8').read()).group(1))")" >> "$GITHUB_OUTPUT"
+
+      - name: Montar o APK
+        run: flet build apk --yes --no-rich-output --skip-flutter-doctor --build-version "${{ steps.versao.outputs.valor }}" --build-number "${{ github.run_number }}" -v
+
+      - name: Dar nome ao APK
+        run: |
+          mkdir -p saida
+          cp build/apk/*.apk "saida/Aprova-${{ steps.versao.outputs.valor }}.apk"
+          ls -la saida
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aprova-android
+          path: saida/*.apk
+          retention-days: 30
+
+  iphone:
+    name: iPhone (simulador)
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar o Flet
+        run: pip install "flet[cli]==1.0.5"
+
+      - name: Versão
+        id: versao
+        run: echo "valor=$(python -c "import re;print(re.search(r'__version__ = \"([^\"]+)\"', open('aprova/__init__.py', encoding='utf-8').read()).group(1))")" >> "$GITHUB_OUTPUT"
+
+      - name: Montar para o simulador do iPhone
+        run: flet build ios-simulator --yes --no-rich-output --skip-flutter-doctor --build-version "${{ steps.versao.outputs.valor }}" --build-number "${{ github.run_number }}" -v
+
+      - name: Compactar
+        run: |
+          mkdir -p saida
+          cd build/ios-simulator && zip -qr "../../saida/Aprova-${{ steps.versao.outputs.valor }}-simulador-iphone.zip" . && cd ../..
+          ls -la saida
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aprova-iphone-simulador
+          path: saida/*.zip
+          retention-days: 30

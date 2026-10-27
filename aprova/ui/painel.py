@@ -366,7 +366,9 @@ class TelaPainel:
             )
         linhas = [self._linha_lembrete(l) for l in lista]
         aviso = comp.apagado(
-            "Os alarmes tocam com o Aprova aberto no computador (pode ficar minimizado)." if not app.modo_web else "Os alarmes tocam no computador onde o Aprova está aberto.",
+            "Os alarmes tocam com o Aprova aberto no celular (o celular vibra)." if app.celular
+            else "Os alarmes tocam com o Aprova aberto no computador (pode ficar minimizado)." if not app.modo_web
+            else "Os alarmes tocam no computador onde o Aprova está aberto.",
             c,
             12.5,
         )

@@ -102,7 +102,23 @@ def principal(modo_web: bool):
     return main
 
 
+def principal_celular():
+    """App instalado no Android ou no iPhone: sem janela para arrumar e sem servidor na rede de casa."""
+
+    async def main(page: ft.Page):
+        App(page).iniciar()
+
+    return main
+
+
 def run():
+    from aprova import plataforma
+
+    if plataforma.CELULAR:
+        # empacotado com `flet build apk` / `flet build ipa`: não há linha de comando nem outro Aprova aberto
+        config.garantir_pastas()
+        ft.run(principal_celular(), assets_dir="assets")
+        return
     p = argparse.ArgumentParser(description="Aprova — estudo para concursos públicos")
     p.add_argument("--web", action="store_true", help="servir pelo navegador (computador e celular na mesma rede)")
     p.add_argument("--porta", type=int, default=8550)

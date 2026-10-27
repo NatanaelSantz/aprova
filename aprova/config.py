@@ -7,12 +7,15 @@ import os
 import threading
 from pathlib import Path
 
+from . import plataforma
+
 APP_NOME = "Aprova"
 
 RAIZ = Path(__file__).resolve().parent.parent
 ASSETS_DIR = RAIZ / "assets"
 
-DATA_DIR = Path(os.environ.get("APROVA_DATA", Path.home() / ".aprova"))
+# no celular, a pasta privada do app (o Flet dá o caminho); no computador, a pasta .aprova do usuário
+DATA_DIR = Path(os.environ.get("APROVA_DATA") or plataforma.pasta_dados() or Path.home() / ".aprova")
 PROVAS_DIR = DATA_DIR / "provas"
 CACHE_DIR = DATA_DIR / "cache"
 DB_PATH = DATA_DIR / "aprova.db"
@@ -33,7 +36,7 @@ PADROES = {
     "regiao": "sudeste",
     "claude_api_key": "",
     "claude_modelo": "claude-haiku-5-5",
-    "pasta_downloads": str(Path.home() / "Downloads"),
+    "pasta_downloads": str(plataforma.pasta_downloads_padrao()),
     "meta_horas_semana": 10,  # horas de estudo por semana
     "dias_planejados": "0,1,2,3,4",  # dias da semana em que você planeja estudar (0 = segunda)
     "cronometro_inicio": 0,  # cronômetro de estudo em andamento (timestamp)

@@ -33,13 +33,13 @@ class TelaAjustes:
         app, c = self.app, self.app.c
         # duas colunas em telas largas (sem sobrar espaço do lado); numa coluna só, a ordem é a mesma
         esquerda = [self._conta()]
-        if not app.modo_web:
+        if app.desktop:
             esquerda.append(self._tamanho())
         esquerda += [self._leitura(), self._pausa()]
-        if not app.modo_web:
+        if app.desktop:
             esquerda.append(self._voz())
-        direita = [self._celular(), self._ranking(), self._claude()]
-        if not app.modo_web:
+        direita = ([] if app.celular else [self._celular()]) + [self._ranking(), self._claude()]
+        if app.desktop:
             from .atualizacao import secao_ajustes
 
             direita.append(secao_ajustes(app, self))
@@ -299,7 +299,7 @@ class TelaAjustes:
             comp.texto(estado, c, 14.5),
             ft.Row(
                 [comp.botao_contorno("Abrir o ranking", lambda e: app.ir("painel", aba="ranking"), ft.Icons.LEADERBOARD_OUTLINED)]
-                + ([] if app.modo_web else [comp.botao_texto("Servidor do ranking", lambda e: dialogo_servidor(app, lambda: (r.recarregar_config(), app.recarregar_tela())), ft.Icons.SETTINGS_OUTLINED)]),
+                + ([] if not app.desktop else [comp.botao_texto("Servidor do ranking", lambda e: dialogo_servidor(app, lambda: (r.recarregar_config(), app.recarregar_tela())), ft.Icons.SETTINGS_OUTLINED)]),
                 spacing=8,
                 wrap=True,
             ),
@@ -355,7 +355,7 @@ class TelaAjustes:
         app, c = self.app, self.app.c
         nome = ft.TextField(value=app.aj["nome"], label="Seu nome (para a saudação)", border_radius=10, dense=True, width=320, on_blur=lambda e: app.aj.set("nome", (e.control.value or "").strip()))
         filhos: list[ft.Control] = [nome]
-        if not app.modo_web:
+        if app.desktop:
             pasta = ft.TextField(value=app.aj["pasta_downloads"], label="Pasta onde o navegador salva os downloads", border_radius=10, dense=True, expand=True, on_blur=lambda e: app.aj.set("pasta_downloads", e.control.value))
 
             async def escolher(e):

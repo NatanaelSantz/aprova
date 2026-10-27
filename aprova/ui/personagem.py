@@ -730,7 +730,7 @@ def abrir_criador(app, ao_salvar=None, aba: str = "corpo") -> None:
             dialog_title="Escolha uma foto para o perfil",
             file_type=ft.FilePickerFileType.CUSTOM,
             allowed_extensions=["jpg", "jpeg", "png", "webp", "gif", "bmp"],
-            with_data=app.modo_web,
+            with_data=not app.desktop,
         )
         if not arquivos:
             return

@@ -32,6 +32,10 @@ def main(argv: list[str]) -> int:
         print(f"A versão nova ({versao}) precisa ser maior que a atual ({atual}).")
         return 1
     init.write_text(re.sub(r'__version__\s*=\s*"[^"]+"', f'__version__ = "{versao}"', texto), encoding="utf-8")
+    projeto = RAIZ / "pyproject.toml"  # versão do app do celular (flet build)
+    if projeto.exists():
+        conteudo = projeto.read_text(encoding="utf-8")
+        projeto.write_text(re.sub(r'(?m)^version\s*=\s*"[^"]+"', f'version = "{versao}"', conteudo, count=1), encoding="utf-8")
     dados = {
         "versao": versao,
         "data": datetime.date.today().strftime("%d/%m/%Y"),

@@ -24,7 +24,11 @@ def confiar_no_sistema() -> str:
     global _feito
     if _feito:
         return _feito
+    from . import plataforma
+
     try:
+        if plataforma.CELULAR:
+            raise RuntimeError("no celular, a lista do certifi (o truststore é para Windows, Mac e Linux)")
         import truststore
 
         truststore.inject_into_ssl()

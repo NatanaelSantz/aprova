@@ -24,6 +24,10 @@ class Leitor:
 
     @property
     def disponivel(self) -> bool:
+        from . import plataforma
+
+        if plataforma.CELULAR:
+            return False  # no celular a voz fica para uma versão futura (sem programas do sistema para chamar)
         if SISTEMA == "Windows":
             return shutil.which("powershell") is not None
         if SISTEMA == "Darwin":

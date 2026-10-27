@@ -69,6 +69,10 @@ def comando_windows(titulo: str, texto: str, link: str = "", botao: str = "") ->
 
 def mostrar(titulo: str, texto: str, link: str = "", botao: str = "") -> bool:
     """Mostra a notificação. Devolve False se este sistema não tem como (o app avisa por dentro)."""
+    from . import plataforma
+
+    if plataforma.CELULAR:
+        return False  # no celular não há programas do sistema para chamar; o aviso aparece dentro do app
     try:
         if sys.platform == "win32":
             registrar_app_windows()
