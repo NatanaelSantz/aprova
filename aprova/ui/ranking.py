@@ -8,6 +8,7 @@ import flet as ft
 
 from .. import ranking as rk
 from . import comp, metas
+from .personagem import busto
 from .tema import FONTE_TITULO
 
 MEDALHAS = {1: "#C98E12", 2: "#8A94A6", 3: "#A0612D"}
@@ -331,6 +332,7 @@ class SecaoRanking:
             ft.Row(
                 [
                     selo,
+                    busto(self.app, l.get("avatar"), l.get("apelido") or "?", 36, l.get("usuario_id")),
                     ft.Column(
                         [
                             ft.Row(

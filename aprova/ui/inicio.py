@@ -50,7 +50,11 @@ class TelaInicio:
             spacing=14,
         )
         cronometro = app.botao_estudo()
-        if app.modo_nav == "lateral":
+        from .personagem import cartao_inicio
+
+        if app.modo_nav == "lateral" and app.largura >= 1000:
+            cabecalho = ft.Row([cabecalho, ft.Container(expand=True), cartao_inicio(app), cronometro], spacing=18, vertical_alignment=ft.CrossAxisAlignment.END)
+        elif app.modo_nav == "lateral":
             cabecalho = ft.Row([cabecalho, ft.Container(expand=True), cronometro], vertical_alignment=ft.CrossAxisAlignment.END)
         elif app.modo_nav == "trilho":
             cabecalho = ft.Row([cabecalho, ft.Container(expand=True), cronometro], vertical_alignment=ft.CrossAxisAlignment.END)

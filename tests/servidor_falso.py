@@ -28,6 +28,8 @@ class Dados:
         self.arquivos: dict[str, tuple[bytes, str]] = {}  # Storage: caminho na pasta "anexos" -> (dados, tipo)
         self.sem_anexos = False  # finge um servidor sem o SQL da 1.10
         self.sem_entrar_no_grupo = False  # finge um servidor sem o SQL da 1.12 (grupos visíveis para todos)
+        self.sem_avatar = False  # finge um servidor sem o SQL da 1.14 (sem personagem nem foto de perfil)
+        self.fotos: dict[str, bytes] = {}  # Storage: pasta "avatares" (<id>.webp)
         self._seq = 0
         self.anonimo_ligado = True
         self.confirmar_email = False
@@ -41,7 +43,7 @@ class Dados:
             if not p or p.get("bloqueado"):
                 continue
             taxa = round(e["acertos"] / e["questoes"], 4) if e["questoes"] else None
-            saida.append({**e, "apelido": p["apelido"], "concurso": p.get("concurso", ""), "taxa": taxa})
+            saida.append({**e, "apelido": p["apelido"], "concurso": p.get("concurso", ""), "taxa": taxa, "avatar": p.get("avatar")})
         return saida
 
     def eh_admin(self, uid: str) -> bool:
@@ -68,6 +70,9 @@ class Dados:
     def apelido(self, uid: str) -> str:
         return next((p["apelido"] for p in self.tabelas["perfis"] if p["id"] == uid), "?")
 
+    def avatar(self, uid: str):
+        return next((p.get("avatar") for p in self.tabelas["perfis"] if p["id"] == uid), None)
+
     def forum_feed(self, uid: str) -> list[dict]:
         saida = []
         for f in self.tabelas["forum_posts"]:
@@ -75,14 +80,28 @@ class Dados:
                 continue
             n_resp = sum(1 for r in self.tabelas["forum_respostas"] if r["post_id"] == f["id"])
             n_util = sum(1 for u in self.tabelas["forum_uteis"] if u["post_id"] == f["id"])
-            saida.append({**f, "apelido": self.apelido(f["autor"]), "respostas": n_resp, "uteis": n_util})
+            saida.append({**f, "apelido": self.apelido(f["autor"]), "respostas": n_resp, "uteis": n_util, "avatar": self.avatar(f["autor"])})
         return saida
 
     def forum_respostas_v(self, uid: str) -> list[dict]:
-        return [{**r, "apelido": self.apelido(r["autor"])} for r in self.tabelas["forum_respostas"] if self.ve(uid, r["codigo"])]
+        return [{**r, "apelido": self.apelido(r["autor"]), "avatar": self.avatar(r["autor"])} for r in self.tabelas["forum_respostas"] if self.ve(uid, r["codigo"])]
 
     def post(self, pid) -> dict | None:
         return next((f for f in self.tabelas["forum_posts"] if str(f["id"]) == str(pid)), None)
+
+
+def _avatar_valido(a) -> bool:
+    """A mesma regra do public.avatar_valido do ranking.sql."""
+    if a is None:
+        return True
+    if not isinstance(a, dict) or len(json.dumps(a)) > 600:
+        return False
+    for k, v in a.items():
+        if not re.fullmatch(r"[a-z_]{1,16}", k) or not isinstance(v, (int, float, str, bool)):
+            return False
+        if isinstance(v, str) and not re.fullmatch(r"[a-z0-9_-]{0,24}", v):
+            return False
+    return True
 
 
 def _conteudo_valido(n: dict, codigo: str) -> bool:
@@ -161,9 +180,48 @@ class Manipulador(BaseHTTPRequestHandler):
         return {"access_token": f"tok-{uid}", "refresh_token": f"ref-{uid}", "expires_in": 3600,
                 "user": {"id": uid, "email": u["email"], "is_anonymous": not u["email"]}}
 
+    def _avatares(self, metodo: str, caminho: str):
+        """Pasta "avatares": cada um envia e troca só <seu id>.webp; quem está logado lê."""
+        d, uid = self.dados, self._uid()
+        if d.sem_avatar:
+            return self._json(400, {"statusCode": "404", "error": "Bucket not found", "message": "Bucket not found"})
+        m = re.match(r"/storage/v1/object/(authenticated/)?avatares/(.+)$", caminho)
+        if not m or not uid:
+            return self._json(400, {"statusCode": "404", "error": "not_found", "message": "Object not found"})
+        nome = unquote(m.group(2))
+        if metodo == "POST":
+            n = int(self.headers.get("Content-Length") or 0)
+            dados = self.rfile.read(n)
+            bloqueado = any(p["id"] == uid and p.get("bloqueado") for p in d.tabelas["perfis"])
+            if nome != f"{uid}.webp" or bloqueado:
+                return self._json(403, {"statusCode": "403", "error": "Unauthorized", "message": "new row violates row-level security policy"})
+            if n > 307200:
+                return self._json(413, {"statusCode": "413", "error": "Payload too large", "message": "The object exceeded the maximum allowed size"})
+            if nome in d.fotos and self.headers.get("x-upsert") != "true":
+                return self._json(409, {"statusCode": "409", "error": "Duplicate", "message": "The resource already exists"})
+            d.fotos[nome] = dados
+            return self._json(200, {"Key": "avatares/" + nome})
+        if metodo == "GET":
+            if nome not in d.fotos:
+                return self._json(400, {"statusCode": "404", "error": "not_found", "message": "Object not found"})
+            dados = d.fotos[nome]
+            self.send_response(200)
+            self.send_header("Content-Type", "image/webp")
+            self.send_header("Content-Length", str(len(dados)))
+            self.end_headers()
+            self.wfile.write(dados)
+            return None
+        if metodo == "DELETE":
+            if nome == f"{uid}.webp" or d.eh_admin(uid):
+                d.fotos.pop(nome, None)
+            return self._json(200, {"message": "ok"})
+        return self._json(405, {"message": "método não suportado"})
+
     def _storage(self, metodo: str, caminho: str):
         """Pasta privada "anexos" do Storage, com as regras do ranking.sql."""
         d, uid = self.dados, self._uid()
+        if "/avatares/" in caminho:
+            return self._avatares(metodo, caminho)
         negado = (403, {"statusCode": "403", "error": "Unauthorized", "message": "new row violates row-level security policy"})
         if d.sem_anexos:
             return self._json(400, {"statusCode": "404", "error": "Bucket not found", "message": "Bucket not found"})
@@ -294,6 +352,8 @@ class Manipulador(BaseHTTPRequestHandler):
             tabela = m.group(1)
             filtros = [(k, unquote(v)) for k, v in query if k not in ("select", "order", "limit", "on_conflict")]
             selecao = dict(query).get("select", "")
+            if d.sem_avatar and "avatar" in selecao:
+                return self._json(400, {"code": "42703", "message": f"column {tabela}.avatar does not exist"})
             if d.sem_anexos and ("anexos" in selecao or "figurinha" in selecao or tabela == "config"):
                 coluna = "anexos" if tabela != "config" else "config"
                 return self._json(400, {"code": "42703", "message": f"column {tabela}.{coluna} does not exist"})
@@ -377,6 +437,11 @@ class Manipulador(BaseHTTPRequestHandler):
                 return self._json(201)
             if metodo == "PATCH":
                 corpo = self._corpo() or {}
+                if tabela == "perfis" and "avatar" in corpo:
+                    if d.sem_avatar:
+                        return self._json(400, {"code": "PGRST204", "message": "Could not find the 'avatar' column of 'perfis' in the schema cache"})
+                    if not _avatar_valido(corpo["avatar"]):
+                        return self._json(400, {"code": "23514", "message": 'new row for relation "perfis" violates check constraint "perfis_avatar_valido"'})
                 alvo = _filtrar(d.tabelas[tabela], filtros)
                 admin = d.eh_admin(uid)
                 for l in alvo:

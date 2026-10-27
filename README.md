@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.13.1" src="https://img.shields.io/badge/vers%C3%A3o-1.13.1-2340A8">
+  <img alt="Versão 1.14.0" src="https://img.shields.io/badge/vers%C3%A3o-1.14.0-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -178,7 +178,7 @@ Contas, ranking, grupos e convites usam um projeto do [Supabase](https://supabas
 
 Nunca coloque no app a chave **secret** / **service_role** (o Aprova recusa).
 
-Fotos e arquivos dos grupos ficam no **Storage** do mesmo projeto, numa pasta privada chamada `anexos` (criada pelo próprio `ranking.sql`, com as regras de acesso). A busca de GIFs usa o GIPHY: o administrador cola a chave grátis em **Admin → Configurações**.
+Fotos e arquivos dos grupos ficam no **Storage** do mesmo projeto, numa pasta privada chamada `anexos` (criada pelo próprio `ranking.sql`, com as regras de acesso). As fotos de perfil ficam na pasta privada `avatares` (uma por pessoa, em WebP pequeno); o personagem é só uma lista curta de escolhas guardada no perfil. A busca de GIFs usa o GIPHY: o administrador cola a chave grátis em **Admin → Configurações**.
 
 A página do convite e a página do app ficam em [`docs/`](docs) e são publicadas pelo **GitHub Pages** (branch `main`, pasta `/docs`).
 
@@ -239,6 +239,7 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
+| **1.14.0** | Personagem estilo RPG (pixel art animado) ou foto de perfil, com a sala da turma nos grupos, o boneco no Início e a comemoração no resultado |
 | **1.13.1** | Atualiza sozinho ao abrir (e baixa a versão nova em segundo plano com o app aberto) |
 | **1.13.0** | Perguntar ao Claude ou ao ChatGPT (abre o chat com a questão ou os erros do simulado, sem chave) e passo a passo para conseguir a chave da IA |
 | **1.12.0** | Simulados sem repetição e sem questão quebrada, resultado comentado por matéria, aviso de atualização por notificação e reforço de segurança (grupos só com convite, arquivos perigosos bloqueados, acesso pelo celular com código) |

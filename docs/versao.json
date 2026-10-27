@@ -1,9 +1,10 @@
 {
-  "versao": "1.13.1",
+  "versao": "1.14.0",
   "data": "26/10/2026",
   "notas": [
-    "O Aprova agora se atualiza sozinho toda vez que abre",
-    "Com o app aberto, a versão nova é baixada em segundo plano e avisa para reiniciar"
+    "Personagem estilo RPG: crie o seu bonequinho em pixel art (ou use uma foto)",
+    "Ele respira, pisca, acena e pula: fica no Início e comemora no resultado do simulado",
+    "Sala da turma: os personagens do grupo juntos, como no lobby de um jogo"
   ],
   "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
 }

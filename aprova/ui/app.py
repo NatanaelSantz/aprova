@@ -311,7 +311,17 @@ class App:
             )
             if levar:
                 await self.em_segundo_plano(self._levar_estudos_para, cid)
+        visitante_avatar = self.aj.get("avatar") if self.conta_id is None else None
+        foto_visitante = self.pasta_conta / "avatar-foto.webp"
         self._abrir_dados(cid)
+        if visitante_avatar and not self.aj.get("avatar"):
+            # o personagem criado sem conta vai junto para a conta (e depois para a turma)
+            self.aj.set("avatar", visitante_avatar)
+            try:
+                if foto_visitante.exists():
+                    (self.pasta_conta / "avatar-foto.webp").write_bytes(foto_visitante.read_bytes())
+            except OSError:
+                pass
         self._migrar_tempo()
         self.sessao.set("pular_login", False)
         self.em_login = False
@@ -325,6 +335,9 @@ class App:
         else:
             self.montar()
         self.page.run_task(self.sincronizar_ranking)
+        from .personagem import sincronizar
+
+        self.page.run_task(sincronizar, self)
 
     def sair_da_conta(self) -> None:
         self.page.run_task(self._sair)
@@ -347,7 +360,9 @@ class App:
         logado = self.ranking.logado
         nome = self.nome_exibicao or "Visitante"
         papel = "Administrador" if self.ranking.eh_admin else ("Aluno" if logado else "Sem conta")
-        avatar = ft.Container(
+        from .personagem import abrir_criador, meu_busto
+
+        avatar = meu_busto(self, 38) or ft.Container(
             ft.Text((nome[:1] or "?").upper(), size=16, weight=ft.FontWeight.W_700, color=c["sobre_tinta"]),
             width=38,
             height=38,
@@ -373,13 +388,15 @@ class App:
                 ],
                 spacing=10,
             )
+        personagem = ft.PopupMenuItem(content="Personagem e foto", icon=ft.Icons.AUTO_FIX_HIGH, on_click=lambda e: abrir_criador(self))
         if logado:
             itens = [
+                personagem,
                 ft.PopupMenuItem(content="Minha conta", icon=ft.Icons.MANAGE_ACCOUNTS_OUTLINED, on_click=lambda e: dialogo_conta(self)),
                 ft.PopupMenuItem(content="Sair / trocar de conta", icon=ft.Icons.LOGOUT, on_click=lambda e: self.sair_da_conta()),
             ]
         else:
-            itens = [ft.PopupMenuItem(content="Entrar ou criar conta", icon=ft.Icons.LOGIN, on_click=lambda e: self.mostrar_login())]
+            itens = [personagem, ft.PopupMenuItem(content="Entrar ou criar conta", icon=ft.Icons.LOGIN, on_click=lambda e: self.mostrar_login())]
         if self.modo_nav == "inferior":
             extras = [ft.PopupMenuItem(content="Ajustes", icon=ft.Icons.TUNE_OUTLINED, on_click=lambda e: self.ir("ajustes"))]
             if self.ranking.eh_admin:
@@ -504,6 +521,10 @@ class App:
         atualizacao.ver_pronta(self)
         if atualizacao.disponivel(self):
             p.run_task(atualizacao.vigiar, self)
+        if self.ranking.configurado and self.ranking.logado and not config.FIXTURES_DIR:
+            from .personagem import sincronizar
+
+            p.run_task(sincronizar, self)
         if os.environ.get("APROVA_DEMO"):
             p.run_task(self._roteiro_demo, os.environ["APROVA_DEMO"])
 
@@ -711,6 +732,17 @@ class App:
             tela._inicio = (w[50][0] + 1, (w[50][1] + w[50][3]) / 2)
             fim = w[min(62, len(w) - 1)]
             tela._pan_meio(type("E", (), {"local_position": ft.Offset((fim[2] - 1) * s, (fim[1] + fim[3]) / 2 * s)})())
+        elif nome == "avatar":
+            from .. import avatar as av
+
+            cfg = av.sortear(arg or "demo")
+            cfg["t"] = av.agora()
+            self.aj.set("avatar", cfg)
+            self.montar()
+        elif nome == "personagem":
+            from .personagem import abrir_criador
+
+            abrir_criador(self)
         elif nome == "guia_chave":
             from .chat import dialogo_chave
 

@@ -48,7 +48,7 @@ begin
 end $f$;
 alter table storage.objects enable row level security;
 grant usage on schema storage to authenticated;
-grant select, insert, delete on storage.objects to authenticated;
+grant select, insert, update, delete on storage.objects to authenticated;
 grant usage, select on all sequences in schema storage to authenticated;
 -- sem "expor tabelas novas": o ranking.sql precisa dar o acesso sozinho
 """
@@ -282,3 +282,46 @@ def test_grupos_so_para_quem_tem_o_convite(db):
     assert db.como(A).q("select count(*) from grupos where codigo = 'SEGREDO-ABC234'") == [(1,)]
     assert "permission denied" in db.como(None).falha("set role anon; select * from entrar_no_grupo('SEGREDO-ABC234')")
     db.como(None)
+
+
+def test_avatar_e_foto(db):
+    """1.14: o personagem é só uma lista de escolhas; a foto fica em avatares/<id>.webp e cada um mexe só na sua."""
+    E = "00000000-0000-0000-0000-00000000000e"
+    db.como(None).q("insert into auth.users values (%s, 'e@x.com') on conflict do nothing", (E,))
+    db.como(E).q("insert into perfis (id, apelido) values (%s, 'Edu')", (E,))
+    C = E  # alguém comum (a conta do Caio pode ter sido apagada nos testes anteriores)
+    bom = json.dumps({"v": 1, "cabelo": "curto", "pele": 2, "roupa": "manto", "usar_foto": False, "t": 1793000000})
+    db.como(C).q("update perfis set avatar = %s::jsonb where id = %s", (bom, C))
+    assert db.como(B).q("select avatar->>'roupa' from perfis where id = %s", (C,)) == [("manto",)]
+    # nada de texto livre, link, objeto dentro de objeto ou coisa grande
+    for ruim in ({"cabelo": "https://x.com/a.png"}, {"cabelo": "Curto Liso"}, {"x": {"y": 1}}, {"Cabelo": "curto"},
+                 {"lista": [1, 2]}, {f"k{i:02d}"[:3] + "_" * (i % 5): i for i in range(80)}, ["curto"]):
+        assert "perfis_avatar_valido" in db.como(C).falha("update perfis set avatar = %s::jsonb where id = %s", (json.dumps(ruim), C))
+    # ninguém muda o personagem dos outros
+    db.como(B).q("update perfis set avatar = '{}'::jsonb where id = %s", (C,))
+    assert db.como(None).q("select avatar->>'roupa' from perfis where id = %s", (C,)) == [("manto",)]
+    # o personagem vem junto no ranking e no fórum
+    from datetime import date, timedelta
+
+    seg = date.today() - timedelta(days=date.today().weekday())
+    db.como(C).q("insert into estatisticas (usuario_id, semana, segundos, questoes, acertos) values (%s, %s, 600, 5, 4)", (C, seg))
+    assert db.como(B).q("select avatar->>'cabelo' from ranking_semana where usuario_id = %s", (C,)) == [("curto",)]
+    db.como(B).q("update perfis set avatar = %s::jsonb where id = %s", (bom, B))
+    db.como(B).q("insert into grupos (codigo, nome, criado_por) values ('AVATAR-0001', 'Turma do avatar', %s)", (B,))
+    db.como(B).q("insert into membros (codigo, usuario_id) values ('AVATAR-0001', %s)", (B,))
+    db.como(B).q("insert into forum_posts (codigo, tipo, texto) values ('AVATAR-0001', 'conversa', 'oi com avatar')")
+    assert db.como(B).q("select avatar->>'roupa' from forum_feed where texto = 'oi com avatar'") == [("manto",)]
+    # foto: cada um envia e troca só a sua, com o nome certo; bloqueado não envia; o admin apaga
+    db.como(C).q(f"insert into storage.objects (bucket_id, name) values ('avatares', '{C}.webp')")
+    db.como(C).q(f"update storage.objects set owner = owner where bucket_id = 'avatares' and name = '{C}.webp'")
+    for nome in (f"{B}.webp", f"x/{C}.webp", f"{C}.png", f"{C}.webp.webp"):
+        assert "row-level security" in db.como(C).falha(f"insert into storage.objects (bucket_id, name) values ('avatares', '{nome}')")
+    assert "row-level security" in db.como(D).falha(f"insert into storage.objects (bucket_id, name) values ('avatares', '{D}.webp')")
+    assert db.como(B).q(f"select count(*) from storage.objects where bucket_id = 'avatares' and name = '{C}.webp'") == [(1,)]
+    db.como(B).q(f"delete from storage.objects where bucket_id = 'avatares' and name = '{C}.webp'")
+    assert db.como(None).q(f"select count(*) from storage.objects where bucket_id = 'avatares' and name = '{C}.webp'") == [(1,)]
+    assert "permission denied" in db.como(None).falha("set role anon; select count(*) from storage.objects where bucket_id = 'avatares'")
+    db.como(None)
+    db.como(A).q(f"delete from storage.objects where bucket_id = 'avatares' and name = '{C}.webp'")
+    assert db.como(None).q(f"select count(*) from storage.objects where bucket_id = 'avatares'") == [(0,)]
+    assert db.como(None).q("select file_size_limit, allowed_mime_types from storage.buckets where id = 'avatares'") == [(307200, ["image/webp"])]

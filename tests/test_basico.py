@@ -1643,3 +1643,182 @@ def test_app_baixa_a_atualizacao_sozinho(tmp_path, monkeypatch):
     assert app.atualizacao_pronta == "99.0.0"
     assert atualizacao.notificar_pronta(app) and avisos == ["Aprova 99.0.0 pronto para usar"]
     assert not atualizacao.notificar_pronta(app)  # avisa uma vez só
+
+
+# ---------------------------------------------------------------- 1.14: personagem (avatar) e foto de perfil
+
+def test_personagem_validar_e_desenhar():
+    import io as _io
+
+    from PIL import Image
+
+    from aprova import avatar as av
+
+    # só passa o que o app conhece (vem do servidor, de outras pessoas)
+    sujo = {"cabelo": "https://x.com/a.png", "pele": 99, "roupa": "manto", "cor_roupa": True, "usar_foto": "sim", "foto": -5,
+            "item": "espada", "extra": "oi", "t": 1793000000.7}
+    v = av.validar(sujo)
+    assert v["cabelo"] == av.PADRAO["cabelo"] and v["pele"] == av.PADRAO["pele"] and v["roupa"] == "manto" and v["item"] == "espada"
+    assert v["cor_roupa"] == av.PADRAO["cor_roupa"] and v["usar_foto"] is False and v["foto"] == 0 and v["t"] == 1793000000
+    assert "extra" not in v and av.validar(None) == av.PADRAO and av.validar(["x"]) == av.PADRAO
+    assert av.validar({"usar_foto": True, "foto": 0})["usar_foto"] is False  # sem foto enviada não usa foto
+    assert not av.tem_personagem(av.PADRAO) and av.tem_personagem({**av.PADRAO, "t": 5})
+    # sorteio estável por semente e sempre válido
+    assert av.sortear("uid-1") == av.sortear("uid-1") and av.sortear("uid-1") != av.sortear("uid-2")
+    for i in range(40):
+        c = av.sortear(f"s{i}")
+        assert av.validar(c) == c
+        assert av.boneco(c).size == (av.W, av.H)
+    # todas as combinações de estilo desenham sem erro (cabelo x acessório, roupa x item) e todos os gestos
+    for cab, _ in av.CABELOS:
+        for ac, _ in av.ACESSORIOS:
+            av.boneco({**av.PADRAO, "cabelo": cab, "acessorio": ac})
+    for roupa, _ in av.ROUPAS:
+        for item, _ in av.ITENS:
+            for kw in ({}, {"braco": "aceno", "aceno": 1}, {"braco": "dois", "pulo": 5}, {"respira": 1, "piscando": True}):
+                av.boneco({**av.PADRAO, "roupa": roupa, "item": item, "olhos": "feliz"}, **kw)
+    # animações: WebP animado, ampliado sem borrar
+    for anim in ("parado", "aceno", "pulo", "lobby"):
+        im = Image.open(_io.BytesIO(av.animacao(av.sortear("x"), anim, 4)))
+        assert im.format == "WEBP" and im.size == (64 * 4, 40 * 4) and getattr(im, "is_animated", False)
+    sozinho = Image.open(_io.BytesIO(av.animacao(av.sortear("x"), "parado", 3, cenario=False)))
+    assert sozinho.size == (32 * 3, 40 * 3)
+    assert Image.open(_io.BytesIO(av.membro(av.sortear("x"), "uid-9", 3))).size == (96, 120)
+    assert Image.open(_io.BytesIO(av.rosto(av.sortear("x"), 4))).size == (80, 80)
+    for nome, _ in av.CENARIOS:
+        for larg in (64, 150):
+            assert Image.open(_io.BytesIO(av.cenario_png(nome, larg, 2))).size == (larg * 2, 80)
+    assert av.cor_fundo(av.PADRAO).startswith("#") and len(av.cor_fundo(av.PADRAO)) == 7
+    # pixels sem borrão: só as cores da paleta (nenhuma cor intermediária de redimensionamento)
+    q = Image.open(_io.BytesIO(av.animacao(av.PADRAO, "parado", 5, cenario=False))).convert("RGBA")
+    assert len(q.getcolors(100000)) < 40
+
+
+def test_foto_de_perfil_fica_pequena_e_quadrada(tmp_path):
+    import io as _io
+
+    from PIL import Image
+
+    from aprova import avatar as av
+
+    grande = Image.new("RGB", (1600, 900), (200, 50, 50))
+    b = _io.BytesIO()
+    grande.save(b, "JPEG", quality=90)
+    dados = av.preparar_foto(b.getvalue())
+    im = Image.open(_io.BytesIO(dados))
+    assert im.format == "WEBP" and im.size == (256, 256) and len(dados) < 300 * 1024
+    with pytest.raises(Exception):
+        av.preparar_foto(b"isso nao e imagem")
+    with pytest.raises(ValueError):
+        av.preparar_foto(b"")
+    pequena = _io.BytesIO()
+    Image.new("RGB", (10, 10)).save(pequena, "PNG")
+    with pytest.raises(ValueError):
+        av.preparar_foto(pequena.getvalue())
+
+
+def test_avatar_no_servidor_grupo_ranking_e_forum(tmp_path):
+    sys.path.insert(0, str(Path(__file__).parent))
+    from servidor_falso import CHAVE, ServidorFalso
+
+    from aprova import avatar as av
+    from aprova import config, ranking
+
+    srv = ServidorFalso().iniciar()
+    try:
+        cfg = {"url": srv.url, "chave": CHAVE}
+        ana = ranking.Ranking(config.Ajustes(tmp_path / "ana.json"), cfg)
+        ana.criar_conta("ana@exemplo.com", "segredo1", "Ana")
+        beto = ranking.Ranking(config.Ajustes(tmp_path / "beto.json"), cfg)
+        beto.criar_conta("beto@exemplo.com", "segredo1", "Beto")
+        cod = ana.criar_grupo("Turma Avatar")
+        beto.entrar_grupo(cod)
+
+        meu = {**av.sortear("ana"), "roupa": "manto", "t": av.agora(), "lixo": "x"}
+        salvo = ana.salvar_avatar(meu)
+        assert "lixo" not in salvo and salvo["roupa"] == "manto"
+        assert ana.perfil()["avatar"]["roupa"] == "manto"
+        # aparece para a turma: membros, fórum, respostas e ranking
+        membros = {m["apelido"]: m for m in beto.membros_grupo(cod)}
+        assert membros["Ana"]["avatar"]["roupa"] == "manto" and membros["Beto"]["avatar"] is None
+        ana.forum_publicar(cod, "Olha meu personagem")
+        post = beto.forum(cod)[0]
+        assert post["avatar"]["roupa"] == "manto"
+        beto.forum_responder(post["id"], "Que legal!")
+        assert ana.forum_respostas(post["id"])[0]["avatar"] is None
+        srv.dados.tabelas["estatisticas"].append({"usuario_id": ana.usuario_id, "semana": ranking.inicio_semana().isoformat(), "segundos": 600,
+                                                  "questoes": 5, "acertos": 4, "dias": 1, "sequencia": 1})
+        assert next(l for l in beto.ranking() if l["apelido"] == "Ana")["avatar"]["roupa"] == "manto"
+        # ninguém muda o avatar dos outros (o PATCH só pega a própria linha)
+        beto._pedir("PATCH", f"/rest/v1/perfis?id=eq.{ana.usuario_id}", json={"avatar": {"roupa": "terno"}}, cabecalhos={"Prefer": "return=minimal"})
+        assert ana.perfil()["avatar"]["roupa"] == "manto"
+
+        # foto: só WebP pequeno; cada um troca a sua; os outros baixam (e fica guardada por versão)
+        import io as _io
+
+        from PIL import Image
+
+        b = _io.BytesIO()
+        Image.new("RGB", (500, 400), (10, 120, 200)).save(b, "PNG")
+        foto = av.preparar_foto(b.getvalue())
+        with pytest.raises(ranking.ErroRanking):
+            ana.enviar_foto(b.getvalue())  # PNG cru não vai
+        ana.enviar_foto(foto)
+        ana.enviar_foto(foto)  # trocar de novo não dá erro
+        ana.salvar_avatar({**salvo, "foto": 1793000123, "usar_foto": True})
+        assert beto.baixar_foto(ana.usuario_id, 1793000123) == foto
+        assert beto.baixar_foto(beto.usuario_id, 0) is None
+        with pytest.raises(ranking.ErroRanking):
+            beto.baixar_foto("../anexos/x", 1)
+        beto.enviar_foto(foto)
+        assert set(srv.dados.fotos) == {f"{ana.usuario_id}.webp", f"{beto.usuario_id}.webp"}
+        ana.apagar_foto()
+        assert set(srv.dados.fotos) == {f"{beto.usuario_id}.webp"}
+
+        # servidor sem o SQL da 1.14: tudo continua funcionando, sem avatar, e salvar explica o que falta
+        srv.dados.sem_avatar = True
+        velho = ranking.Ranking(config.Ajustes(tmp_path / "velho.json"), cfg)
+        velho.entrar("beto@exemplo.com", "segredo1")
+        assert [m["apelido"] for m in velho.membros_grupo(cod)] == ["Ana", "Beto"]
+        assert velho.forum(cod)[0]["texto"] == "Olha meu personagem" and velho.ranking() and velho.perfil()["apelido"] == "Beto"
+        with pytest.raises(ranking.ErroRanking, match="SQL novo"):
+            velho.salvar_avatar(av.sortear("b"))
+    finally:
+        srv.parar()
+
+
+
+def test_admin_tira_foto_de_perfil(tmp_path):
+    sys.path.insert(0, str(Path(__file__).parent))
+    from servidor_falso import CHAVE, ServidorFalso
+
+    from aprova import avatar as av
+    from aprova import config, ranking
+
+    srv = ServidorFalso().iniciar()
+    try:
+        cfg = {"url": srv.url, "chave": CHAVE}
+        adm = ranking.Ranking(config.Ajustes(tmp_path / "adm.json"), cfg)
+        adm.criar_conta("adm@exemplo.com", "segredo1", "Natan")
+        srv.dados.tabelas["perfis"][0]["papel"] = "admin"
+        adm.atualizar_perfil()
+        aluno = ranking.Ranking(config.Ajustes(tmp_path / "al.json"), cfg)
+        aluno.criar_conta("al@exemplo.com", "segredo1", "Joana")
+        import io as _io
+
+        from PIL import Image
+
+        b = _io.BytesIO()
+        Image.new("RGB", (300, 300), (1, 2, 3)).save(b, "PNG")
+        aluno.enviar_foto(av.preparar_foto(b.getvalue()))
+        aluno.salvar_avatar({**av.sortear("j"), "foto": 1793000000, "usar_foto": True, "t": 1793000000})
+        joana = next(u for u in adm.usuarios() if u["apelido"] == "Joana")
+        assert joana["avatar"]["usar_foto"] is True
+        with pytest.raises(ranking.ErroRanking):
+            aluno.tirar_foto_de(adm.usuario_id)  # só admin
+        adm.tirar_foto_de(joana["id"])
+        joana = next(u for u in adm.usuarios() if u["apelido"] == "Joana")
+        assert joana["avatar"]["usar_foto"] is False and joana["avatar"]["foto"] == 0 and joana["avatar"]["t"] == 1793000000
+        assert srv.dados.fotos == {}
+    finally:
+        srv.parar()

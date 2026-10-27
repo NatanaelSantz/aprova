@@ -1084,11 +1084,14 @@ class TelaProva:
 
         app, c, r = self.app, self.c, self.resultado
         taxa = r["acertos"] / r["total"] if r["total"] else None
+        from .personagem import comemoracao
+
         numero = ft.Row(
             [
                 ft.Text(f"{r['acertos']}", size=84, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["tinta"]),
                 ft.Text(f"/{r['total']}", size=36, font_family=FONTE_TITULO, color=c["texto2"]),
-            ],
+            ]
+            + ([ft.Container(festa, margin=ft.Margin.only(left=18))] if taxa is not None and (festa := comemoracao(app, taxa)) else []),
             vertical_alignment=ft.CrossAxisAlignment.END,
             spacing=2,
         )

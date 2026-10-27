@@ -15,6 +15,7 @@ import flet as ft
 from .. import analise
 from .. import ranking as rk
 from . import comp, metas
+from .personagem import busto, sala_da_turma
 from .tema import FONTE_TITULO
 
 ABAS = [("conversa", "Conversa"), ("planos", "Planos de estudo"), ("ranking", "Ranking"), ("membros", "Membros")]
@@ -277,7 +278,7 @@ class TelaGrupos:
     def _com_grupos(self) -> ft.Control:
         app, c = self.app, self.app.c
         g = self.grupo
-        conteudo = ft.Column([self._cabecalho_grupo(g), self._abas(), self._conteudo_aba(g)], spacing=16)
+        conteudo = ft.Column([self._cabecalho_grupo(g), self._sala(g), self._abas(), self._conteudo_aba(g)], spacing=16)
         if not self.duas_colunas:
             return conteudo
         lateral = ft.Column([self._lista_grupos(), self._bloco_membros(g)], spacing=16)
@@ -411,6 +412,40 @@ class TelaGrupos:
         if self.duas_colunas:
             return cabeca
         return ft.Column([self._seletor_grupo(), cabeca], spacing=12)
+
+    def _sala(self, g: dict | None) -> ft.Control:
+        """Sala da turma: os personagens de quem está no grupo, como no lobby de um jogo."""
+        from .. import avatar as av
+
+        app, c = self.app, self.app.c
+        membros = self.membros.get(g["codigo"]) if g else None
+        if not membros:
+            return ft.Container()
+        oculta = bool(app.aj.get("sala_oculta", False))
+
+        def alternar(e):
+            app.aj.set("sala_oculta", not oculta)
+            self._redesenhar()
+
+        n = len(membros)
+        topo = ft.Row(
+            [
+                ft.Icon(ft.Icons.GROUPS_2_OUTLINED, size=18, color=c["tinta"]),
+                ft.Text("Sala da turma", size=14, weight=ft.FontWeight.W_700, color=c["texto"]),
+                comp.apagado(f"{n} pessoa{'s' if n != 1 else ''}" + (" · aparecem 10" if n > 10 else ""), c, 12.5),
+                ft.Container(expand=True),
+                comp.botao_texto("Mostrar" if oculta else "Esconder", alternar, ft.Icons.EXPAND_MORE if oculta else ft.Icons.EXPAND_LESS),
+            ],
+            spacing=8,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+        if oculta:
+            return comp.bloco(topo, c, padding=ft.Padding.symmetric(horizontal=14, vertical=4))
+        cenas = [k for k, _ in av.CENARIOS]
+        cena = cenas[sum(map(ord, g["codigo"])) % len(cenas)]
+        largura = app.largura * (0.62 if self.duas_colunas else 0.92)
+        sala = sala_da_turma(app, membros, cena, largura)
+        return comp.bloco(ft.Column([topo, sala] if sala else [topo], spacing=8), c, padding=ft.Padding.only(left=14, right=14, top=4, bottom=12))
 
     def _abas(self) -> ft.Control:
         abas = [a for a in ABAS if not (a[0] == "membros" and self.duas_colunas)]
@@ -635,7 +670,7 @@ class TelaGrupos:
         return comp.bloco(
             ft.Column(
                 [
-                    ft.Row([avatar(self.r.apelido or "?", 34), ft.Container(texto, expand=True)], spacing=12, vertical_alignment=ft.CrossAxisAlignment.START),
+                    ft.Row([busto(self.app, None, self.r.apelido or "?", 34, self.r.usuario_id), ft.Container(texto, expand=True)], spacing=12, vertical_alignment=ft.CrossAxisAlignment.START),
                     assunto,
                     ft.Row(pendentes, wrap=True, spacing=8, run_spacing=8) if pendentes else ft.Container(height=0),
                     msg,
@@ -691,7 +726,7 @@ class TelaGrupos:
         linha_autor.append(comp.apagado(quando_texto(p.get("criado_em")) + (" · editada" if p.get("editado_em") else ""), c, 12.5))
         topo = ft.Row(
             [
-                avatar(p.get("apelido") or "?"),
+                busto(app, p.get("avatar"), p.get("apelido") or "?", 36, p.get("autor")),
                 ft.Column(
                     [
                         ft.Row(linha_autor, spacing=8, wrap=True, vertical_alignment=ft.CrossAxisAlignment.CENTER),
@@ -786,7 +821,7 @@ class TelaGrupos:
                 filhos.append(
                     ft.Row(
                         [
-                            avatar(r.get("apelido") or "?", 28),
+                            busto(self.app, r.get("avatar"), r.get("apelido") or "?", 28, r.get("autor")),
                             ft.Container(
                                 ft.Column(
                                     [
@@ -875,7 +910,7 @@ class TelaGrupos:
             filhos.append(
                 ft.Row(
                     [
-                        avatar(self.r.apelido or "?", 28),
+                        busto(self.app, None, self.r.apelido or "?", 28, self.r.usuario_id),
                         campo,
                         ft.IconButton(ft.Icons.ATTACH_FILE, tooltip="Anexar foto ou arquivo", icon_size=20, icon_color=c["texto2"], on_click=anexar),
                         ft.IconButton(ft.Icons.EMOJI_EMOTIONS_OUTLINED, tooltip="Figurinhas e GIFs", icon_size=20, icon_color=c["texto2"], on_click=figurinhas_gifs),
@@ -1243,7 +1278,7 @@ class TelaGrupos:
             itens.append(
                 ft.Row(
                     [
-                        avatar(m["apelido"], 32),
+                        busto(self.app, m.get("avatar"), m["apelido"], 32, m.get("usuario_id")),
                         ft.Column(
                             [ft.Row([ft.Text(m["apelido"], size=14, weight=ft.FontWeight.W_600, color=c["texto"]), *selos], spacing=6, wrap=True)]
                             + ([comp.apagado(m["concurso"], c, 12, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)] if m["concurso"] else []),

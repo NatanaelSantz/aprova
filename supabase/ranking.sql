@@ -68,6 +68,25 @@ create policy "perfis: edita o seu" on public.perfis for update to authenticated
 drop policy if exists "perfis: admin edita" on public.perfis;
 create policy "perfis: admin edita" on public.perfis for update to authenticated using (public.eh_admin()) with check (public.eh_admin());
 
+-- personagem (avatar): só escolhas pequenas de uma lista, ex. {"cabelo": "curto", "pele": 2, "usar_foto": false}.
+-- Nada de texto livre nem link: só chaves curtas, números, sim/não e palavras simples.
+create or replace function public.avatar_valido(a jsonb) returns boolean
+language sql immutable set search_path = public as $$
+    select a is null or (
+        jsonb_typeof(a) = 'object'
+        and length(a::text) <= 600
+        and not exists (
+            select 1 from jsonb_each(a) e
+            where e.key !~ '^[a-z_]{1,16}$'
+               or jsonb_typeof(e.value) not in ('number', 'string', 'boolean')
+               or (jsonb_typeof(e.value) = 'string' and (e.value #>> '{}') !~ '^[a-z0-9_-]{0,24}$')
+        )
+    );
+$$;
+alter table public.perfis add column if not exists avatar jsonb;
+alter table public.perfis drop constraint if exists perfis_avatar_valido;
+alter table public.perfis add constraint perfis_avatar_valido check (public.avatar_valido(avatar)) not valid;
+
 -- ---------------------------------------------------------------- números da semana
 -- semana = segunda-feira da semana. Limites evitam números absurdos.
 create table if not exists public.estatisticas (
@@ -167,7 +186,8 @@ grant execute on function public.entrar_no_grupo(text) to authenticated;
 -- ---------------------------------------------------------------- rankings (só apelido e números; e-mail nunca aparece)
 create or replace view public.ranking_semana with (security_invoker = true) as
 select e.semana, p.id as usuario_id, p.apelido, p.concurso, e.segundos, e.questoes, e.acertos, e.dias, e.sequencia,
-       case when e.questoes > 0 then round(e.acertos::numeric / e.questoes, 4) end as taxa
+       case when e.questoes > 0 then round(e.acertos::numeric / e.questoes, 4) end as taxa,
+       p.avatar
 from public.estatisticas e
 join public.perfis p on p.id = e.usuario_id
 where not p.bloqueado;
@@ -386,12 +406,12 @@ create or replace view public.forum_feed with (security_invoker = true) as
 select f.id, f.codigo, f.autor, p.apelido, f.tipo, f.titulo, f.texto, f.plano, f.fixado, f.criado_em, f.editado_em,
        (select count(*) from public.forum_respostas r where r.post_id = f.id) as respostas,
        (select count(*) from public.forum_uteis u where u.post_id = f.id) as uteis,
-       f.anexos, f.figurinha
+       f.anexos, f.figurinha, p.avatar
 from public.forum_posts f
 join public.perfis p on p.id = f.autor;
 
 create or replace view public.forum_respostas_v with (security_invoker = true) as
-select r.id, r.post_id, r.codigo, r.autor, p.apelido, r.texto, r.criado_em, r.anexos, r.figurinha
+select r.id, r.post_id, r.codigo, r.autor, p.apelido, r.texto, r.criado_em, r.anexos, r.figurinha, p.avatar
 from public.forum_respostas r
 join public.perfis p on p.id = r.autor;
 
@@ -420,6 +440,29 @@ create policy "anexos: membros enviam" on storage.objects for insert to authenti
 drop policy if exists "anexos: quem enviou ou modera apaga" on storage.objects;
 create policy "anexos: quem enviou ou modera apaga" on storage.objects for delete to authenticated
     using (bucket_id = 'anexos' and ((storage.foldername(name))[2] = auth.uid()::text or public.modera_grupo((storage.foldername(name))[1])));
+
+-- ---------------------------------------------------------------- fotos de perfil (Storage)
+-- Pasta "avatares", privada: um arquivo por pessoa, <id da conta>.webp (o app já manda a foto pequena, em WebP).
+-- Quem está logado vê (a foto aparece nos grupos e no ranking); cada um troca ou apaga só a sua; o admin pode apagar.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatares', 'avatares', false, 307200, array['image/webp'])
+on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "avatares: logados veem" on storage.objects;
+create policy "avatares: logados veem" on storage.objects for select to authenticated
+    using (bucket_id = 'avatares');
+drop policy if exists "avatares: cada um envia o seu" on storage.objects;
+create policy "avatares: cada um envia o seu" on storage.objects for insert to authenticated
+    with check (bucket_id = 'avatares' and name = auth.uid()::text || '.webp'
+                and not exists (select 1 from public.perfis where id = auth.uid() and bloqueado));
+drop policy if exists "avatares: cada um troca o seu" on storage.objects;
+create policy "avatares: cada um troca o seu" on storage.objects for update to authenticated
+    using (bucket_id = 'avatares' and name = auth.uid()::text || '.webp')
+    with check (bucket_id = 'avatares' and name = auth.uid()::text || '.webp'
+                and not exists (select 1 from public.perfis where id = auth.uid() and bloqueado));
+drop policy if exists "avatares: dono ou admin apaga" on storage.objects;
+create policy "avatares: dono ou admin apaga" on storage.objects for delete to authenticated
+    using (bucket_id = 'avatares' and (name = auth.uid()::text || '.webp' or public.eh_admin()));
 
 -- ---------------------------------------------------------------- configurações do app (admin)
 -- Ex.: a chave do GIPHY para a busca de GIFs. Quem está logado lê; só o admin muda.

@@ -218,13 +218,21 @@ class TelaAdmin:
     def _linha_usuario(self, u: dict) -> ft.Control:
         app, c = self.app, self.app.c
         admin = u.get("papel") == "admin"
-        avatar = ft.Container(
-            ft.Text(u["apelido"][:1].upper(), size=15, weight=ft.FontWeight.W_700, color=c["sobre_tinta"]),
-            width=36,
-            height=36,
-            border_radius=18,
-            bgcolor=c["erro"] if u.get("bloqueado") else (c["tinta"] if admin else c["texto2"]),
-            alignment=ft.Alignment.CENTER,
+        from .. import avatar as av
+        from .personagem import busto
+
+        tem_foto = isinstance(u.get("avatar"), dict) and av.validar(u["avatar"])["foto"] > 0
+        avatar = (
+            busto(app, u.get("avatar"), u["apelido"], 36, u["id"])
+            if isinstance(u.get("avatar"), dict) and not u.get("bloqueado")
+            else ft.Container(
+                ft.Text(u["apelido"][:1].upper(), size=15, weight=ft.FontWeight.W_700, color=c["sobre_tinta"]),
+                width=36,
+                height=36,
+                border_radius=18,
+                bgcolor=c["erro"] if u.get("bloqueado") else (c["tinta"] if admin else c["texto2"]),
+                alignment=ft.Alignment.CENTER,
+            )
         )
         selos: list[ft.Control] = []
         if admin:
@@ -260,7 +268,12 @@ class TelaAdmin:
                     icon=ft.Icons.LOCK_OPEN if u.get("bloqueado") else ft.Icons.BLOCK,
                     on_click=lambda e, u=u: app.page.run_task(self._acao, "bloqueio", u),
                 ),
-            ],
+            ]
+            + (
+                [ft.PopupMenuItem(content="Tirar a foto de perfil", icon=ft.Icons.HIDE_IMAGE_OUTLINED, on_click=lambda e, u=u: app.page.run_task(self._acao, "foto", u))]
+                if tem_foto
+                else []
+            ),
         )
         return ft.Container(
             ft.Row([avatar, info, menu], spacing=12, vertical_alignment=ft.CrossAxisAlignment.CENTER),
@@ -275,6 +288,9 @@ class TelaAdmin:
                 novo = "aluno" if u.get("papel") == "admin" else "admin"
                 await app.em_segundo_plano(self.r.definir_papel, u["id"], novo)
                 app.msg(f"{u['apelido']} agora é {'administrador' if novo == 'admin' else 'aluno'}.")
+            elif tipo == "foto":
+                await app.em_segundo_plano(self.r.tirar_foto_de, u["id"])
+                app.msg(f"A foto de perfil de {u['apelido']} foi apagada. O personagem continua.")
             else:
                 await app.em_segundo_plano(self.r.bloquear, u["id"], not u.get("bloqueado"))
                 app.msg(f"{u['apelido']} {'desbloqueado' if u.get('bloqueado') else 'bloqueado'} no ranking.")

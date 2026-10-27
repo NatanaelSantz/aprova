@@ -247,6 +247,8 @@ class TelaAjustes:
         app, c = self.app, self.app.c
         from .login import dialogo_conta
 
+        from .personagem import abrir_criador
+
         r = app.ranking
         if r.logado:
             papel = "administrador" if r.eh_admin else "aluno"
@@ -256,6 +258,7 @@ class TelaAjustes:
                 ft.Row(
                     [
                         comp.botao_contorno("Minha conta", lambda e: dialogo_conta(app), ft.Icons.MANAGE_ACCOUNTS_OUTLINED),
+                        comp.botao_contorno("Personagem e foto", lambda e: abrir_criador(app), ft.Icons.AUTO_FIX_HIGH),
                         comp.botao_texto("Sair / trocar de conta", lambda e: app.sair_da_conta(), ft.Icons.LOGOUT),
                     ],
                     spacing=8,
@@ -265,7 +268,12 @@ class TelaAjustes:
         else:
             filhos = [
                 comp.apagado("Você está usando o Aprova sem conta: os estudos ficam só neste computador e você não aparece no ranking.", c, 13.5),
-                comp.botao("Entrar ou criar conta", lambda e: app.mostrar_login(), ft.Icons.LOGIN),
+                ft.Row(
+                    [comp.botao("Entrar ou criar conta", lambda e: app.mostrar_login(), ft.Icons.LOGIN),
+                     comp.botao_contorno("Criar personagem", lambda e: abrir_criador(app), ft.Icons.AUTO_FIX_HIGH)],
+                    spacing=8,
+                    wrap=True,
+                ),
             ]
         return self._secao("Conta", "Quem está usando o Aprova agora.", *filhos)
 

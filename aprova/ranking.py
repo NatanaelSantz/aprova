@@ -241,6 +241,8 @@ def _mensagem(resp: requests.Response) -> str:
         return "Muitas tentativas seguidas. Espere um minuto e tente de novo."
     if "jwt" in t and "expired" in t:
         return "Sua sessão expirou. Entre de novo."
+    if "avatar" in t and ("schema cache" in t or "does not exist" in t or codigo in ("PGRST204", "42703")):
+        return "O servidor ainda não guarda o avatar (personagem e foto). O administrador precisa rodar o SQL novo (supabase/ranking.sql) no Supabase."
     if "bucket not found" in t:
         return "O servidor ainda não recebe arquivos. O administrador precisa rodar o SQL novo (supabase/ranking.sql)."
     if "schema cache" in t or codigo in ("PGRST205", "PGRST202", "42P01"):
@@ -262,6 +264,7 @@ class Ranking:
         self._expira = 0.0
         self._lock = threading.Lock()
         self.servidor_sem_anexos = False  # servidor ainda sem o SQL da 1.10 (fotos, arquivos, figurinhas)
+        self.servidor_sem_avatar = False  # servidor ainda sem o SQL da 1.14 (personagem e foto de perfil)
         self._giphy: str | None = None
         self._gifs_buscados: dict[tuple, tuple[float, list]] = {}
 
@@ -512,9 +515,65 @@ class Ranking:
         self._limpar()
 
     def perfil(self) -> dict | None:
-        resp = self._pedir("GET", f"/rest/v1/perfis?id=eq.{self.usuario_id}&select=id,apelido,concurso,papel,bloqueado")
-        linhas = resp.json()
+        linhas = self._com_avatar(f"/rest/v1/perfis?id=eq.{self.usuario_id}", "id,apelido,concurso,papel,bloqueado")
         return linhas[0] if linhas else None
+
+    def _com_avatar(self, caminho: str, colunas: str) -> list[dict]:
+        """Lê pedindo também o avatar; se o servidor ainda não tem a coluna, lê sem ele."""
+        if not self.servidor_sem_avatar:
+            try:
+                return self._pedir("GET", f"{caminho}&select={colunas},avatar").json()
+            except ErroRanking as e:
+                if "avatar" not in str(e):
+                    raise
+                self.servidor_sem_avatar = True
+        return self._pedir("GET", f"{caminho}&select={colunas}").json()
+
+    # ---- avatar: personagem (só a configuração) e foto de perfil (pasta "avatares", <id>.webp)
+
+    def salvar_avatar(self, cfg: dict) -> dict:
+        from . import avatar as av
+
+        cfg = av.validar(cfg)
+        self._pedir("PATCH", f"/rest/v1/perfis?id=eq.{_uid(self.usuario_id)}", json={"avatar": cfg}, cabecalhos={"Prefer": "return=minimal"})
+        self.servidor_sem_avatar = False
+        return cfg
+
+    def enviar_foto(self, dados: bytes) -> None:
+        """Sobe a foto de perfil (já em WebP pequeno, ver avatar.preparar_foto). Troca a anterior."""
+        if not dados or len(dados) > 300 * 1024 or dados[:4] != b"RIFF" or dados[8:12] != b"WEBP":
+            raise ErroRanking("Foto em formato estranho. Escolha outra imagem.")
+        self._pedir(
+            "POST",
+            f"/storage/v1/object/avatares/{_uid(self.usuario_id)}.webp",
+            data=dados,
+            cabecalhos={"Content-Type": "image/webp", "x-upsert": "true", "cache-control": "max-age=60"},
+            tempo=60,
+        )
+
+    def apagar_foto(self) -> None:
+        try:
+            self._pedir("DELETE", f"/storage/v1/object/avatares/{_uid(self.usuario_id)}.webp")
+        except ErroRanking:
+            pass  # já não existe
+
+    def baixar_foto(self, usuario_id: str, versao: int) -> bytes | None:
+        """Foto de perfil de alguém (guardada no computador por versão). None se não tem."""
+        uid, versao = _uid(usuario_id), int(versao or 0)
+        if not versao:
+            return None
+        chave = f"avatares/{uid}-{versao}.webp"
+        guardado = _ler_cache(chave)
+        if guardado is not None:
+            return guardado
+        try:
+            dados = self._pedir("GET", f"/storage/v1/object/authenticated/avatares/{uid}.webp", tempo=30).content
+        except ErroRanking:
+            return None
+        if dados[:4] != b"RIFF" or dados[8:12] != b"WEBP" or len(dados) > 400 * 1024:
+            return None
+        _guardar_cache(chave, dados)
+        return dados
 
     def salvar_perfil(self, apelido: str, concurso: str = "") -> dict:
         apelido = validar_apelido(apelido)
@@ -548,14 +607,14 @@ class Ranking:
         coluna = METRICAS.get(metrica, METRICAS["horas"])[0]
         semana = (semana or inicio_semana()).isoformat()
         tabela = "ranking_grupo" if grupo else "ranking_semana"
-        filtros = [f"semana=eq.{semana}", "select=usuario_id,apelido,concurso,segundos,questoes,acertos,dias,sequencia,taxa"]
+        filtros = [f"semana=eq.{semana}"]
         if grupo:
             filtros.append(f"codigo=eq.{_cod(grupo)}")
         if metrica == "acerto":
             filtros.append(f"questoes=gte.{MIN_QUESTOES_ACERTO}")
         filtros.append(f"order={coluna}.desc.nullslast,questoes.desc")
         filtros.append(f"limit={limite}")
-        linhas = self._pedir("GET", f"/rest/v1/{tabela}?" + "&".join(filtros)).json()
+        linhas = self._com_avatar(f"/rest/v1/{tabela}?" + "&".join(filtros), "usuario_id,apelido,concurso,segundos,questoes,acertos,dias,sequencia,taxa")
         for i, l in enumerate(linhas, start=1):
             l["posicao"] = i
             l["voce"] = l.get("usuario_id") == self.usuario_id
@@ -620,9 +679,10 @@ class Ranking:
             return []
         grupo = self._pedir("GET", f"/rest/v1/grupos?codigo=eq.{codigo}&select=criado_por").json()
         criador = grupo[0].get("criado_por") if grupo else None
-        perfis = self._pedir("GET", f"/rest/v1/perfis?id=in.({','.join(ids)})&select=id,apelido,concurso,bloqueado").json()
+        perfis = self._com_avatar(f"/rest/v1/perfis?id=in.({','.join(ids)})", "id,apelido,concurso,bloqueado")
         saida = [
-            {"usuario_id": p["id"], "apelido": p["apelido"], "concurso": p.get("concurso") or "", "criador": p["id"] == criador, "voce": p["id"] == self.usuario_id}
+            {"usuario_id": p["id"], "apelido": p["apelido"], "concurso": p.get("concurso") or "", "criador": p["id"] == criador, "voce": p["id"] == self.usuario_id,
+             "avatar": p.get("avatar") if isinstance(p.get("avatar"), dict) else None}
             for p in perfis
             if not p.get("bloqueado")
         ]
@@ -667,15 +727,19 @@ class Ranking:
         return posts
 
     def _ler_com_anexos(self, caminho: str, colunas: str) -> list[dict]:
-        """Lê pedindo as colunas novas (anexos, figurinha); se o servidor ainda não tem, lê sem elas."""
-        if not self.servidor_sem_anexos:
+        """Lê pedindo as colunas novas (anexos, figurinha e avatar); se o servidor ainda não tem, lê sem elas."""
+        while True:
+            extras = ([] if self.servidor_sem_anexos else ["anexos", "figurinha"]) + ([] if self.servidor_sem_avatar else ["avatar"])
             try:
-                return self._pedir("GET", f"{caminho}&select={colunas},anexos,figurinha").json()
+                return self._pedir("GET", f"{caminho}&select={','.join([colunas, *extras])}").json()
             except ErroRanking as e:
-                if "anexos" not in str(e) and "figurinha" not in str(e):
+                msg = str(e)
+                if "avatar" in msg and not self.servidor_sem_avatar:
+                    self.servidor_sem_avatar = True
+                elif ("anexos" in msg or "figurinha" in msg) and not self.servidor_sem_anexos:
+                    self.servidor_sem_anexos = True
+                else:
                     raise
-                self.servidor_sem_anexos = True
-        return self._pedir("GET", f"{caminho}&select={colunas}").json()
 
     def forum_publicar(self, codigo: str, texto: str, tipo: str = "conversa", titulo: str = "", plano: dict | None = None,
                        anexos: list[dict] | None = None, figurinha: str | None = None) -> None:
@@ -951,7 +1015,7 @@ class Ranking:
         """Todos os perfis com os números da semana (para a área do admin)."""
         self._exigir_admin()
         semana = (semana or inicio_semana()).isoformat()
-        perfis = self._pedir("GET", "/rest/v1/perfis?select=id,apelido,concurso,papel,bloqueado,criado_em&order=criado_em.desc&limit=1000").json()
+        perfis = self._com_avatar("/rest/v1/perfis?order=criado_em.desc&limit=1000", "id,apelido,concurso,papel,bloqueado,criado_em")
         nums = {
             e["usuario_id"]: e
             for e in self._pedir("GET", f"/rest/v1/estatisticas?semana=eq.{semana}&select=usuario_id,segundos,questoes,acertos,dias,sequencia,atualizado_em").json()
@@ -991,6 +1055,23 @@ class Ranking:
             "bloqueados": sum(1 for u in usuarios if u.get("bloqueado")),
             "concursos": sorted(concursos.items(), key=lambda x: -x[1])[:6],
         }
+
+    def tirar_foto_de(self, usuario_id: str) -> None:
+        """Admin: apaga a foto de perfil de alguém (foto imprópria). O personagem continua."""
+        from . import avatar as av
+
+        self._exigir_admin()
+        uid = _uid(usuario_id)
+        try:
+            self._pedir("DELETE", f"/storage/v1/object/avatares/{uid}.webp")
+        except ErroRanking:
+            pass
+        linhas = self._com_avatar(f"/rest/v1/perfis?id=eq.{uid}", "id")
+        atual = linhas[0].get("avatar") if linhas else None
+        if isinstance(atual, dict):
+            novo = av.validar(atual)
+            novo.update(usar_foto=False, foto=0)
+            self._pedir("PATCH", f"/rest/v1/perfis?id=eq.{uid}", json={"avatar": novo}, cabecalhos={"Prefer": "return=minimal"})
 
     def definir_papel(self, usuario_id: str, papel: str) -> None:
         self._exigir_admin()
