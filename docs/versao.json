@@ -1,10 +1,10 @@
 {
-  "versao": "1.18.0",
+  "versao": "1.19.0",
   "data": "27/10/2026",
   "notas": [
-    "Personagens mais bonitinhos: olhos grandes com brilho e pupila, sobrancelhas, mechas no cabelo, luz e sombra na roupa, punhos e sapatos com brilho",
-    "Olhos brancos, cinzas, roxos e vermelhos",
-    "Grupos: a figurinha ou o GIF vai para a prévia da mensagem (como no Teams); você escreve algo junto, se quiser, e envia"
+    "Pixel art com sombreamento detalhado: luz quente, sombra fria, contorno seletivo e luz de borda",
+    "Cenários redesenhados com luz, profundidade e partículas animadas (poeira dourada, folhas caindo, faíscas das tochas, estrelas piscando)",
+    "Vídeo tutorial e imagem do site com a arte nova"
   ],
   "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
 }

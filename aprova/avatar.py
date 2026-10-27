@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import math
 import random
 import time
 from functools import lru_cache
@@ -159,6 +160,18 @@ def _escura(c, t=0.2):
 
 def _clara(c, t=0.25):
     return _mistura(c, (255, 255, 255), t)
+
+
+FRIA = (46, 38, 104)  # sombra puxa para o azul-arroxeado (hue shift), como na pixel art caprichada
+QUENTE = (255, 238, 200)  # luz puxa para o amarelo
+
+
+def _fria(c, t):
+    return _mistura(c, FRIA, t)
+
+
+def _quente(c, t):
+    return _mistura(c, QUENTE, t)
 
 
 def _luz(c) -> float:
@@ -890,7 +903,25 @@ def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: b
     orig = px
     out = list(px)
 
-    # luz de cima, sombra embaixo e à direita; contorno fino entre item/acessório e o resto
+    # volume de cada peça (luz da esquerda e de cima): distância até as bordas da peça na linha e na coluna
+    mats = [p[4] if p[3] else -1 for p in orig]
+    dl, dr, du, dd = ([0] * (L * A_) for _ in range(4))
+    for y in range(A_):
+        base = y * L
+        for x in range(L):
+            i = base + x
+            dl[i] = dl[i - 1] + 1 if x and mats[i - 1] == mats[i] else 0
+            du[i] = du[i - L] + 1 if y and mats[i - L] == mats[i] else 0
+        for x in range(L - 1, -1, -1):
+            i = base + x
+            dr[i] = dr[i + 1] + 1 if x + 1 < L and mats[i + 1] == mats[i] else 0
+    for y in range(A_ - 1, -1, -1):
+        for x in range(L):
+            i = y * L + x
+            dd[i] = dd[i + L] + 1 if y + 1 < A_ and mats[i + L] == mats[i] else 0
+
+    # luz quente na esquerda e em cima, sombra fria na direita e embaixo (com uma faixa de sombra antes da borda),
+    # sombra de contato embaixo do que está por cima; contorno fino entre item/acessório e o resto
     for y in range(A_):
         for x in range(L):
             i = y * L + x
@@ -905,24 +936,56 @@ def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: b
             novo = c
             if m in CONTORNO_INTERNO and any(n not in (0, m, M_ROSTO) for n in (mb, md, mc, me)):
                 novo = _mistura(c, CONTORNO, 0.42)
-            elif m in SOMBREIA and (mb != m or md != m):
-                novo = _escura(c, 0.13)
-            elif m in BRILHA and mc == 0:
-                novo = _clara(c, 0.18)
+            elif m in SOMBREIA:
+                larg, alt = dl[i] + dr[i] + 1, du[i] + dd[i] + 1
+                luz = 0.0
+                if dl[i] == 0 and larg >= 4:
+                    luz += 0.22
+                elif dl[i] == 1 and larg >= 6:
+                    luz += 0.11
+                elif dl[i] == 2 and larg >= 12:
+                    luz += 0.05
+                if du[i] == 0 and mc == 0:
+                    luz += 0.16
+                elif du[i] == 1 and mc == m and y >= 2 and orig[i - 2 * L][3] == 0 and alt >= 8:
+                    luz += 0.07
+                if dr[i] == 0:
+                    luz -= 0.3
+                elif dr[i] == 1 and larg >= 5:
+                    luz -= 0.17
+                elif dr[i] == 2 and larg >= 10:
+                    luz -= 0.07
+                if dd[i] == 0 and alt >= 3:
+                    luz -= 0.2
+                elif dd[i] == 1 and alt >= 7:
+                    luz -= 0.08
+                if du[i] == 0 and mc not in (0, m, M_ROSTO, M_OCULOS):
+                    luz -= 0.2  # sombra de contato (embaixo do cabelo, da cabeça, da blusa)
+                elif du[i] == 1 and y >= 2 and orig[i - 2 * L][4] not in (0, m, M_ROSTO, M_OCULOS):
+                    luz -= 0.08
+                if m == M_METAL and du[i] == 1 and dl[i] in (1, 2):
+                    luz += 0.45  # reflexo do metal
+                if m == M_PELE and y < 48 + d2:
+                    luz *= 0.6  # no rosto, mais suave (fica fofo, sem cara de cansado)
+                luz = max(-0.42, min(0.36, luz))
+                if luz > 0:
+                    novo = _quente(c, luz)
+                elif luz < 0:
+                    novo = _fria(c, -luz)
+                if dr[i] == 0 and md == 0 and alt >= 6 and m in (M_ROUPA, M_CABELO, M_PELE, M_EXTRA):
+                    novo = _mistura(novo, (150, 185, 255, 255), 0.13)  # luz de recorte (contraluz) na borda escura
             if m == M_PELE and mc == M_CABELO:
-                novo = _escura(c, 0.2)  # sombra do cabelo na testa
+                novo = _fria(c, 0.22)  # sombra do cabelo na testa
             if m == M_CABELO and mc == M_CABELO and mb == M_CABELO and (x + 2 * y) % 9 == 0:
                 novo = _escura(novo, 0.12)  # fios
-            if novo == c and m in LUZ_DO_LADO and me != m and x and orig[i - 1][3] == 0:
-                novo = _clara(c, 0.12)  # luz vinda da esquerda: dá volume
             if m == M_ROUPA and mb == M_PELE and y > 50 + d2:
-                novo = _escura(c, 0.2)  # punho da manga e barra da roupa
+                novo = _fria(c, 0.24)  # punho da manga e barra da roupa
             if m == M_BOTA and mc != M_BOTA and me != M_BOTA:
-                novo = _clara(c, 0.3)  # brilho na ponta do sapato
+                novo = _quente(c, 0.34)  # brilho na ponta do sapato
             if m in (M_ROUPA, M_EXTRA) and 48 + d2 <= y <= 49 + d2 and 24 <= x <= 39:
-                novo = _escura(novo, 0.1)  # sombra que a cabeça faz nos ombros
+                novo = _fria(novo, 0.1)  # sombra que a cabeça faz nos ombros
             if m == M_PELE and y == 46 + d2 and 26 <= x <= 37:
-                novo = _escura(c, 0.12)  # sombra embaixo do queixo
+                novo = _fria(c, 0.16)  # sombra embaixo do queixo
             if novo != c:
                 out[i] = novo[:4] + (m,)
 
@@ -1140,20 +1203,19 @@ def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: b
             i = y * L + x
             if out[i][3]:
                 continue
-            escuro = False
             vizinho = None
+            escuro = False
             if y and out[i - L][3]:
-                escuro = True
-            if x and out[i - 1][3]:
-                escuro = True
-            if not escuro:
-                if y + 1 < A_ and out[i + L][3]:
-                    vizinho = out[i + L]
-                elif x + 1 < L and out[i + 1][3]:
-                    vizinho = out[i + 1]
-                if vizinho is None:
-                    continue
-            cor = CONTORNO if escuro else _mistura(vizinho, CONTORNO, 0.68)
+                vizinho, escuro = out[i - L], True
+            elif x and out[i - 1][3]:
+                vizinho, escuro = out[i - 1], True
+            elif y + 1 < A_ and out[i + L][3]:
+                vizinho = out[i + L]
+            elif x + 1 < L and out[i + 1][3]:
+                vizinho = out[i + 1]
+            if vizinho is None:
+                continue
+            cor = _mistura(vizinho, CONTORNO, 0.86 if escuro else 0.64)
             final[i] = cor[:4] + (M_VAZIO,)
     return final
 
@@ -1245,134 +1307,370 @@ def _sequencia_membro(semente: str):
     return seq[: len(base)]
 
 
-# ---------------------------------------------------------------- cenários (64 x 40)
+# ---------------------------------------------------------------- cenários (desenhados direto na grade final, 2·largura x 80)
+# Estilo dos cenários caprichados: degradê com pontilhado (Bayer), luzes com halo em faixas, camadas de profundidade
+# (o que está longe é mais claro e azulado) e partículas que mexem (poeira, folhas, estrelas, faíscas).
 
-def _cenario(nome: str, largura: int = 64, quadro: int = 0) -> Image.Image:
-    img = Image.new("RGBA", (largura, H), (0, 0, 0, 255))
-    px = img.load()
-    rnd = random.Random(nome)
+BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
+QUADROS_CENA = {"biblioteca": 12, "floresta": 12, "noite": 15, "castelo": 8, "sala": 12}
+CHAO = 60  # linha do chão na grade final (os pés ficam entre 72 e 76)
 
-    def ret(x0, y0, x1, y1, cor):
-        for y in range(max(0, y0), min(H, y1)):
-            for x in range(max(0, x0), min(largura, x1)):
-                px[x, y] = cor
 
-    if nome == "biblioteca":
-        ret(0, 0, largura, H, _rgb("#EADFC6"))
-        for prateleira in (6, 17):
-            ret(0, prateleira + 8, largura, prateleira + 10, _rgb("#8A5A34"))
-            x = 1
-            while x < largura - 2:
-                larg = rnd.choice((2, 2, 3))
-                alt = rnd.choice((6, 7, 8))
-                cor = _rgb(rnd.choice(["#B83A3A", "#2340A8", "#2E8B57", "#E2B42F", "#6E4BB8", "#16928E", "#E07B2C"]))
-                ret(x, prateleira + 8 - alt, x + larg, prateleira + 8, cor)
-                ret(x, prateleira + 8 - alt + 1, x + larg, prateleira + 8 - alt + 2, _clara(cor, 0.35))
-                x += larg + (1 if rnd.random() < 0.25 else 0)
-        ret(0, 30, largura, H, _rgb("#9B6B43"))
-        for x in range(0, largura, 8):
-            ret(x, 30, x + 1, H, _rgb("#875A36"))
-        ret(0, 30, largura, 31, _rgb("#B88457"))
-    elif nome == "floresta":
-        for y in range(H):
-            ret(0, y, largura, y + 1, _mistura(_rgb("#9ED3F5"), _rgb("#E6F6FF"), y / 30))
-        for i in range(largura // 9 + 2):
-            cx = i * 9 + rnd.randrange(-2, 3)
-            for y in range(10, 30):
-                meia = max(0, (y - 10) // 2)
-                ret(cx - meia, y, cx + meia + 1, y + 1, _rgb("#7FBF8A"))
-        for i in range(largura // 14 + 2):
-            cx = i * 14 + 5 + rnd.randrange(-2, 3)
-            ret(cx - 1, 22, cx + 1, 31, _rgb("#6E4A2D"))
-            for y in range(8, 24):
-                meia = max(1, (y - 6) // 2)
-                ret(cx - meia, y, cx + meia, y + 1, _rgb("#3E8F55") if y % 4 else _rgb("#357C49"))
-        ret(0, 30, largura, H, _rgb("#5DAA5B"))
-        ret(0, 30, largura, 31, _rgb("#78C26E"))
-        for i in range(6):
-            x = rnd.randrange(largura)
-            ret(x, 33 + rnd.randrange(5), x + 1, 34 + rnd.randrange(5), _rgb(rnd.choice(["#FFD84D", "#F28DB2", "#FFFFFF"])))
-    elif nome == "noite":
-        for y in range(H):
-            ret(0, y, largura, y + 1, _mistura(_rgb("#141B36"), _rgb("#2C3A6B"), y / 34))
-        for i in range(largura // 3):
-            x, y = rnd.randrange(largura), rnd.randrange(22)
-            if (i + quadro // 3) % 5:
-                px[x, y] = (255, 255, 255, 255) if i % 3 else (255, 230, 150, 255)
-        mx = largura - 12
-        for y in range(4, 12):
-            for x in range(mx - 4, mx + 4):
-                if (x - mx + 0.5) ** 2 + (y - 8 + 0.5) ** 2 <= 14:
-                    px[x, y] = _rgb("#F6E7A1")
-        x = 0
-        while x < largura:
-            larg, alt = rnd.randrange(5, 10), rnd.randrange(8, 18)
-            ret(x, 30 - alt, x + larg, 30, _rgb("#0E1428"))
-            for jy in range(30 - alt + 2, 29, 3):
-                for jx in range(x + 1, x + larg - 1, 2):
-                    if rnd.random() < 0.35 and jx < largura:
-                        px[jx, jy] = _rgb("#FFD84D")
-            x += larg + 1
-        ret(0, 30, largura, H, _rgb("#1C2440"))
-        ret(0, 30, largura, 31, _rgb("#2A3560"))
-    elif nome == "castelo":
-        ret(0, 0, largura, H, _rgb("#8E95A6"))
-        for y in range(0, 30, 4):
-            ret(0, y, largura, y + 1, _rgb("#767D8F"))
-            off = 0 if (y // 4) % 2 else 4
-            for x in range(off, largura, 8):
-                ret(x, y, x + 1, y + 4, _rgb("#767D8F"))
-        for i, cx in enumerate(range(8, largura, 24)):
-            cor = _rgb(["#B83A3A", "#2340A8", "#2E8B57"][i % 3])
-            ret(cx, 4, cx + 7, 18, cor)
-            ret(cx + 3, 7, cx + 4, 13, _rgb("#F2C230"))
-            for k in range(3):
-                ret(cx + k, 18 + k, cx + 7 - k, 19 + k, cor)
-        for cx in range(20, largura, 24):
-            ret(cx, 12, cx + 2, 18, _rgb("#6E4A2D"))
-            chama = ["#FFD84D", "#F29B38", "#E25A2A"]
-            alt = 3 + (quadro // 2) % 2
-            for k in range(alt):
-                ret(cx, 12 - k - 1, cx + 2, 12 - k, _rgb(chama[min(k, 2)]))
-        ret(0, 30, largura, H, _rgb("#5F6474"))
-        for x in range(0, largura, 6):
-            ret(x, 30, x + 1, H, _rgb("#545868"))
-        ret(0, 30, largura, 31, _rgb("#727788"))
-    else:  # sala de aula
-        ret(0, 0, largura, H, _rgb("#DCE6F2"))
-        ret(4, 4, largura - 4, 22, _rgb("#6E4A2D"))
-        ret(5, 5, largura - 5, 21, _rgb("#2F5D47"))
-        giz = _rgb("#EAF2EC")
-        for x, y in ((9, 9), (10, 9), (11, 9), (9, 10), (11, 10), (9, 11), (10, 11), (11, 11), (9, 12), (11, 12), (9, 13), (11, 13),
-                     (14, 11), (13, 11), (15, 11), (14, 10), (14, 12)):
-            px[x, y] = giz
-        for linha in range(3):
-            fim = largura - 9 - linha * 6
-            for x in range(20, fim):
-                if (x + linha) % 5 != 4:
-                    px[x, 9 + linha * 3] = _mistura(giz, _rgb("#2F5D47"), 0.4)
-        ret(0, 30, largura, H, _rgb("#B88A5A"))
-        for x in range(0, largura, 7):
-            ret(x, 30, x + 1, H, _rgb("#A27648"))
-        ret(0, 30, largura, 31, _rgb("#CFA06E"))
-    return img
+class _Tela:
+    def __init__(self, w: int, h: int = H2):
+        self.w, self.h = w, h
+        self.img = Image.new("RGBA", (w, h), (0, 0, 0, 255))
+        self.px = self.img.load()
+
+    def p(self, x, y, cor):
+        if 0 <= x < self.w and 0 <= y < self.h:
+            self.px[x, y] = cor[:3] + (255,)
+
+    def ret(self, x0, y0, x1, y1, cor):
+        for y in range(max(0, y0), min(self.h, y1)):
+            for x in range(max(0, x0), min(self.w, x1)):
+                self.px[x, y] = cor[:3] + (255,)
+
+    def le(self, x, y):
+        return self.px[x, y] if 0 <= x < self.w and 0 <= y < self.h else (0, 0, 0, 255)
+
+    def degrade(self, y0, y1, c0, c1, x0=0, x1=None, passos=5):
+        """Degradê vertical em faixas, com pontilhado na passagem de uma faixa para a outra."""
+        x1 = self.w if x1 is None else x1
+        for y in range(y0, y1):
+            f = (y - y0) / max(1, y1 - y0 - 1) * (passos - 1)
+            base, resto = int(f), f - int(f)
+            for x in range(x0, x1):
+                k = base + (1 if resto * 16 > BAYER[y % 4][x % 4] else 0)
+                self.p(x, y, _mistura(c0, c1, min(k, passos - 1) / (passos - 1)))
+
+    def luz(self, cx, cy, raio, cor, forca=0.5, faixas=3, y_max=None):
+        """Halo de luz em faixas (posterizado) com pontilhado nas bordas."""
+        for y in range(int(cy - raio), int(cy + raio) + 1):
+            if y_max is not None and y >= y_max:
+                continue
+            for x in range(int(cx - raio), int(cx + raio) + 1):
+                d = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5 / raio
+                if d >= 1 or not (0 <= x < self.w and 0 <= y < self.h):
+                    continue
+                f = (1 - d) * faixas
+                k = int(f) + (1 if (f - int(f)) * 16 > BAYER[y % 4][x % 4] else 0)
+                if k:
+                    self.px[x, y] = _mistura(self.px[x, y], cor, forca * k / faixas)
+
+
+def _livro(t: _Tela, x, y_base, larg, alt, cor, rnd):
+    topo = y_base - alt
+    t.ret(x, topo, x + larg, y_base, cor)
+    t.ret(x, topo, x + 1, y_base, _quente(cor, 0.3))
+    t.ret(x + larg - 1, topo, x + larg, y_base, _fria(cor, 0.3))
+    t.ret(x, topo, x + larg, topo + 1, _quente(cor, 0.4))
+    if rnd.random() < 0.6:  # faixas douradas da lombada
+        for yy in (topo + 3, y_base - 4):
+            t.ret(x + 1, yy, x + larg - 1, yy + 1, _rgb("#E8C15A"))
+    if rnd.random() < 0.35 and larg >= 4:
+        t.ret(x + 1, topo + 6, x + larg - 1, topo + 8, _quente(cor, 0.55))
+
+
+def _cena_biblioteca(t: _Tela, q: int, rnd):
+    w = t.w
+    t.degrade(0, CHAO, _rgb("#EFE3C8"), _rgb("#D8C49E"), passos=4)
+    for x in range(0, w, 12):  # papel de parede listrado, bem suave
+        t.ret(x, 0, x + 2, CHAO, _mistura(t.le(x, 30), _rgb("#C9B48C"), 0.25))
+    for cx in range(w // 4, w, 96):  # luminárias no alto, com luz quente na parede
+        t.luz(cx, 6, 34, _rgb("#FFE6A8"), 0.45, 3, y_max=CHAO)
+    for base_y in (26, 52):
+        x = 2
+        while x < w - 4:
+            larg = rnd.choice((4, 4, 5, 6))
+            alt = rnd.choice((15, 16, 18, 19)) if base_y == 26 else rnd.choice((16, 18, 20, 21))
+            cor = _rgb(rnd.choice(["#B83A3A", "#2340A8", "#2E8B57", "#E2B42F", "#6E4BB8", "#16928E", "#E07B2C", "#8A5A34", "#D9578C"]))
+            if rnd.random() < 0.025 and x < w - 12:  # de vez em quando, um vaso com planta no meio dos livros
+                t.ret(x + 1, base_y - 7, x + 8, base_y, _rgb("#C2613A"))
+                t.ret(x + 1, base_y - 7, x + 2, base_y, _rgb("#DE8458"))
+                for k in range(12):
+                    t.p(x + 4 + rnd.randrange(-3, 4), base_y - 8 - rnd.randrange(0, 8), _rgb(rnd.choice(["#3E8F55", "#57AD6B", "#2F7444"])))
+                x += 10
+                continue
+            _livro(t, x, base_y, larg, alt, cor, rnd)
+            x += larg + (1 if rnd.random() < 0.2 else 0)
+        # prateleira de madeira: brilho em cima, sombra embaixo
+        t.ret(0, base_y, w, base_y + 4, _rgb("#8A5A34"))
+        t.ret(0, base_y, w, base_y + 1, _rgb("#B07A4C"))
+        t.ret(0, base_y + 4, w, base_y + 6, _rgb("#6B4426"))
+        t.ret(0, base_y + 6, w, base_y + 7, _mistura(_rgb("#D8C49E"), _rgb("#6B4426"), 0.35))
+    # chão de tacos
+    t.degrade(CHAO, H2, _rgb("#A8744A"), _rgb("#7E5232"), passos=4)
+    for fila, y in enumerate(range(CHAO, H2, 5)):
+        t.ret(0, y, w, y + 1, _rgb("#6F4729"))
+        desl = (fila * 7) % 16
+        for x in range(desl, w, 16):
+            t.ret(x, y, x + 1, y + 5, _rgb("#6F4729"))
+            t.ret(x + 1, y + 1, x + 6, y + 2, _rgb("#B98557"))
+    t.ret(0, CHAO, w, CHAO + 1, _rgb("#C8956A"))
+    for cx in range(w // 4, w, 96):
+        t.luz(cx, CHAO + 8, 30, _rgb("#FFE0A0"), 0.25, 2)
+    # poeira dourada flutuando na luz
+    for k in range(max(4, w // 24)):
+        r2 = random.Random(k * 7 + 3)
+        x0, y0, vel = r2.randrange(w), r2.randrange(8, CHAO - 6), r2.choice((1, 2))
+        y = (y0 - q * vel) % (CHAO - 4)
+        x = (x0 + int(2 * math.sin((q + k) / 2))) % w
+        t.p(x, y, _rgb("#FFF3C4"))
+
+
+def _cena_floresta(t: _Tela, q: int, rnd):
+    w = t.w
+    t.degrade(0, 44, _rgb("#7EC6F2"), _rgb("#DDF3FF"), passos=5)
+    t.degrade(40, CHAO, _rgb("#8FCB86"), _rgb("#74BE6A"), passos=3)  # campo atrás das árvores
+    for k in range(max(2, w // 70)):  # nuvens de pixel
+        cx, cy = rnd.randrange(w), rnd.randrange(6, 20)
+        for dx, dy, rr in ((0, 0, 6), (7, 1, 5), (-7, 2, 4), (12, 3, 3)):
+            for y in range(cy + dy - rr, cy + dy + rr):
+                for x in range(cx + dx - rr * 2, cx + dx + rr * 2):
+                    if ((x - cx - dx) / 2) ** 2 + (y - cy - dy) ** 2 < rr * rr:
+                        t.p(x % w, y, _rgb("#FFFFFF") if y < cy + dy + rr - 2 else _rgb("#D4E8F5"))
+    # morros ao longe (azulados) e pinheiros no meio
+    for x in range(w):
+        alto = int(30 + 6 * math.sin(x / 23 + 1.3) + 3 * math.sin(x / 9))
+        t.ret(x, alto, x + 1, 44, _rgb("#A7D3C0"))
+    for k in range(w // 14 + 2):
+        cx = k * 14 + rnd.randrange(-3, 4)
+        topo = rnd.randrange(14, 22)
+        for y in range(topo, 46):
+            meia = max(0, (y - topo) // 2)
+            for x in range(cx - meia, cx + meia + 1):
+                cor = _rgb("#6FB487") if x < cx else _rgb("#5A9E74")
+                if (y - topo) % 5 == 4:
+                    cor = _fria(cor, 0.12)
+                t.p(x, y, cor)
+    # árvores da frente: copa redonda com luz e sombra
+    for k in range(w // 34 + 2):
+        cx, cy = k * 34 + 12 + rnd.randrange(-4, 5), rnd.randrange(16, 24)
+        t.ret(cx - 2, cy + 6, cx + 2, CHAO + 2, _rgb("#6E4A2D"))
+        t.ret(cx - 2, cy + 6, cx - 1, CHAO + 2, _rgb("#8C6340"))
+        for y in range(cy - 13, cy + 12):
+            for x in range(cx - 15, cx + 16):
+                d = ((x - cx) / 15) ** 2 + ((y - cy) / 12) ** 2
+                if d < 1:
+                    luz_ = (cx - x) * 0.6 + (cy - y)
+                    cor = _rgb("#57AD6B") if luz_ > 6 else _rgb("#3E8F55") if luz_ > -6 else _rgb("#2F7444")
+                    if d > 0.82 and BAYER[y % 4][x % 4] > 8:
+                        continue  # borda da copa recortada
+                    t.p(x, y, cor)
+        for _ in range(10):
+            t.p(cx + rnd.randrange(-11, 4), cy + rnd.randrange(-10, 2), _rgb("#7CC98A"))
+    # chão de grama com tufos e flores
+    t.degrade(CHAO - 2, H2, _rgb("#6DBB62"), _rgb("#4A9450"), passos=4)
+    t.ret(0, CHAO - 2, w, CHAO - 1, _rgb("#8FD27A"))
+    for k in range(w // 3):
+        x, y = rnd.randrange(w), rnd.randrange(CHAO + 1, H2)
+        t.p(x, y, _rgb("#88CC74"))
+        t.p(x, y - 1, _rgb("#88CC74")) if rnd.random() < 0.5 else None
+    for k in range(w // 10):
+        x, y = rnd.randrange(w), rnd.randrange(CHAO + 2, H2 - 2)
+        cor = _rgb(rnd.choice(["#FFD84D", "#F28DB2", "#FFFFFF", "#B9A2F0"]))
+        for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)):
+            t.p(x + dx, y + dy, cor)
+        t.p(x, y, _rgb("#F2C230"))
+    # borboleta e folhas caindo
+    bx = (q * 3 + w // 3) % w
+    by = 30 + int(4 * math.sin(q / 1.5))
+    asa = _rgb("#F28DB2")
+    for dx, dy in (((-1, -1), (1, -1), (-1, 0), (1, 0)) if q % 2 else ((-1, 0), (1, 0))):
+        t.p(bx + dx, by + dy, asa)
+    t.p(bx, by, _rgb("#3A2A1A"))
+    for k in range(max(2, w // 60)):
+        r2 = random.Random(k + 11)
+        x0 = r2.randrange(w)
+        y = (r2.randrange(40) + q * 2) % 50 + 8
+        x = (x0 + int(3 * math.sin(q / 2 + k))) % w
+        t.p(x, y, _rgb("#E8A33A"))
+        t.p(x + 1, y, _rgb("#C77A26"))
+
+
+def _cena_noite(t: _Tela, q: int, rnd):
+    w = t.w
+    t.degrade(0, CHAO, _rgb("#0E1430"), _rgb("#2E3D72"), passos=6)
+    for k in range(w // 3):
+        x, y = rnd.randrange(w), rnd.randrange(34)
+        brilho = (k + q) % 5
+        if brilho:
+            t.p(x, y, (255, 255, 255, 255) if k % 3 else (255, 230, 150, 255))
+            if brilho == 4 and k % 4 == 0:  # estrela piscando em cruz
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    t.p(x + dx, y + dy, _rgb("#9FB0E8"))
+    mx, my = w - 24, 14  # lua com halo e crateras
+    t.luz(mx, my, 22, _rgb("#4A5C9E"), 0.6, 3)
+    for y in range(my - 8, my + 9):
+        for x in range(mx - 8, mx + 9):
+            d = (x - mx) ** 2 + (y - my) ** 2
+            if d <= 64:
+                t.p(x, y, _rgb("#FFF2BE") if (x - mx) + (y - my) < 4 else _rgb("#F2DC8C"))
+    for cx, cy in ((mx - 3, my - 2), (mx + 2, my + 3), (mx + 3, my - 4)):
+        t.p(cx, cy, _rgb("#E2C873"))
+        t.p(cx + 1, cy, _rgb("#E2C873"))
+    # prédios ao longe (azulados) e perto (escuros, com janelas acesas)
+    x = 0
+    while x < w:
+        larg, alt = rnd.randrange(10, 18), rnd.randrange(14, 26)
+        t.ret(x, CHAO - alt - 6, x + larg, CHAO, _rgb("#1E2A55"))
+        x += larg + rnd.randrange(0, 3)
+    x = 0
+    k = 0
+    while x < w:
+        larg, alt = rnd.randrange(12, 22), rnd.randrange(16, 34)
+        topo = CHAO - alt
+        t.ret(x, topo, x + larg, CHAO, _rgb("#111834"))
+        t.ret(x, topo, x + 1, CHAO, _rgb("#1C2650"))
+        t.ret(x, topo, x + larg, topo + 1, _rgb("#26336A"))
+        for jy in range(topo + 4, CHAO - 3, 5):
+            for jx in range(x + 3, x + larg - 3, 4):
+                k += 1
+                acesa = rnd.random() < 0.45
+                if k % 23 == q % 23:
+                    acesa = not acesa  # alguém acende ou apaga a luz
+                if acesa:
+                    cor = _rgb(rnd.choice(["#FFD84D", "#FFC266", "#FFE9A6"]))
+                    t.ret(jx, jy, jx + 2, jy + 3, cor)
+                    t.p(jx, jy, _quente(cor, 0.5))
+                else:
+                    t.ret(jx, jy, jx + 2, jy + 3, _rgb("#1B2448"))
+        x += larg + 1
+    # calçada e poste com luz
+    t.degrade(CHAO, H2, _rgb("#26305C"), _rgb("#171E3C"), passos=3)
+    t.ret(0, CHAO, w, CHAO + 1, _rgb("#3A4886"))
+    for px_ in range(w // 3, w, 120):
+        t.ret(px_, CHAO - 30, px_ + 2, CHAO + 4, _rgb("#3B4258"))
+        t.ret(px_ - 3, CHAO - 31, px_ + 5, CHAO - 29, _rgb("#4A526C"))
+        t.ret(px_ - 2, CHAO - 29, px_ + 4, CHAO - 27, _rgb("#FFE9A6"))
+        t.luz(px_ + 1, CHAO - 26, 12, _rgb("#FFC94D"), 0.3, 2)
+        t.luz(px_ + 1, CHAO + 6, 20, _rgb("#FFC94D"), 0.18, 2)
+    if q == 7:  # estrela cadente
+        for k in range(8):
+            t.p(w // 2 - k * 2, 6 + k, _mistura(_rgb("#FFFFFF"), _rgb("#2E3D72"), k / 8))
+
+
+def _cena_castelo(t: _Tela, q: int, rnd):
+    w = t.w
+    # parede de pedra: cada tijolo com luz em cima e sombra embaixo; alguns com musgo
+    t.ret(0, 0, w, CHAO, _rgb("#5E6476"))
+    for fila, y in enumerate(range(0, CHAO, 8)):
+        desl = 0 if fila % 2 else 8
+        for x in range(-desl, w, 16):
+            cor = _rgb(rnd.choice(["#8E95A6", "#8A91A2", "#949BAC", "#868C9C"]))
+            if rnd.random() < 0.06:
+                cor = _rgb("#7E9474")
+            t.ret(x + 1, y + 1, x + 15, y + 7, cor)
+            t.ret(x + 1, y + 1, x + 15, y + 2, _quente(cor, 0.22))
+            t.ret(x + 1, y + 6, x + 15, y + 7, _fria(cor, 0.22))
+            t.ret(x + 14, y + 1, x + 15, y + 7, _fria(cor, 0.16))
+            if rnd.random() < 0.15:
+                t.p(x + rnd.randrange(3, 13), y + rnd.randrange(2, 6), _fria(cor, 0.3))
+    # estandartes com dobras e emblema
+    for i, cx in enumerate(range(16, w, 48)):
+        cor = _rgb(["#B83A3A", "#2340A8", "#2E8B57"][i % 3])
+        t.ret(cx - 2, 4, cx + 16, 6, _rgb("#6E4A2D"))
+        for x in range(cx, cx + 14):
+            dobra = (x - cx) % 5
+            c2 = _quente(cor, 0.18) if dobra == 0 else _fria(cor, 0.18) if dobra == 4 else cor
+            t.ret(x, 6, x + 1, 34, c2)
+        for k in range(7):
+            t.ret(cx + k, 34 + k, cx + 14 - k, 35 + k, cor)
+        for dx, dy in ((7, 16), (6, 17), (7, 17), (8, 17), (5, 18), (6, 18), (7, 18), (8, 18), (9, 18), (6, 19), (7, 19), (8, 19), (6, 20), (8, 20)):
+            t.p(cx + dx, dy, _rgb("#F2C230"))
+    # tochas: luz quente na parede (pulsando) e chama
+    for cx in range(40, w, 48):
+        pulso = 0.36 + 0.06 * math.sin(q * 1.7)
+        t.luz(cx + 1, 18, 22, _rgb("#FFB54D"), pulso, 3, y_max=CHAO)
+        t.ret(cx, 22, cx + 3, 34, _rgb("#6E4A2D"))
+        t.ret(cx - 1, 21, cx + 4, 23, _rgb("#8A8F9C"))
+        alt = 6 + (q * 3) % 3
+        for k in range(alt):
+            larg_ = max(1, 3 - k // 2)
+            cor = _rgb(["#FFF2B0", "#FFD84D", "#F29B38", "#E25A2A"][min(3, k // 2)])
+            t.ret(cx + 1 - larg_ // 2 + (1 if (q + k) % 4 == 0 else 0), 20 - k, cx + 2 + larg_ // 2, 21 - k, cor)
+        for k in range(3):  # faíscas subindo
+            y = 18 - ((q * 2 + k * 5) % 14)
+            t.p(cx + 1 + ((q + k) % 3) - 1, y, _rgb("#FFD84D"))
+    # chão de pedra
+    t.degrade(CHAO, H2, _rgb("#6B7082"), _rgb("#4C5062"), passos=4)
+    t.ret(0, CHAO, w, CHAO + 1, _rgb("#9AA0B0"))
+    for fila, y in enumerate(range(CHAO + 1, H2, 6)):
+        t.ret(0, y, w, y + 1, _rgb("#454959"))
+        for x in range((fila * 9) % 20, w, 20):
+            t.ret(x, y, x + 1, y + 6, _rgb("#454959"))
+            t.ret(x + 1, y + 1, x + 8, y + 2, _rgb("#7C8294"))
+
+
+def _cena_sala(t: _Tela, q: int, rnd):
+    w = t.w
+    t.degrade(0, CHAO, _rgb("#E4EDF7"), _rgb("#CAD8E8"), passos=4)
+    # lousa com moldura, giz escrito e apagador
+    x0, x1 = 8, w - 8
+    t.ret(x0, 6, x1, 44, _rgb("#6E4A2D"))
+    t.ret(x0, 6, x1, 7, _rgb("#9A6B43"))
+    t.degrade(9, 41, _rgb("#356B52"), _rgb("#28533F"), x0=x0 + 3, x1=x1 - 3, passos=3)
+    giz = _rgb("#EAF2EC")
+    meio = _mistura(giz, _rgb("#2F5D47"), 0.45)
+    for x, y in ((14, 14), (15, 14), (16, 14), (14, 15), (16, 15), (14, 16), (15, 16), (16, 16), (14, 17), (16, 17), (14, 18), (16, 18),
+                 (20, 16), (19, 16), (21, 16), (20, 15), (20, 17)):
+        t.p(x + 2, y, giz)
+    for linha in range(4):
+        fim = x1 - 14 - linha * 9 - rnd.randrange(0, 8)
+        for x in range(30, min(fim, x1 - 6)):
+            if (x + linha * 3) % 9 != 8:
+                t.p(x, 14 + linha * 6, meio)
+    if w > 100:  # estrela desenhada e "x² + 1"
+        sx = w - 34
+        for dx, dy in ((0, -3), (-1, -1), (1, -1), (-3, -1), (3, -1), (-2, 0), (2, 0), (-1, 1), (1, 1), (-2, 2), (2, 2), (0, 0)):
+            t.p(sx + dx, 30 + dy, _rgb("#FFE27A"))
+    t.ret(x0 + 2, 41, x1 - 2, 44, _rgb("#8A5E3A"))
+    t.ret(x0 + 2, 41, x1 - 2, 42, _rgb("#B07A4C"))
+    t.ret(x1 - 30, 39, x1 - 22, 41, _rgb("#3B4258"))
+    t.ret(x1 - 30, 39, x1 - 22, 40, _rgb("#C9C2B2"))
+    t.ret(x0 + 14, 40, x0 + 18, 41, _rgb("#FFFFFF"))
+    # relógio na parede (o ponteiro dos segundos anda)
+    if w >= 96:
+        cx, cy = w // 2, 51
+        for y in range(cy - 5, cy + 6):
+            for x in range(cx - 5, cx + 6):
+                d = (x - cx) ** 2 + (y - cy) ** 2
+                if d <= 25:
+                    t.p(x, y, _rgb("#FFFFFF") if d <= 16 else _rgb("#3B4258"))
+        t.p(cx, cy - 1, _rgb("#3B4258"))
+        t.p(cx, cy - 2, _rgb("#3B4258"))
+        t.p(cx + 1, cy, _rgb("#3B4258"))
+        ang = q / QUADROS_CENA["sala"] * 2 * math.pi
+        t.p(cx + round(3 * math.sin(ang)), cy - round(3 * math.cos(ang)), _rgb("#C2413A"))
+    # chão de madeira clara
+    t.degrade(CHAO, H2, _rgb("#D1A06C"), _rgb("#A87A4E"), passos=4)
+    t.ret(0, CHAO, w, CHAO + 1, _rgb("#E2B887"))
+    for fila, y in enumerate(range(CHAO + 1, H2, 5)):
+        t.ret(0, y, w, y + 1, _rgb("#9B6E44"))
+        for x in range((fila * 11) % 18, w, 18):
+            t.ret(x, y, x + 1, y + 5, _rgb("#9B6E44"))
+            t.ret(x + 1, y + 1, x + 7, y + 2, _rgb("#E0B484"))
+    # pozinho de giz flutuando perto da lousa
+    for k in range(3):
+        y = 42 - ((q + k * 4) % 12)
+        t.p(x0 + 16 + k * 3 + (q + k) % 2, y, _mistura(giz, _rgb("#CAD8E8"), 0.3))
+
+
+DESENHOS_CENA = {"biblioteca": _cena_biblioteca, "floresta": _cena_floresta, "noite": _cena_noite, "castelo": _cena_castelo, "sala": _cena_sala}
 
 
 @lru_cache(maxsize=256)
 def _cenario_hd(nome: str, largura: int = 64, quadro: int = 0) -> Image.Image:
-    """O cenário na grade final (dobrado com o EPX). Não altere a imagem devolvida (fica guardada)."""
-    base = _cenario(nome, largura, quadro)
-    cores = [c + (0,) for c in _rgba(base)]
-    hd = _epx(cores, largura, H)
-    img = Image.new("RGBA", (2 * largura, H2))
-    img.putdata([p[:4] for p in hd])
-    return img
+    """O cenário na grade final (2·largura x 80). Não altere a imagem devolvida (fica guardada)."""
+    t = _Tela(2 * largura)
+    DESENHOS_CENA.get(nome, _cena_biblioteca)(t, quadro, random.Random(f"{nome}-{largura}"))
+    return t.img
 
 
 def _quadro_cena(nome: str, largura: int, i: int) -> Image.Image:
-    """Só a noite (estrelas) e o castelo (tochas) mexem; os outros cenários são parados."""
-    q = i % 15 if nome == "noite" else (i % 4 if nome == "castelo" else 0)
-    return _cenario_hd(nome, largura, q)
+    """Quadro i da animação do cenário (poeira, folhas, estrelas, tochas, relógio)."""
+    return _cenario_hd(nome, largura, i % QUADROS_CENA.get(nome, 1))
 
 
 # ---------------------------------------------------------------- saída
