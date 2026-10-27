@@ -1,10 +1,10 @@
 {
-  "versao": "1.15.0",
+  "versao": "1.16.0",
   "data": "26/10/2026",
   "notas": [
-    "Personagens com o dobro de detalhe: olhos com brilho e cílios, cabelo com fios e brilho, luz e sombra na roupa",
-    "Óculos: 7 modelos (redondo, quadrado, meia armação, escuro, coração, monóculo e visor) e 8 cores de armação",
-    "Acessórios novos: gorro, capelo de formatura, tiara, capacete viking, flor, orelhas de gato, auréola, faixa, cachecol, medalha, gravata-borboleta, colar, capa de herói e mochila"
+    "Onde focar: escolha uma disciplina (ex.: Conhecimentos Específicos) e faça uma mini prova só dela",
+    "Na mini prova você escolhe de qual prova vêm as questões, quantas (5, 10, 20, 30 ou todas) e se é com cronômetro ou no modo estudo",
+    "Ver todas as disciplinas no Onde focar, não só as 6 principais"
   ],
   "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
 }

@@ -1330,6 +1330,61 @@ def test_simulado_nao_repete_o_que_voce_ja_fez(tmp_path):
     assert treino
 
 
+def test_mini_prova_por_disciplina_e_por_prova(tmp_path):
+    """Onde focar: mini prova só de uma disciplina, da biblioteca toda ou de uma prova escolhida."""
+    from aprova import db, sessoes
+    from aprova.ui.miniprova import opcoes_quantidade, quantidade_padrao
+
+    banco = db.Banco(tmp_path / "mp.db")
+
+    def prova(titulo, n_esp, n_port, ini):
+        pid = banco.criar_prova(titulo=titulo, orgao=titulo.split()[0], origem_url=f"https://x/{titulo.split()[0]}.pdf", modo="questoes")
+        qs = []
+        for i in range(n_esp + n_port):
+            disc = "Conhecimentos Específicos" if i < n_esp else "Língua Portuguesa"
+            k = ini + i
+            qs.append({"numero": i + 1, "enunciado": f"Questão {k} de {disc} sobre o assunto {k} do edital", "alternativas": {"A": f"a{k}", "B": f"b{k}", "C": f"c{k}"},
+                       "gabarito": "A", "disciplina": disc})
+        # uma questão quebrada (PDF mal lido) não entra
+        qs.append({"numero": len(qs) + 1, "enunciado": "curta", "alternativas": {"A": "x", "B": "y", "C": "z"}, "gabarito": "A", "disciplina": "Conhecimentos Específicos"})
+        banco.salvar_questoes(pid, qs)
+        return pid
+
+    dataprev = prova("Dataprev 2024 Analista", 12, 4, 0)
+    serpro = prova("Serpro 2023 Analista", 7, 3, 100)
+    op = sessoes.opcoes_mini_prova(banco, "Conhecimentos Específicos")
+    assert op["total"] == 19 and op["novas"] == 19
+    assert [(p["prova_id"], p["questoes"]) for p in op["provas"]] == [(dataprev, 12), (serpro, 7)]
+
+    # mini prova da biblioteca toda
+    pid = sessoes.preparar_treino(banco, "Conhecimentos Específicos", 10, titulo="Mini prova · Conhecimentos Específicos")
+    qs = banco.questoes(pid)
+    assert len(qs) == 10 and {q["disciplina"] for q in qs} == {"Conhecimentos Específicos"}
+    assert banco.prova(pid)["titulo"] == "Mini prova · Conhecimentos Específicos"
+    # de uma prova só (ex.: o cargo da Serpro): só vêm questões dela
+    pid = sessoes.preparar_treino(banco, "Conhecimentos Específicos", 20, prova_id=serpro)
+    qs = banco.questoes(pid)
+    assert len(qs) == 7 and all(q["ref"].startswith(f"{serpro}:") for q in qs)
+    # a mini prova reaproveita a mesma prova interna e não aparece como fonte de questões
+    assert all(q["prova_id"] != pid for q in banco.banco_de_questoes())
+    # depois de fazer, as feitas deixam de contar como novas
+    t = banco.iniciar_tentativa(pid, "simulado")
+    for q in qs[:5]:
+        banco.registrar_resposta(t, q["numero"], q["disciplina"], "A", True, q["ref"])
+    banco.finalizar_tentativa(t, 300, 5, 7)
+    op = sessoes.opcoes_mini_prova(banco, "Conhecimentos Específicos")
+    assert op["novas"] == 14 and next(p for p in op["provas"] if p["prova_id"] == serpro)["novas"] == 2
+    assert sessoes.preparar_treino(banco, "Direito Penal") is None
+    assert sessoes.opcoes_mini_prova(banco, "Direito Penal") == {"total": 0, "novas": 0, "provas": []}
+
+    # botões de quantidade
+    assert opcoes_quantidade(0) == []
+    assert opcoes_quantidade(3) == [(3, "Todas (3)")]
+    assert opcoes_quantidade(19) == [(5, "5"), (10, "10"), (19, "Todas (19)")]
+    assert opcoes_quantidade(200) == [(5, "5"), (10, "10"), (20, "20"), (30, "30")]
+    assert quantidade_padrao(19) == 10 and quantidade_padrao(4) == 4
+
+
 def test_resposta_antiga_sem_referencia_nao_confunde(tmp_path):
     """Respostas de antes da 1.12 no treino/revisão (prova reaproveitada) não são atribuídas à questão errada."""
     from aprova import db, sessoes

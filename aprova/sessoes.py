@@ -45,20 +45,54 @@ def preparar_revisao(banco, disciplina: str | None = None, todas: bool = False, 
     return pid
 
 
-def preparar_treino(banco, disciplina: str, quantidade: int = 10) -> int | None:
-    """Treino rápido de uma disciplina com questões da biblioteca (primeiro as que você nunca fez)."""
-    from .montador import Historico, _incompleta, problema
+def _questoes_da_disciplina(banco, disciplina: str, prova_id: int | None = None) -> list[dict]:
+    """Questões boas de uma disciplina: da biblioteca toda (sem repetidas) ou de uma prova só."""
+    from .montador import problema
 
-    pool = [q for q in banco.banco_de_questoes() if q["disciplina"] == disciplina and not problema(q)]
+    base = banco.banco_de_questoes(unicas=prova_id is None)
+    return [q for q in base if q["disciplina"] == disciplina and (prova_id is None or q["prova_id"] == prova_id) and not problema(q)]
+
+
+def preparar_treino(banco, disciplina: str, quantidade: int = 10, prova_id: int | None = None, titulo: str = "") -> int | None:
+    """Treino rápido (ou mini prova) de uma disciplina com questões da biblioteca.
+
+    Primeiro as que você nunca fez; as que esperam o dia da revisão ficam por último.
+    Com `prova_id`, só as questões daquela prova (ex.: Conhecimentos Específicos do seu cargo)."""
+    from .montador import Historico, _incompleta
+
+    pool = _questoes_da_disciplina(banco, disciplina, prova_id)
     if not pool:
         return None
     hist = Historico(banco)
     random.shuffle(pool)
-    pool.sort(key=lambda q: (_incompleta(q), *hist.nivel(q)))  # nunca vistas primeiro; as que esperam a revisão por último
-    pid = banco.prova_interna(ORIGEM_TREINO, f"Treino de {disciplina}")
-    banco.salvar_questoes(pid, _copias(pool[:quantidade]))
+    pool.sort(key=lambda q: (_incompleta(q), *hist.nivel(q)))
+    pid = banco.prova_interna(ORIGEM_TREINO, titulo or f"Treino de {disciplina}")
+    banco.salvar_questoes(pid, _copias(pool[: max(1, quantidade)]))
     banco.atualizar_prova(pid, orgao="", banca="")
     return pid
+
+
+def opcoes_mini_prova(banco, disciplina: str) -> dict:
+    """O que a biblioteca tem para a mini prova de uma disciplina.
+
+    {"total", "novas", "provas": [{"prova_id", "titulo", "questoes", "novas"}]}: "novas" são as que você nunca fez.
+    """
+    from .montador import Historico, problema
+
+    hist = Historico(banco)
+    todas = _questoes_da_disciplina(banco, disciplina)
+    por_prova: dict[int, dict] = {}
+    for q in banco.banco_de_questoes(unicas=False):
+        if q["disciplina"] != disciplina or problema(q):
+            continue
+        p = por_prova.setdefault(q["prova_id"], {"prova_id": q["prova_id"], "titulo": q["prova_titulo"] or "Prova sem nome", "questoes": 0, "novas": 0})
+        p["questoes"] += 1
+        p["novas"] += 0 if hist.ja_vista(q) else 1
+    return {
+        "total": len(todas),
+        "novas": sum(1 for q in todas if not hist.ja_vista(q)),
+        "provas": sorted(por_prova.values(), key=lambda p: (-p["questoes"], p["titulo"])),
+    }
 
 
 def proximo_estudo(banco) -> dict | None:

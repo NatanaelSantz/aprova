@@ -704,6 +704,19 @@ class App:
             from .montar import abrir_montador
 
             abrir_montador(self, filtro=arg)
+        elif nome == "mini":
+            from .miniprova import abrir_mini_prova
+
+            abrir_mini_prova(self, arg or (self.db.prioridades(1) or [{"disciplina": "Língua Portuguesa"}])[0]["disciplina"])
+        elif nome == "mini_comecar":
+            # clica em "Começar" na janela da mini prova aberta
+            dlg = next((d for d in reversed(self.page._dialogs.controls) if isinstance(d, ft.AlertDialog)), None) if hasattr(self.page, "_dialogs") else None
+            bt = next((a for a in (dlg.actions if dlg else []) if isinstance(a, ft.FilledButton)), None)
+            if bt and bt.on_click:
+                bt.on_click(None)
+        elif nome == "foco_todas":
+            t = self._tela("inicio")
+            t._alternar_foco()
         elif nome == "pausa":
             self.page.run_task(self.mostrar_pausa)
         elif nome == "espera":

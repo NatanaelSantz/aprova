@@ -32,7 +32,12 @@ App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolv
   - Com a chave do Claude, a IA completa o que faltar **e troca as que você já fez** por questões novas no estilo da banca, usando os assuntos do edital.
 - **Resultado comentado**: no fim do simulado, o Aprova diz o que foi bem, em que matéria dá para ganhar mais pontos e qual o próximo passo (com botão para treinar a matéria). Embaixo vem **O que você errou**, matéria por matéria: o que você marcou, a resposta certa e o porquê. Com a chave do Claude, dá para pedir a **análise do professor (IA)**, com os assuntos para revisar e um plano de 3 dias.
   - Também dá para montar a partir do edital: botão “Montar simulado” na janela do concurso.
-- **Onde focar**: cruza quanto cada disciplina cai nas suas provas com quanto você ainda erra.
+- **Onde focar**: cruza quanto cada disciplina cai nas suas provas com quanto você ainda erra. **Ver todas as disciplinas** mostra a lista inteira.
+  - **Mini prova**: toque numa disciplina (por exemplo, *Conhecimentos Específicos*) para fazer uma prova só dela. Você escolhe:
+    - *De qual prova*: todas da biblioteca ou só uma (útil quando os Conhecimentos Específicos mudam de cargo para cargo);
+    - *Quantas questões*: 5, 10, 20, 30 ou todas;
+    - *Como fazer*: **Prova** (com cronômetro e nota no fim) ou **Estudo** (vê a resposta e a explicação a cada questão).
+  - Vêm primeiro as questões que você nunca fez. O acerto conta para a questão original e os erros vão para a Revisão, igual ao simulado.
 - **Meta semanal (tela Início)**: o painel **Sua semana** mostra as horas estudadas e a meta, o ritmo (em dia, à frente ou quanto falta), a sequência de dias, o dia de hoje e as horas de cada dia em barras, com um tracinho na altura da meta do dia. Embaixo vem “Seu próximo estudo” (revisão do dia ou treino do ponto fraco).
 - **Tempo de estudo**: conta sozinho enquanto você resolve questões (para depois de 8 minutos parado). Para estudo fora do app (livro, aula), use o **cronômetro** ou **lance o tempo** à mão.
 - **Painel**:
@@ -293,7 +298,7 @@ aprova/
   fontes.py       busca central: sites das bancas, internet e PCI
   coleta.py       "Encher a biblioteca": baixa as provas de um concurso em lote
   analise.py      números do Painel (tempo, dias da semana, desempenho)
-  sessoes.py      revisão espaçada, treino e "próximo estudo"
+  sessoes.py      revisão espaçada, treino, mini prova e "próximo estudo"
   livros.py       indicações de livros e material oficial
   ranking.py      cliente do servidor (Supabase: login, papéis, números da semana, grupos, admin)
 supabase/         ranking.sql: tabelas, papéis e regras de acesso do servidor

@@ -303,45 +303,90 @@ class TelaInicio:
             padding=20,
         )
 
+    FOCO_VISIVEIS = 6
+
     def _onde_focar(self) -> ft.Control:
+        self.caixa_foco = comp.bloco(self._conteudo_foco(), self.app.c, padding=24)
+        return self.caixa_foco
+
+    def _alternar_foco(self, e=None):
+        self.foco_todas = not getattr(self, "foco_todas", False)
+        self.caixa_foco.content = self._conteudo_foco()
+        self.caixa_foco.update()
+
+    def _conteudo_foco(self) -> ft.Control:
+        """Disciplinas por prioridade; tocar numa abre a mini prova só dela."""
+        from .miniprova import abrir_mini_prova
+
         app, c = self.app, self.app.c
-        itens = app.db.prioridades(6)
+        todas = app.db.prioridades(200)
+        abrir = getattr(self, "foco_todas", False)
+        itens = todas if abrir else todas[: self.FOCO_VISIVEIS]
         filhos: list[ft.Control] = [
             comp.subtitulo("Onde focar", c, 22),
             comp.apagado(
-                "Disciplinas que mais caem nas provas da sua biblioteca, pesadas pelo quanto você ainda erra.",
+                "Disciplinas que mais caem nas provas da sua biblioteca, pesadas pelo quanto você ainda erra. "
+                "Escolha uma para fazer uma mini prova só dela.",
                 c,
                 14,
             ),
         ]
         if not itens:
             filhos.append(comp.aviso("Importe uma prova ou faça o simulado de demonstração para ver onde focar.", c))
-        maximo = max((i["prioridade"] for i in itens), default=1) or 1
+        maximo = max((i["prioridade"] for i in todas), default=1) or 1
         for i in itens:
             taxa = i["taxa"]
             cor = c["erro"] if taxa is not None and taxa < 0.5 else c["tinta"]
-            linha_baixo: list[ft.Control] = []
             if taxa is not None:
-                linha_baixo.append(
-                    comp.texto(f"você acerta {taxa * 100:.0f}%", c, 13, cor=c["erro"] if taxa < 0.5 else c["ok"], peso=ft.FontWeight.W_600)
-                )
+                desempenho = comp.texto(f"você acerta {taxa * 100:.0f}%", c, 13, cor=c["erro"] if taxa < 0.5 else c["ok"], peso=ft.FontWeight.W_600)
+            else:
+                desempenho = comp.apagado("você ainda não fez questões", c, 13)
+            abrir_mini = lambda e, d=i["disciplina"], t=taxa: abrir_mini_prova(app, d, t)  # noqa: E731
             filhos.append(
-                ft.Column(
-                    [
-                        ft.Row(
-                            [
-                                comp.texto(i["disciplina"], c, 15.5, peso=ft.FontWeight.W_600),
-                                ft.Container(expand=True),
-                                comp.apagado(f"{i['peso'] * 100:.0f}% da prova", c, 13),
-                            ],
-                        ),
-                        comp.barra(i["prioridade"] / maximo, c, cor=cor, altura=9),
-                        *linha_baixo,
-                    ],
-                    spacing=6,
+                ft.Container(
+                    ft.Column(
+                        [
+                            ft.Row(
+                                [
+                                    comp.texto(i["disciplina"], c, 15.5, peso=ft.FontWeight.W_600, expand=True, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
+                                    comp.apagado(f"{i['peso'] * 100:.0f}% da prova", c, 13),
+                                ],
+                                spacing=10,
+                            ),
+                            comp.barra(i["prioridade"] / maximo, c, cor=cor, altura=9),
+                            ft.Row(
+                                [
+                                    desempenho,
+                                    ft.Container(expand=True),
+                                    ft.TextButton(
+                                        "Mini prova",
+                                        icon=ft.Icons.PLAY_ARROW_ROUNDED,
+                                        on_click=abrir_mini,
+                                        tooltip=f"Fazer uma mini prova de {i['disciplina']}",
+                                        style=ft.ButtonStyle(padding=ft.Padding.symmetric(horizontal=10, vertical=0), shape=comp.forma(8)),
+                                    ),
+                                ],
+                                spacing=6,
+                                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            ),
+                        ],
+                        spacing=4,
+                    ),
+                    on_click=abrir_mini,
+                    border_radius=10,
+                    padding=ft.Padding.only(top=4),
+                    ink=True,
                 )
             )
-        return comp.bloco(ft.Column(filhos, spacing=14), c, padding=24)
+        if len(todas) > self.FOCO_VISIVEIS:
+            filhos.append(
+                comp.botao_texto(
+                    "Mostrar só as principais" if abrir else f"Ver todas as disciplinas ({len(todas)})",
+                    self._alternar_foco,
+                    ft.Icons.EXPAND_LESS if abrir else ft.Icons.EXPAND_MORE,
+                )
+            )
+        return ft.Column(filhos, spacing=10)
 
     def _continuar(self) -> ft.Control:
         app, c = self.app, self.app.c
