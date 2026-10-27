@@ -1,10 +1,8 @@
 {
-  "versao": "1.19.0",
+  "versao": "1.19.1",
   "data": "27/10/2026",
   "notas": [
-    "Pixel art com sombreamento detalhado: luz quente, sombra fria, contorno seletivo e luz de borda",
-    "Cenários redesenhados com luz, profundidade e partículas animadas (poeira dourada, folhas caindo, faíscas das tochas, estrelas piscando)",
-    "Vídeo tutorial e imagem do site com a arte nova"
+    "Barba e bigode acompanham a boca: o bigode tem as pontas para cima e a barba contorna o sorriso, a boca aberta e a língua de fora"
   ],
   "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/heads/main.zip"
 }

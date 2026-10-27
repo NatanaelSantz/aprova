@@ -1839,6 +1839,18 @@ def test_personagem_validar_e_desenhar():
     branco = av.CORES_OLHOS.index(next(c for c in av.CORES_OLHOS if c[1] == "Brancos"))
     olho_branco = {c for _, c in av.boneco({**av.PADRAO, "cor_olhos": branco}).crop(caixa_olho).getcolors(100)}
     assert (150, 200, 255, 255) in olho_branco
+    # barba e bigode contornam a boca: nenhum pelo encosta do lado ou embaixo da boca (o bigode fica em cima)
+    for barba in ("cheia", "bigode", "cavanhaque"):
+        for boca, _ in av.BOCAS:
+            cfg = av.validar({**av.PADRAO, "barba": barba, "boca": boca, "cor_cabelo": 1})
+            pal, img = av._paleta(cfg), av.boneco(cfg)
+            pelos = {pal["h"][:3], av._escura(pal["h"], 0.25)[:3], av._clara(pal["h"], 0.16)[:3]}
+            na_boca = {(x, y) for x in range(26, 38) for y in range(av.BOCA_Y, av.BOCA_Y + 6)
+                       if img.getpixel((x, y))[:3] == pal["m"][:3]}
+            assert na_boca, (barba, boca)
+            for x, y in na_boca:
+                for vizinho in ((x - 1, y), (x + 1, y), (x, y + 1)):
+                    assert vizinho in na_boca or img.getpixel(vizinho)[:3] not in pelos, (barba, boca, vizinho)
     # animações: WebP animado, ampliado sem borrar
     for anim in ("parado", "aceno", "pulo", "lobby"):
         im = Image.open(_io.BytesIO(av.animacao(av.sortear("x"), anim, 2)))

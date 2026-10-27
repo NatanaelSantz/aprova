@@ -1084,25 +1084,56 @@ def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: b
                 for dx, dy in arco:
                     pinta(x0 + dx, y0 + dy, _mistura(sobrancelha, pele, 0.35))
 
-    # barba e bigode (antes das bochechas e da boca, que ficam por cima)
+    # boca: os pixels de cada tipo saem antes da barba, para a barba contornar a boca
+    yb = BOCA_Y  # linha da boca
+    boca, lingua = pal["m"], (232, 112, 122, 255)
     barba = cfg.get("barba", "nenhuma")
+    com_bigode = barba in ("bigode", "cavanhaque", "cheia")
+    y0 = yb + d2 + (1 if com_bigode else 0)  # com bigode, a boca desce 1 pixel para caber o bigode
+    tipo_boca = "sorrisao" if alegre else cfg.get("boca", "sorriso")
+    if tipo_boca == "sorrisao":
+        pontos_boca = [(30 + k, y0, boca) for k in range(4)]
+        pontos_boca += [(30 + k, y0 + 1, cor) for k, cor in enumerate((boca, lingua, lingua, boca))]
+        pontos_boca += [(31, y0 + 2, boca), (32, y0 + 2, boca)]
+    elif tipo_boca == "neutra":
+        pontos_boca = [(30 + k, y0 + 1, boca) for k in range(4)]
+    elif tipo_boca == "surpresa":
+        pontos_boca = [(x, y, boca) for x, y in ((31, y0), (32, y0), (30, y0 + 1), (33, y0 + 1), (31, y0 + 2), (32, y0 + 2))]
+        pontos_boca += [(31, y0 + 1, _escura(boca, 0.45)), (32, y0 + 1, _escura(boca, 0.45))]
+    else:
+        pontos_boca = [(x, y, boca) for x, y in ((30, y0), (31, y0 + 1), (32, y0 + 1), (33, y0))]
+        if tipo_boca == "lingua":
+            pontos_boca += [(32, y0 + 2, lingua), (33, y0 + 2, _escura(lingua, 0.15)), (32, y0 + 3, _escura(lingua, 0.1))]
+    # lábios: a boca mais um pixel em volta (sem as diagonais); a barba desenha em volta deles,
+    # então o contorno da barba segue o formato da boca (sorriso, boca aberta, séria...)
+    labios: set = set()
+    for x, y, _ in pontos_boca:
+        labios.update(((x, y), (x - 1, y), (x + 1, y), (x, y + 1), (x, y - 1)))
+    labios = {(x, y) for x, y in labios if y >= y0}
+
+    # barba e bigode (antes das bochechas e da boca, que ficam por cima)
     pelo = pal["h"] if cfg["cabelo"] != "careca" else _rgb("#3B2A20")
     pelo_escuro = _escura(pelo, 0.25)
+    pelo_claro = _clara(pelo, 0.16)
     com_barba: set = set()
-    yb = BOCA_Y  # linha da boca
 
     def na_barba(x, y):
+        if (x, y) in labios:
+            return False
         yy = y - d2
-        return ((yy >= yb - 4 and (x <= 22 or x >= 41)) or (yy >= yb - 1 and (x <= 25 or x >= 38))
-                or (yy == yb + 1 and (x <= 28 or x >= 35)) or yy >= yb + 2)
+        return (yy >= yb - 4 and (x <= 22 or x >= 41)) or (yy >= yb - 1 and (x <= 24 or x >= 39)) or yy >= yb
 
-    def bigode(cor):
-        for x in range(28, 36):
-            pinta(x, yb - 1 + d2, cor)
-            com_barba.add((x, yb - 1 + d2))
-        for x in (28, 29, 34, 35):
-            pinta(x, yb + d2, cor)
-            com_barba.add((x, yb + d2))
+    def bigode(x0, x1):
+        # bigode de pontas para cima, acompanhando o sorriso: em cima, dois lados com o nariz
+        # no meio e as pontas mais finas; embaixo, uma faixa mais curta apoiada no lábio
+        for x in range(x0, x1 + 1):
+            if x <= x0 + 3 or x >= x1 - 3:
+                ponta = x in (x0, x1)
+                pinta(x, yb - 1 + d2, _mistura(pelo, pele, 0.4) if ponta else pelo_claro if x in (x0 + 2, x1 - 2) else pelo)
+                com_barba.add((x, yb - 1 + d2))
+            if x0 < x < x1:
+                pinta(x, yb + d2, pelo_escuro if x0 + 3 < x < x1 - 3 else pelo)
+                com_barba.add((x, yb + d2))
 
     if barba in ("cheia", "por_fazer"):
         for y in range(34 + d2, 49 + d2):
@@ -1111,19 +1142,22 @@ def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: b
                     continue
                 if barba == "cheia":
                     baixo = orig[(y + 1) * L + x][4] != M_PELE
-                    pinta(x, y, pelo_escuro if baixo else pelo)
+                    fio = (x * 3 + y) % 7 == 0 and (x <= 26 or x >= 37)  # alguns fios de luz nas laterais
+                    pinta(x, y, pelo_escuro if baixo else pelo_claro if fio else pelo)
                     com_barba.add((x, y))
                 else:  # por fazer: sombra leve com pontinhos espalhados
                     pinta(x, y, _mistura(pele, pelo, 0.36 if (3 * x + 5 * y) % 7 == 0 else 0.14))
         if barba == "cheia":
-            bigode(pelo)
+            bigode(27, 36)
     elif barba in ("bigode", "cavanhaque"):
-        bigode(pelo)
+        bigode(27, 36)
         if barba == "cavanhaque":
-            for y, xs in ((yb + 3, range(30, 34)), (yb + 4, range(30, 34)), (yb + 5, range(31, 33))):
+            fundo = max(y for _, y in labios) + 1  # logo abaixo dos lábios, seguindo a boca
+            for y, xs in ((fundo, range(30, 34)), (fundo + 1, range(30, 34)), (fundo + 2, range(31, 33))):
                 for x in xs:
-                    pinta(x, y + d2, pelo if y < yb + 5 else pelo_escuro)
-                    com_barba.add((x, y + d2))
+                    if (x, y) not in labios:
+                        pinta(x, y, pelo if y < fundo + 2 else pelo_escuro)
+                        com_barba.add((x, y))
 
     # bochechas (embaixo e por fora dos olhos), detalhes do rosto e nariz
     marca = cfg.get("marca", "nenhuma")
@@ -1147,36 +1181,13 @@ def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: b
                           (19, 41, borda), (20, 41, fita), (21, 41, gaze), (22, 41, gaze), (23, 41, fita), (24, 41, borda),
                           (20, 42, borda), (21, 42, fita), (22, 42, fita), (23, 42, borda)):
             pinta(x, y + d2, cor)
-    if (31, yb - 1 + d2) not in com_barba:
+    if (31, yb - 1 + d2) not in com_barba:  # nariz
         pinta(31, yb - 1 + d2, _escura(pele, 0.12))
         pinta(32, yb - 1 + d2, _escura(pele, 0.06))
 
     # boca
-    boca, lingua = pal["m"], (232, 112, 122, 255)
-    y0 = yb + d2
-    tipo_boca = "sorrisao" if alegre else cfg.get("boca", "sorriso")
-    if tipo_boca == "sorrisao":
-        for k in range(4):
-            pinta(30 + k, y0, boca)
-        for k, cor in enumerate((boca, lingua, lingua, boca)):
-            pinta(30 + k, y0 + 1, cor)
-        pinta(31, y0 + 2, boca)
-        pinta(32, y0 + 2, boca)
-    elif tipo_boca == "neutra":
-        for k in range(4):
-            pinta(30 + k, y0 + 1, boca)
-    elif tipo_boca == "surpresa":
-        for x, y in ((31, y0), (32, y0), (30, y0 + 1), (33, y0 + 1), (31, y0 + 2), (32, y0 + 2)):
-            pinta(x, y, boca)
-        pinta(31, y0 + 1, _escura(boca, 0.45))
-        pinta(32, y0 + 1, _escura(boca, 0.45))
-    else:
-        for x, y in ((30, y0), (31, y0 + 1), (32, y0 + 1), (33, y0)):
-            pinta(x, y, boca)
-        if tipo_boca == "lingua":
-            pinta(32, y0 + 2, lingua)
-            pinta(33, y0 + 2, _escura(lingua, 0.15))
-            pinta(32, y0 + 3, _escura(lingua, 0.1))
+    for x, y, cor in pontos_boca:
+        pinta(x, y, cor)
 
     # óculos (linhas finas na grade final), por cima dos olhos
     oc = cfg["oculos"]
