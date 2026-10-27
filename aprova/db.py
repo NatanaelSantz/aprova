@@ -154,6 +154,11 @@ class Banco:
         with self._lock:
             self._con.execute("PRAGMA journal_mode=WAL")
             self._con.execute("PRAGMA foreign_keys=ON")
+            self.migrar()
+
+    def migrar(self) -> None:
+        """Tabelas e colunas que faltam (banco de versão antiga ou cópia de segurança restaurada)."""
+        with self._lock:
             self._con.executescript(ESQUEMA)
             colunas = {r[1] for r in self._con.execute("PRAGMA table_info(questoes)")}
             if "fonte" not in colunas:
@@ -461,14 +466,17 @@ class Banco:
             )[0]["n"],
         }
 
-    def prioridades(self, limite: int = 6) -> list[dict]:
-        """Onde focar: peso da disciplina nas provas x quanto você ainda erra."""
+    def prioridades(self, limite: int = 6, provas: set[int] | None = None) -> list[dict]:
+        """Onde focar: peso da disciplina nas provas x quanto você ainda erra.
+
+        Com `provas` (as do seu concurso), o peso vem só delas."""
+        so = f" AND p.id IN ({','.join(str(int(i)) for i in provas)})" if provas else ""
         freq = {
             r["disciplina"]: r["n"]
             for r in self._q(
-                """SELECT q.disciplina, COUNT(*) n FROM questoes q JOIN provas p ON p.id=q.prova_id
+                f"""SELECT q.disciplina, COUNT(*) n FROM questoes q JOIN provas p ON p.id=q.prova_id
                    WHERE q.disciplina IS NOT NULL AND q.disciplina<>''
-                     AND (p.origem_url NOT LIKE 'aprova://%' OR p.origem_url = 'aprova://demo')
+                     AND (p.origem_url NOT LIKE 'aprova://%' OR p.origem_url = 'aprova://demo'){so}
                    GROUP BY q.disciplina"""
             )
         }

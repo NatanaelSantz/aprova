@@ -1,11 +1,10 @@
 {
-  "versao": "1.24.0",
+  "versao": "1.25.0",
   "data": "27/10/2026",
   "notas": [
-    "Atualização mais segura: cada versão vem de um pacote fixo, e se a versão nova não abrir o Aprova volta sozinho para a anterior",
-    "No Windows, a chave da IA e o login guardado ficam cifrados",
-    "Admin: espaço usado no servidor (banco e arquivos) perto do limite do plano grátis",
-    "Bibliotecas em versões fixas e testadas no Windows"
+    "Riscar alternativas na questão (botão, clique direito ou Shift + letra)",
+    "Meu concurso: contagem regressiva para a prova e o Onde focar nas provas dele",
+    "Cópia de segurança dos estudos: salvar, restaurar em outro computador e cópia automática toda semana"
   ],
-  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.24.0.zip"
+  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.25.0.zip"
 }

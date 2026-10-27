@@ -101,7 +101,8 @@ def formatar(frase: str, nome: str) -> str:
 def do_dia(ctx: dict) -> list[tuple[str, str]]:
     """Lembretes que dependem do dia: revisão esperando, meta de hoje, sequência, hora.
 
-    ctx: hora (0-23), revisao (questões para revisar hoje), meta_hoje e feito_hoje (segundos), sequencia (dias)."""
+    ctx: hora (0-23), revisao (questões para revisar hoje), meta_hoje e feito_hoje (segundos), sequencia (dias),
+    dias_prova e concurso (Meu concurso, quando tem data)."""
     falas: list[tuple[str, str]] = []
     hora = ctx.get("hora", 12)
     n = ctx.get("revisao", 0)
@@ -114,6 +115,16 @@ def do_dia(ctx: dict) -> list[tuple[str, str]]:
         falas.append((f"A meta de hoje é {_hm(meta)}. Que tal começar agora, {{nome}}?", ""))
     elif meta:
         falas.append((f"Faltam {_hm(meta - feito)} pra meta de hoje. Tá quase!", ""))
+    dias, concurso = ctx.get("dias_prova"), ctx.get("concurso") or "concurso"
+    if isinstance(dias, int) and dias >= 0:
+        if dias == 0:
+            falas.append((f"Hoje é a prova do {concurso}! Respira fundo e vai com tudo, {{nome}}!", "pulo"))
+        elif dias == 1:
+            falas.append((f"Amanhã é a prova do {concurso}. Revisão leve e cama cedo, {{nome}}!", ""))
+        elif dias <= 30:
+            falas.append((f"Faltam {dias} dias para a prova do {concurso}. Reta final, {{nome}}!", "pulo"))
+        else:
+            falas.append((f"Faltam {dias} dias para a prova do {concurso}. Cada dia conta, {{nome}}.", ""))
     seq = ctx.get("sequencia", 0)
     if seq >= 3:
         falas.append((f"{seq} dias seguidos estudando! Não quebra a corrente, hein.", "pulo"))

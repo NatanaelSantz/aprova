@@ -38,6 +38,7 @@ class TelaProva:
         self.respostas: dict[int, str] = {}
         self.marcadas: set[int] = set()
         self.reveladas: set[int] = set()
+        self.riscadas: dict[int, set[str]] = {}  # alternativas eliminadas em cada questão (só nesta tentativa)
         self.idx = 0
         self.inicio = time.time()
         self.finalizada = False
@@ -283,6 +284,9 @@ class TelaProva:
         if q.get("tipo") == "CE" and not alts:
             alts = {"C": "Certo", "E": "Errado"}
         lista_alts = ft.Column(spacing=8)
+        # riscar (eliminar) alternativas: só antes de corrigir e quando há mais de duas (no Certo/Errado não faz sentido)
+        pode_riscar = not corrigida and not self.finalizada and len(alts) > 2
+        riscadas = self.riscadas.get(n, set())
         for letra, txt in alts.items():
             estado = None
             if corrigida and gab:
@@ -298,24 +302,38 @@ class TelaProva:
                 fundo = c["erro_suave"]
             elif sel:
                 fundo = c["tinta_suave"]
-            lista_alts.controls.append(
-                ft.Container(
-                    ft.Row(
-                        [
-                            comp.bolha(letra, c, marcada=sel, estado=estado, tamanho=int(36 * min(1.25, self._escala()))),
-                            ft.Container(ft.Text(txt, **self._estilo_leitura(16.5)), expand=True, padding=ft.Padding.only(top=5)),
-                        ],
-                        spacing=14,
-                        vertical_alignment=ft.CrossAxisAlignment.START,
-                    ),
-                    padding=ft.Padding.symmetric(horizontal=12, vertical=10),
-                    border_radius=12,
-                    bgcolor=fundo,
-                    border=ft.Border.all(1, c["tinta"] if sel and not estado else "transparent"),
-                    on_click=None if (corrigida and self.modo != "simulado") or self.finalizada else (lambda e, L=letra: self.responder(L)),
-                    ink=not corrigida,
+            riscada = letra in riscadas and not estado and not sel
+            estilo = self._estilo_leitura(16.5)
+            if riscada:
+                estilo["color"] = c["texto2"]
+                estilo["style"] = ft.TextStyle(height=estilo["style"].height, decoration=ft.TextDecoration.LINE_THROUGH,
+                                               decoration_color=c["texto2"], decoration_thickness=2)
+            bolha = comp.bolha(letra, c, marcada=sel, estado=estado, tamanho=int(36 * min(1.25, self._escala())))
+            if riscada:
+                bolha.opacity = 0.4
+            filhos: list[ft.Control] = [bolha, ft.Container(ft.Text(txt, **estilo), expand=True, padding=ft.Padding.only(top=5))]
+            if pode_riscar:
+                filhos.append(
+                    ft.IconButton(
+                        ft.Icons.FORMAT_STRIKETHROUGH,
+                        icon_size=19,
+                        icon_color=c["tinta"] if riscada else c["texto2"],
+                        tooltip="Desfazer o risco" if riscada else "Riscar esta alternativa (Shift + letra)",
+                        on_click=lambda e, L=letra: self.riscar(L),
+                        style=ft.ButtonStyle(padding=4),
+                    )
                 )
+            linha = ft.Container(
+                ft.Row(filhos, spacing=14, vertical_alignment=ft.CrossAxisAlignment.START),
+                padding=ft.Padding.symmetric(horizontal=12, vertical=10),
+                border_radius=12,
+                bgcolor=fundo,
+                border=ft.Border.all(1, c["tinta"] if sel and not estado else "transparent"),
+                on_click=None if (corrigida and self.modo != "simulado") or self.finalizada else (lambda e, L=letra: self.responder(L)),
+                ink=not corrigida,
             )
+            # clique com o botão direito também risca
+            lista_alts.controls.append(ft.GestureDetector(linha, on_secondary_tap=lambda e, L=letra: self.riscar(L)) if pode_riscar else linha)
         blocos.append(lista_alts)
         if corrigida:
             blocos.append(self._feedback(q, resp, gab))
@@ -408,6 +426,7 @@ class TelaProva:
             return
         self.app.marcar_atividade()
         self.respostas[n] = letra
+        self.riscadas.get(n, set()).discard(letra)  # marcou a riscada: o risco sai
         if self.modo == "estudo":
             self.reveladas.add(n)
             gab = self._gab(q)
@@ -437,6 +456,22 @@ class TelaProva:
                     self.app.page.run_task(self._carregar_pagina)
         self._atualizar()
 
+    def riscar(self, letra: str):
+        """Risca (elimina) uma alternativa, ou desfaz o risco. Riscar a que estava marcada desmarca."""
+        q = self.q
+        if q is None or self.finalizada or self._corrigida(q["numero"]):
+            return
+        n = q["numero"]
+        self.app.marcar_atividade()
+        riscadas = self.riscadas.setdefault(n, set())
+        if letra in riscadas:
+            riscadas.discard(letra)
+        else:
+            riscadas.add(letra)
+            if self.respostas.get(n) == letra:
+                self.respostas.pop(n, None)
+        self._atualizar()
+
     def _marcar(self):
         q = self.q
         if q:
@@ -464,7 +499,10 @@ class TelaProva:
         elif len(k) == 1 and self.q and not self.cartao:
             alts = self.q.get("alternativas") or ({"C": "", "E": ""} if self.q.get("tipo") == "CE" else {})
             if k in alts and not self._corrigida(self.q["numero"]):
-                self.responder(k)
+                if e.shift and len(alts) > 2:
+                    self.riscar(k)
+                else:
+                    self.responder(k)
 
     # ---------------------------------------------------------------- voz
 
@@ -561,7 +599,7 @@ class TelaProva:
         ]
         if not self.finalizada and self.modo != "revisao":
             filhos.append(comp.botao("Finalizar prova", self.finalizar, ft.Icons.CHECK_ROUNDED, width=260))
-        filhos.append(comp.apagado("Atalhos: A a E responde, ← → navega, M marca, H abre a ajuda.", c, 12.5))
+        filhos.append(comp.apagado("Atalhos: A a E responde, Shift + letra risca, ← → navega, M marca, H abre a ajuda.", c, 12.5))
         return ft.Column(filhos, spacing=14, scroll=ft.ScrollMode.AUTO)
 
     def _cartao_celular(self, e=None):

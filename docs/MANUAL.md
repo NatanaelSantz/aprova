@@ -23,6 +23,7 @@ App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolv
   - *Simulado*: cronômetro e correção só no final.
   - *Modo estudo*: correção a cada questão.
   - Cartão-resposta com bolinhas, marcar para revisar e resultado por disciplina.
+  - **Riscar alternativas**: elimine as que você já descartou, como no papel. Toque no ícone de risco do lado da alternativa, clique com o botão direito nela ou aperte Shift + a letra. Riscar de novo desfaz.
   - PDFs digitalizados (imagem) abrem com as páginas originais e um cartão-resposta ao lado.
 - **Ajuda em cada questão**: sempre pesquisa na internet e mostra as fontes. A *dica* não revela a resposta; a *explicação completa* revela. Com a chave da API do Claude (opcional), a explicação é escrita pela IA.
 - **Montar simulado**: você escolhe o número de questões e quantas de cada disciplina. Já vem o modelo da Dataprev 2026 (FGV, 70 questões).
@@ -32,6 +33,7 @@ App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolv
   - Com a chave do Claude, a IA completa o que faltar **e troca as que você já fez** por questões novas no estilo da banca, usando os assuntos do edital.
 - **Resultado comentado**: no fim do simulado, o Aprova diz o que foi bem, em que matéria dá para ganhar mais pontos e qual o próximo passo (com botão para treinar a matéria). Embaixo vem **O que você errou**, matéria por matéria: o que você marcou, a resposta certa e o porquê. Com a chave do Claude, dá para pedir a **análise do professor (IA)**, com os assuntos para revisar e um plano de 3 dias.
   - Também dá para montar a partir do edital: botão “Montar simulado” na janela do concurso.
+- **Meu concurso** (Início ou Ajustes): diga para qual concurso você estuda e a data da prova. O Início mostra a **contagem regressiva** (“Faltam 47 dias para a prova do TJ-SP”), o **Onde focar** passa a olhar só as provas desse concurso na sua biblioteca e o personagem lembra quantos dias faltam. Na janela de um concurso (aba *Concursos*), o botão **É o meu concurso** já preenche tudo.
 - **Onde focar**: cruza quanto cada disciplina cai nas suas provas com quanto você ainda erra. **Ver todas as disciplinas** mostra a lista inteira.
   - **Mini prova**: toque numa disciplina (por exemplo, *Conhecimentos Específicos*) para fazer uma prova só dela. Você escolhe:
     - *De qual prova*: todas da biblioteca ou só uma (útil quando os Conhecimentos Específicos mudam de cargo para cargo);
@@ -64,6 +66,7 @@ App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolv
 - **Celular**: o mesmo app abre no navegador do celular, na mesma rede Wi-Fi.
 - **Marcar PDF** (Estudar → Marcar PDF): marca-texto em 4 cores, sublinhado e notas em qualquer PDF, e um PDF novo com as marcações, editáveis ou fixas. Veja [Marcar PDF](#marcar-pdf).
 - **Atualização automática**: o app avisa no Início quando sai versão nova e atualiza com um toque. Veja [Atualizações](#atualizações).
+- **Cópia de segurança** (Ajustes): salve todos os seus estudos num arquivo `.aprova` (pen drive, Google Drive) e restaure em outro computador. O app também faz uma cópia sozinho toda semana. Veja [Onde ficam seus dados](#onde-ficam-seus-dados).
 
 ## Como abrir no Windows
 
@@ -130,6 +133,7 @@ Se a pasta de downloads for outra, ajuste em **Ajustes → Geral**. Também dá 
 | Tecla | Ação |
 |---|---|
 | A, B, C, D, E | responder |
+| Shift + A … E | riscar (eliminar) a alternativa; de novo desfaz |
 | ← → | questão anterior / próxima |
 | M | marcar para revisar |
 | H | abrir a ajuda |
@@ -292,6 +296,13 @@ A chave é como um cartão: quem tiver a chave gasta o seu crédito, então não
 ## Onde ficam seus dados
 
 Tudo fica no seu computador, na pasta `.aprova` dentro da sua pasta de usuário (`C:\Users\<você>\.aprova`): provas importadas, respostas, favoritos, ajustes e PDFs marcados (pasta `marcados`). Os estudos de cada conta ficam em `.aprova\contas\<conta>`; os de quem usa sem conta, direto em `.aprova`. No servidor vão só o apelido, o concurso e os números da semana.
+
+**Cópia de segurança** (Ajustes → Cópia de segurança):
+
+- **Salvar cópia agora** grava um arquivo `.aprova` com tudo: provas e questões da biblioteca, respostas, revisão, metas, tempo, dúvidas, lembretes, favoritos, ajustes, PDFs marcados e figurinhas. Guarde num pen drive ou no seu Drive. A chave da IA e o login não vão na cópia (ficam só neste computador), nem os PDFs originais das provas (dá para baixar de novo).
+- **Restaurar de uma cópia** troca os estudos de agora pelos da cópia. Antes, o Aprova guarda uma cópia do que existe agora em `.aprova\copias`, então dá para voltar atrás.
+- Toda semana o app faz uma cópia sozinho em `.aprova\copias` (guarda as 4 últimas). Em Ajustes aparece a data da última, com o botão **Restaurar esta**.
+- No celular, a cópia vai pelo menu Compartilhar (salvar em Arquivos, Drive ou mandar para você mesmo).
 
 ## Se não abrir na primeira vez
 

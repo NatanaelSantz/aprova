@@ -2309,3 +2309,203 @@ def test_espaco_usado_no_servidor(tmp_path):
         assert r.uso_do_servidor() is None  # servidor antigo: a tela pede para rodar o SQL novo
     finally:
         srv.parar()
+
+
+def _tela_prova(tmp_path, modo="simulado"):
+    """Tela de prova com um app mínimo (sem janela), para testar a lógica das interações."""
+    from types import SimpleNamespace
+
+    from aprova import config
+    from aprova.db import Banco
+    from aprova.ui import tema
+    from aprova.ui.prova import TelaProva
+
+    b = Banco(tmp_path / "p.db")
+    pid = b.criar_prova(titulo="Prova", origem_url="u", n_questoes=2)
+    b.salvar_questoes(pid, [{"numero": 1, "enunciado": "Crase", "disciplina": "Língua Portuguesa", "gabarito": "B",
+                             "alternativas": {"A": "a", "B": "b", "C": "c", "D": "d", "E": "e"}},
+                            {"numero": 2, "enunciado": "Julgue", "disciplina": "Direito", "tipo": "CE", "gabarito": "C", "alternativas": {}}])
+    app = SimpleNamespace(db=b, aj=config.AjustesMemoria(), c=tema.paleta("claro"), largo=True, marcar_atividade=lambda: None,
+                          page=SimpleNamespace(update=lambda: None), leitor=SimpleNamespace(parar=lambda: None))
+    t = TelaProva(app, b.prova(pid), modo)
+    t._atualizar = lambda: None
+    return t
+
+
+def test_riscar_alternativas(tmp_path):
+    """1.25: riscar (eliminar) alternativas: botão, botão direito ou Shift + letra."""
+    from types import SimpleNamespace
+
+    import flet as ft
+
+    t = _tela_prova(tmp_path, "simulado")
+    t.riscar("A")
+    t.riscar("C")
+    assert t.riscadas[1] == {"A", "C"}
+    t.riscar("C")  # de novo: desfaz
+    assert t.riscadas[1] == {"A"}
+    t.responder("A")  # marcou a riscada: o risco sai
+    assert t.respostas[1] == "A" and "A" not in t.riscadas[1]
+    t.riscar("A")  # riscou a marcada: desmarca
+    assert 1 not in t.respostas and t.riscadas[1] == {"A"}
+    tecla = SimpleNamespace(key="D", shift=True, ctrl=False, alt=False, meta=False)
+    t.tecla(tecla)
+    assert t.riscadas[1] == {"A", "D"} and 1 not in t.respostas
+    t.tecla(SimpleNamespace(key="B", shift=False, ctrl=False, alt=False, meta=False))
+    assert t.respostas[1] == "B"
+    # na tela: a riscada aparece cortada e com o botão de desfazer
+    tela = t._principal_questao()
+
+    def achar(ctrl, tipo, acc):
+        if isinstance(ctrl, tipo):
+            acc.append(ctrl)
+        for filho in (getattr(ctrl, "controls", None) or []) + [x for x in (getattr(ctrl, "content", None),) if isinstance(x, ft.Control)]:
+            achar(filho, tipo, acc)
+        return acc
+
+    textos = achar(tela, ft.Text, [])
+    cortados = [x.value for x in textos if x.style and getattr(x.style, "decoration", None) == ft.TextDecoration.LINE_THROUGH]
+    assert sorted(cortados) == ["a", "d"]
+    assert len(achar(tela, ft.GestureDetector, [])) == 5  # botão direito risca
+    # Certo/Errado: não tem o que riscar
+    t.ir_para(1)
+    t.riscar("C")
+    assert not t.riscadas.get(2) or t.riscadas[2] == {"C"}
+    tela2 = t._principal_questao()
+    assert not achar(tela2, ft.GestureDetector, [])
+    # no modo estudo, depois de responder (corrigida), não risca mais
+    e = _tela_prova(tmp_path / "e", "estudo")
+    e.responder("B")
+    e.riscar("A")
+    assert not e.riscadas.get(1)
+
+
+def test_meu_concurso(tmp_path):
+    """1.25: meu concurso com a data da prova: contagem, provas dele no foco e o personagem lembra."""
+    from datetime import date, timedelta
+    from types import SimpleNamespace
+
+    from aprova import config, falas
+    from aprova.db import Banco
+    from aprova.ui import meu_concurso as mc
+
+    assert mc.sugerir_filtro("TJSP - Tribunal de Justiça do Estado de São Paulo") == "TJSP"
+    assert mc.sugerir_filtro("Prefeitura de Matão") == "Matão" and mc.sugerir_filtro("Dataprev 2026") == "Dataprev"
+    assert mc.ler_data("14/12/2026") == date(2026, 12, 14) and mc.ler_data("1/2/27") == date(2027, 2, 1)
+    assert mc.ler_data("31/02/2026") is None and mc.ler_data("amanhã") is None
+    assert mc.eh_do_concurso({"titulo": "Escrevente Técnico TJ-SP Vunesp 2023"}, "TJSP")
+    assert mc.eh_do_concurso({"titulo": "Escrevente TJSP"}, "tj sp") and not mc.eh_do_concurso({"titulo": "Dataprev"}, "TJSP")
+    assert mc.frase_contagem(47, "TJ-SP") == "Faltam 47 dias para a prova do TJ-SP"
+    assert mc.frase_contagem(1, "TJ-SP") == "A prova do TJ-SP é amanhã" and "Boa prova" in mc.frase_contagem(0, "X")
+
+    b = Banco(tmp_path / "a.db")
+    tj = b.criar_prova(titulo="Escrevente TJ-SP 2023", origem_url="u1")
+    b.salvar_questoes(tj, [{"numero": i, "enunciado": "x", "disciplina": "Direito Processual" if i < 8 else "Português", "alternativas": {"A": "a"}}
+                           for i in range(1, 11)])
+    outra = b.criar_prova(titulo="Analista Dataprev", origem_url="u2")
+    b.salvar_questoes(outra, [{"numero": i, "enunciado": "y", "disciplina": "Informática", "alternativas": {"A": "a"}} for i in range(1, 31)])
+    app = SimpleNamespace(db=b, aj=config.AjustesMemoria())
+    assert mc.dados(app) == {} and mc.provas_do_concurso(app) == set() and mc.dias_para_a_prova(app) is None
+    app.aj.set("meu_concurso", {"nome": "TJ-SP", "filtro": "TJSP", "data": (date.today() + timedelta(days=30)).isoformat()})
+    assert mc.provas_do_concurso(app) == {tj} and mc.dias_para_a_prova(app) == 30
+    # o foco olha só as provas do concurso
+    assert [p["disciplina"] for p in b.prioridades(5)][0] == "Informática"
+    foco = b.prioridades(5, provas={tj})
+    assert [p["disciplina"] for p in foco] == ["Direito Processual", "Português"] and abs(foco[0]["peso"] - 0.7) < 1e-9
+    # o personagem lembra quantos dias faltam
+    frases = [f for f, _ in falas.do_dia({"dias_prova": 30, "concurso": "TJ-SP"})]
+    assert any("Faltam 30 dias para a prova do TJ-SP" in f for f in frases)
+    assert any("Hoje é a prova" in f for f, _ in falas.do_dia({"dias_prova": 0, "concurso": "TJ-SP"}))
+    assert not any("prova do" in f for f, _ in falas.do_dia({"dias_prova": -3, "concurso": "TJ-SP"}))
+
+
+def test_copia_de_seguranca(tmp_path):
+    """1.25: salvar uma cópia dos estudos e restaurar em outro computador (ou voltar atrás)."""
+    import json
+    import sqlite3
+    import zipfile
+
+    import pytest
+
+    from aprova import config, copia
+    from aprova.db import Banco
+
+    casa, novo = tmp_path / "casa", tmp_path / "novo"
+    casa.mkdir()
+    b = Banco(casa / "aprova.db")
+    pid = b.criar_prova(titulo="TJ-SP 2023", origem_url="u1")
+    b.salvar_questoes(pid, [{"numero": 1, "enunciado": "x", "disciplina": "Português", "alternativas": {"A": "a"}, "gabarito": "A"}])
+    t = b.iniciar_tentativa(pid, "estudo")
+    b.registrar_resposta(t, 1, "Português", "A", True)
+    aj = config.Ajustes(casa / "ajustes.json")
+    aj.set("nome", "Ana")
+    aj.set("claude_api_key", "sk-ant-segredo")
+    aj.set("meta_horas_semana", 15)
+    (casa / "marcados").mkdir()
+    (casa / "marcados" / "lei.pdf").write_bytes(b"%PDF-1.4 marcado")
+    (casa / "marcados" / "indice.json").write_text(json.dumps({"x1": {"titulo": "Lei", "copia": str(casa / "marcados" / "lei.pdf")}}))
+
+    arquivo = tmp_path / copia.nome_sugerido()
+    resumo = copia.criar(casa, arquivo, b)
+    assert resumo["respondidas"] == 1 and resumo["provas"] == 1 and arquivo.suffix == ".aprova"
+    with zipfile.ZipFile(arquivo) as z:
+        dentro = z.read("ajustes.json").decode()
+        assert "sk-ant-segredo" not in dentro and "claude_api_key" not in dentro and '"Ana"' in dentro  # segredos não vão
+    assert copia.ler(arquivo)["respondidas"] == 1
+
+    # outro computador: restaura em cima de estudos que já existiam (que ficam guardados antes)
+    novo.mkdir()
+    b2 = Banco(novo / "aprova.db")
+    b2.criar_prova(titulo="Outra", origem_url="u9")
+    aj2 = config.Ajustes(novo / "ajustes.json")
+    aj2.set("claude_api_key", "sk-ant-deste-pc")
+    copia.restaurar(arquivo, novo, b2, aj2)
+    assert [p["titulo"] for p in b2.provas()] == ["TJ-SP 2023"] and b2.estatisticas()["respondidas"] == 1
+    assert aj2["nome"] == "Ana" and aj2["meta_horas_semana"] == 15 and aj2["claude_api_key"] == "sk-ant-deste-pc"
+    indice = json.loads((novo / "marcados" / "indice.json").read_text())
+    assert indice["x1"]["copia"] == str(novo / "marcados" / "lei.pdf") and (novo / "marcados" / "lei.pdf").read_bytes().startswith(b"%PDF")
+    antes = [a for a in copia.automaticas(novo) if a.name.startswith("antes-de-restaurar-")]
+    assert len(antes) == 1 and copia.ler(antes[0])["provas"] == 1  # dá para voltar atrás
+
+    # cópia de uma versão antiga (sem colunas novas): o banco completa o que falta
+    velho = tmp_path / "velho.db"
+    con = sqlite3.connect(velho)
+    con.executescript("CREATE TABLE provas (id INTEGER PRIMARY KEY, titulo TEXT, origem_url TEXT DEFAULT '', modo TEXT DEFAULT 'questoes', "
+                      "n_questoes INTEGER DEFAULT 0, criada_em TEXT, cargo TEXT DEFAULT '', orgao TEXT DEFAULT '', banca TEXT DEFAULT '', ano TEXT DEFAULT '', "
+                      "pdf_prova TEXT DEFAULT '', pdf_gabarito TEXT DEFAULT '', paginas INTEGER DEFAULT 0);"
+                      "CREATE TABLE questoes (id INTEGER PRIMARY KEY, prova_id INTEGER, numero INTEGER, enunciado TEXT, alternativas TEXT, tipo TEXT, "
+                      "disciplina TEXT, pagina INTEGER, texto_base TEXT, gabarito TEXT, explicacao TEXT);"
+                      "CREATE TABLE tentativas (id INTEGER PRIMARY KEY, prova_id INTEGER, modo TEXT, inicio TEXT, fim TEXT, duracao_s INTEGER, acertos INTEGER, total INTEGER);"
+                      "CREATE TABLE respostas (id INTEGER PRIMARY KEY, tentativa_id INTEGER, numero INTEGER, disciplina TEXT, resposta TEXT, correta INTEGER, respondida_em TEXT);")
+    con.close()
+    antigo = tmp_path / "antigo.aprova"
+    with zipfile.ZipFile(antigo, "w") as z:
+        z.writestr("copia.json", json.dumps({"app": "Aprova", "versao": "1.0", "criada_em": "2026-01-01T10:00:00"}))
+        z.write(velho, "aprova.db")
+    copia.restaurar(antigo, novo, b2, aj2)
+    assert "ref" in {r[1] for r in b2._con.execute("PRAGMA table_info(respostas)")}
+
+    # arquivo que não é cópia do Aprova
+    estranho = tmp_path / "x.aprova"
+    estranho.write_bytes(b"nada")
+    with pytest.raises(copia.ErroCopia):
+        copia.ler(estranho)
+
+
+def test_copia_semanal_automatica(tmp_path):
+    from aprova import copia
+    from aprova.db import Banco
+
+    b = Banco(tmp_path / "aprova.db")
+    assert copia.automatica(tmp_path, b) is None  # nada estudado: não faz cópia
+    b.criar_prova(titulo="P", origem_url="u1")
+    dia = 86400
+    t0 = 1_800_000_000
+    feitas = []
+    for semana in range(6):
+        a = copia.automatica(tmp_path, b, agora=t0 + semana * 7 * dia)
+        assert a is not None and copia.ler(a)["provas"] == 1
+        feitas.append(a)
+        assert copia.automatica(tmp_path, b, agora=t0 + semana * 7 * dia + dia) is None  # no meio da semana não repete
+    semanais = sorted(a.name for a in copia.automaticas(tmp_path) if a.name.startswith("semanal-"))
+    assert semanais == sorted(a.name for a in feitas[-copia.GUARDAR_AUTO:])  # guarda as 4 mais novas

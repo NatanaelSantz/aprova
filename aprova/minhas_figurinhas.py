@@ -206,11 +206,22 @@ class Colecao:
         resto = [i for i in itens if i["id"] != ident]
         for i in itens:
             if i["id"] == ident:
-                try:
-                    self.caminho(i).unlink()
-                except OSError:
-                    pass
+                _apagar_arquivo(self.caminho(i))
         self._salvar_indice(resto)
+
+
+def _apagar_arquivo(caminho: Path, tentativas: int = 6) -> bool:
+    """Apaga o arquivo. No Windows, o antivírus às vezes segura um arquivo recém-gravado por um instante
+    (PermissionError): espera um pouco e tenta de novo, em vez de deixar o arquivo para trás."""
+    for i in range(tentativas):
+        try:
+            caminho.unlink(missing_ok=True)
+            return True
+        except PermissionError:
+            time.sleep(0.15 * (i + 1))
+        except OSError:
+            return False
+    return False
 
 
 def resumo(res: dict) -> str:

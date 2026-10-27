@@ -8,7 +8,7 @@ import flet as ft
 
 from .. import __version__, config, rede
 from . import comp
-from .tema import FONTE_TEXTO
+from .tema import FONTE_TEXTO, FONTE_TITULO
 
 MODELOS = [
     ("claude-haiku-5-5", "Claude Haiku 5.5 (mais barato e rápido)"),
@@ -32,7 +32,7 @@ class TelaAjustes:
     def build(self) -> ft.Control:
         app, c = self.app, self.app.c
         # duas colunas em telas largas (sem sobrar espaço do lado); numa coluna só, a ordem é a mesma
-        esquerda = [self._conta()]
+        esquerda = [self._conta(), self._meu_concurso()]
         if app.desktop:
             esquerda.append(self._tamanho())
         esquerda += [self._leitura(), self._pausa()]
@@ -43,6 +43,8 @@ class TelaAjustes:
             from .atualizacao import secao_ajustes
 
             direita.append(secao_ajustes(app, self))
+        if not app.modo_web:
+            direita.append(self._copia())
         direita.append(self._geral())
         colunas = ft.ResponsiveRow(
             [
@@ -56,6 +58,144 @@ class TelaAjustes:
         )
         return ft.Column([comp.titulo("Ajustes", c, 34 if app.largo else 28), colunas, ft.Container(height=30)], spacing=22,
                          scroll=ft.ScrollMode.AUTO, expand=True)
+
+    # ------------------------------------------------------------------ meu concurso
+
+    def _meu_concurso(self) -> ft.Control:
+        from . import meu_concurso
+
+        app, c = self.app, self.app.c
+        d = meu_concurso.dados(app)
+        if d:
+            dia = meu_concurso.data_da_prova(d)
+            quando = f"Prova em {dia.strftime('%d/%m/%Y')}" if dia else "Sem data da prova"
+            filhos: list[ft.Control] = [
+                ft.Row([ft.Icon(ft.Icons.FLAG_OUTLINED, color=c["tinta"]), ft.Text(d["nome"], size=16, weight=ft.FontWeight.W_600, color=c["texto"], expand=True)]),
+                comp.apagado(f"{quando} · provas na biblioteca achadas por “{d.get('filtro') or '—'}”", c, 13),
+                comp.botao_texto("Mudar meu concurso", lambda e: meu_concurso.abrir_dialogo(app), ft.Icons.EDIT_OUTLINED),
+            ]
+        else:
+            filhos = [comp.botao_contorno("Escolher meu concurso", lambda e: meu_concurso.abrir_dialogo(app), ft.Icons.FLAG_OUTLINED)]
+        return self._secao("Meu concurso", "Com o concurso e a data da prova, o Início conta os dias e o “Onde focar” olha as provas dele.", *filhos)
+
+    # ------------------------------------------------------------------ cópia de segurança
+
+    def _copia(self) -> ft.Control:
+        from .. import copia
+
+        app, c = self.app, self.app.c
+        auto = copia.automaticas(app.pasta_conta)
+        ultima = next((a for a in auto if a.name.startswith("semanal-")), None)
+        filhos: list[ft.Control] = [
+            comp.apagado("Seus estudos ficam só neste aparelho. Salve uma cópia num pen drive ou no seu Drive para não perder nada "
+                         "se trocar ou formatar o computador. O Aprova também guarda sozinho uma cópia por semana.", c, 13),
+            ft.Row(
+                [
+                    comp.botao("Salvar cópia agora", lambda e: app.page.run_task(self._salvar_copia), ft.Icons.SAVE_ALT),
+                    comp.botao_contorno("Restaurar de uma cópia", lambda e: app.page.run_task(self._escolher_copia), ft.Icons.RESTORE),
+                ],
+                wrap=True,
+                spacing=10,
+                run_spacing=10,
+            ),
+        ]
+        if ultima is not None:
+            from datetime import datetime
+
+            quando = datetime.fromtimestamp(ultima.stat().st_mtime).strftime("%d/%m às %H:%M")
+            filhos.append(ft.Row([comp.apagado(f"Última cópia automática: {quando}.", c, 12.5),
+                                  comp.botao_texto("Restaurar esta", lambda e, a=ultima: app.page.run_task(self._confirmar_restauro, a), ft.Icons.HISTORY)],
+                                 wrap=True, spacing=4))
+        return self._secao("Cópia de segurança", "Leve seus estudos para outro computador ou volte a um ponto anterior.", *filhos)
+
+    async def _salvar_copia(self):
+        import tempfile
+
+        from .. import copia
+
+        app = self.app
+        nome = copia.nome_sugerido()
+        if app.desktop:
+            picker = getattr(app, "_picker", None) or ft.FilePicker()
+            app._picker = picker
+            destino = await picker.save_file(dialog_title="Salvar cópia de segurança do Aprova", file_name=nome,
+                                             file_type=ft.FilePickerFileType.CUSTOM, allowed_extensions=["aprova"])
+            if not destino:
+                return
+            destino = Path(destino)
+            if destino.suffix.lower() != copia.EXTENSAO:
+                destino = destino.with_name(destino.name + copia.EXTENSAO)
+        else:
+            destino = Path(tempfile.mkdtemp(prefix="aprova_copia_")) / nome
+        try:
+            resumo = await app.em_segundo_plano(copia.criar, app.pasta_conta, destino, app.db)
+        except (copia.ErroCopia, OSError) as e:
+            app.msg(f"Não deu para salvar a cópia: {e}")
+            return
+        if app.desktop:
+            app.msg(f"Cópia salva: {destino.name} ({resumo['respondidas']} respostas, {resumo['provas']} provas).")
+        else:
+            await app.compartilhar_arquivo(destino)
+
+    async def _escolher_copia(self):
+        import tempfile
+
+        app = self.app
+        picker = getattr(app, "_picker", None) or ft.FilePicker()
+        app._picker = picker
+        arquivos = await picker.pick_files(dialog_title="Escolha a cópia de segurança (.aprova)", file_type=ft.FilePickerFileType.CUSTOM,
+                                           allowed_extensions=["aprova", "zip"], with_data=not app.desktop)
+        if not arquivos:
+            return
+        f = arquivos[0]
+        if f.path:
+            arquivo = Path(f.path)
+        elif f.bytes:
+            arquivo = Path(tempfile.mkdtemp(prefix="aprova_copia_")) / (f.name or "copia.aprova")
+            arquivo.write_bytes(f.bytes)
+        else:
+            return
+        await self._confirmar_restauro(arquivo)
+
+    async def _confirmar_restauro(self, arquivo: Path):
+        from datetime import datetime
+
+        from .. import copia
+
+        app = self.app
+        try:
+            resumo = await app.em_segundo_plano(copia.ler, arquivo)
+        except copia.ErroCopia as e:
+            app.msg(str(e))
+            return
+        try:
+            quando = datetime.fromisoformat(resumo["criada_em"]).strftime("%d/%m/%Y às %H:%M")
+        except (KeyError, ValueError):
+            quando = "data desconhecida"
+
+        async def restaurar(e):
+            app.page.pop_dialog()
+            try:
+                await app.em_segundo_plano(copia.restaurar, arquivo, app.pasta_conta, app.db, app.aj)
+            except (copia.ErroCopia, OSError) as ex:
+                app.msg(f"Não deu para restaurar: {ex}")
+                return
+            app.telas.clear()
+            app.ir("inicio")
+            app.msg(f"Estudos restaurados da cópia de {quando}.")
+
+        app.page.show_dialog(
+            ft.AlertDialog(
+                title=ft.Text("Restaurar esta cópia?", font_family=FONTE_TITULO),
+                content=ft.Text(
+                    f"Cópia de {quando}: {resumo['provas']} provas e {resumo['respondidas']} questões respondidas.\n\n"
+                    "Os estudos de agora serão trocados pelos da cópia. Antes, o Aprova guarda uma cópia do que existe agora "
+                    "(em .aprova/copias), então dá para voltar atrás.",
+                    size=14.5,
+                ),
+                actions=[ft.TextButton("Cancelar", on_click=lambda e: app.page.pop_dialog()), comp.botao("Restaurar", restaurar, ft.Icons.RESTORE)],
+            )
+        )
 
     def _tamanho(self) -> ft.Control:
         """Zoom da interface inteira (cabe mais coisa na tela, ou tudo fica maior)."""

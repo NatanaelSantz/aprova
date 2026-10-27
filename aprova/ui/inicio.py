@@ -47,8 +47,11 @@ class TelaInicio:
         nota_cabecalho = app.modo_nav == "lateral" and app.largura >= 1000 and bool(metas.nota_inicio_meta(r))
         if nota_cabecalho:
             cabecalho.controls.append(ft.Container(comp.apagado(metas.nota_inicio_meta(r), c, 12.5), padding=ft.Padding.only(top=4)))
+        from . import meu_concurso
+
         motivacao = ft.Column(
-            [metas.painel_semana(app, r, com_nota=not nota_cabecalho)]
+            ([x] if (x := meu_concurso.cartao(app)) else [])
+            + [metas.painel_semana(app, r, com_nota=not nota_cabecalho)]
             + ([x] if (x := cartao_plano_ativo(app)) else [])
             + ([x] if (x := metas.proximo_estudo(app)) else []),
             spacing=14,
@@ -337,19 +340,29 @@ class TelaInicio:
         """Disciplinas por prioridade; tocar numa abre a mini prova só dela."""
         from .miniprova import abrir_mini_prova
 
+        from . import meu_concurso
+
         app, c = self.app, self.app.c
-        todas = app.db.prioridades(200)
+        concurso = meu_concurso.dados(app)
+        filtro = meu_concurso.filtro(app)
+        do_concurso = meu_concurso.provas_do_concurso(app)
+        todas = app.db.prioridades(200, provas=do_concurso or None)
         abrir = getattr(self, "foco_todas", False)
         itens = todas if abrir else todas[: self.FOCO_VISIVEIS]
-        filhos: list[ft.Control] = [
-            comp.subtitulo("Onde focar", c, 22),
-            comp.apagado(
-                "Disciplinas que mais caem nas provas da sua biblioteca, pesadas pelo quanto você ainda erra. "
-                "Escolha uma para fazer uma mini prova só dela.",
-                c,
-                14,
-            ),
-        ]
+        if do_concurso:
+            explica = (f"Disciplinas que mais caem nas provas do {concurso['nome']} na sua biblioteca ({len(do_concurso)} "
+                       f"prova{'s' if len(do_concurso) != 1 else ''}), pesadas pelo quanto você ainda erra. Escolha uma para fazer uma mini prova só dela.")
+        else:
+            explica = ("Disciplinas que mais caem nas provas da sua biblioteca, pesadas pelo quanto você ainda erra. "
+                       "Escolha uma para fazer uma mini prova só dela.")
+        filhos: list[ft.Control] = [comp.subtitulo("Onde focar", c, 22), comp.apagado(explica, c, 14)]
+        if concurso and filtro and not do_concurso:
+            from .coleta import abrir_coleta
+
+            filhos.append(comp.aviso(
+                f"Ainda não há provas do {concurso['nome']} na sua biblioteca, então o foco usa todas as provas. "
+                "Baixe as provas antigas dele para o foco ficar certeiro.", c, "info",
+                comp.botao_texto("Encher biblioteca", lambda e: abrir_coleta(app, filtro), ft.Icons.LIBRARY_ADD_OUTLINED)))
         if not itens:
             filhos.append(comp.aviso("Importe uma prova ou faça o simulado de demonstração para ver onde focar.", c))
         maximo = max((i["prioridade"] for i in todas), default=1) or 1

@@ -515,6 +515,14 @@ async def abrir_edital(app, concurso: Concurso) -> None:
             tela._preencher()
 
     acoes.append(comp.botao_texto("Acompanhando" if eh_fav else "Acompanhar", alternar, ft.Icons.STAR_ROUNDED if eh_fav else ft.Icons.STAR_BORDER_ROUNDED))
+
+    def meu(e):
+        from .meu_concurso import abrir_dialogo
+
+        app.page.pop_dialog()
+        abrir_dialogo(app, nome=concurso.nome.split(" - ")[0].strip() if " - " in concurso.nome else concurso.nome, url=concurso.url)
+
+    acoes.append(comp.botao_texto("É o meu concurso", meu, ft.Icons.FLAG_OUTLINED))
     acoes.append(comp.botao_texto("Abrir no site", url=concurso.url, icone=ft.Icons.OPEN_IN_NEW))
     acoes.append(ft.TextButton("Fechar", on_click=lambda e: app.page.pop_dialog()))
     dlg.actions = acoes

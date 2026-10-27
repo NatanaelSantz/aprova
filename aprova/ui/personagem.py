@@ -286,6 +286,11 @@ def contexto_falas(app) -> dict:
         ctx.update(meta_hoje=hoje["meta"], feito_hoje=hoje["segundos"], sequencia=r["sequencia"])
     except Exception:  # noqa: BLE001 - sem esses dados, ele só não comenta o dia
         pass
+    from . import meu_concurso
+
+    dias = meu_concurso.dias_para_a_prova(app)
+    if dias is not None:
+        ctx.update(dias_prova=dias, concurso=meu_concurso.dados(app)["nome"])
     return ctx
 
 

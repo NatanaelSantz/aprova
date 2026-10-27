@@ -522,6 +522,7 @@ class App:
                 pass
         if not self.modo_web and not config.FIXTURES_DIR:
             p.run_task(self._verificar_provas_novas)
+            p.run_task(self._copia_semanal)
         from . import atualizacao
 
         atualizacao.ver_pronta(self)
@@ -533,6 +534,16 @@ class App:
             p.run_task(sincronizar, self)
         if os.environ.get("APROVA_DEMO"):
             p.run_task(self._roteiro_demo, os.environ["APROVA_DEMO"])
+
+    async def _copia_semanal(self) -> None:
+        """Uma cópia de segurança por semana em .aprova/copias (sem atrapalhar a abertura)."""
+        from .. import copia
+
+        await asyncio.sleep(20)
+        try:
+            await self.em_segundo_plano(copia.automatica, self.pasta_conta, self.db)
+        except Exception as e:  # noqa: BLE001 - a cópia nunca atrapalha o estudo
+            config.registrar(f"cópia semanal: {type(e).__name__}: {e}")
 
     def pintar_barra_windows(self) -> None:
         """Barra de título do Windows com as cores do tema (só pinta; não esconde nada)."""
@@ -575,6 +586,13 @@ class App:
             abrir_prova(self, prova["id"], arg or "estudo")
         elif nome == "responder" and tela:
             tela.responder(arg)
+        elif nome == "meu_concurso":
+            from .meu_concurso import abrir_dialogo
+
+            abrir_dialogo(self, nome=arg)
+        elif nome == "riscar" and tela:
+            for letra in arg:
+                tela.riscar(letra)
         elif nome == "proxima" and tela:
             tela.ir_para(tela.idx + int(arg or 1))
         elif nome == "marcar" and tela:
