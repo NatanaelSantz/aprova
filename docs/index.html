@@ -235,6 +235,22 @@ em.it { font-style: italic; font-weight: 500; }
 .temas figcaption span { color: var(--tinta2); font-size: 0.86rem; }
 .conforto { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 22px; }
 @media (max-width: 760px) { .temas, .conforto { grid-template-columns: minmax(0, 1fr); } }
+.novo-destaque { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: clamp(24px, 4vw, 56px); align-items: center; padding: clamp(24px, 4vw, 44px); border-radius: 24px; background: var(--folha); border: 1px solid var(--linha); box-shadow: var(--sombra); }
+.novo-texto { display: grid; gap: 14px; align-content: start; }
+.novo-texto h3 { font-family: var(--f-titulo); font-size: clamp(1.6rem, 3vw, 2.2rem); line-height: 1.15; }
+.novo-texto p { color: var(--tinta2); }
+.selo-novo { justify-self: start; display: inline-flex; align-items: center; gap: 8px; font-size: 0.86rem; color: var(--tinta2); padding: 4px 12px 4px 4px; border-radius: 999px; background: var(--azul-suave); }
+.selo-novo b { font-family: var(--f-mono); font-size: 0.74rem; letter-spacing: 0.08em; padding: 3px 10px; border-radius: 999px; background: var(--azul); color: var(--sobre-azul); }
+.novo-passos { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; }
+.novo-passos li { color: var(--tinta); }
+.novo-passos li::marker { color: var(--azul); font-weight: 700; }
+.novo-cel { margin: 0; width: clamp(200px, 22vw, 250px); aspect-ratio: 412 / 760; border-radius: 28px; overflow: hidden; border: 8px solid var(--tinta); box-shadow: var(--sombra); background: var(--folha); }
+.novo-cel img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.novidades-lista { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+.mini .versao { font-family: var(--f-mono); font-size: 0.76rem; letter-spacing: 0.06em; color: var(--azul); }
+@media (max-width: 900px) { .novidades-lista { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .novo-destaque { grid-template-columns: minmax(0, 1fr); } .novo-cel { justify-self: center; } }
+@media (max-width: 560px) { .novidades-lista { grid-template-columns: minmax(0, 1fr); } }
 
 /* ---------------------------------------------------------------- instalar */
 .passos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; counter-reset: passo; }
@@ -377,6 +393,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
   <div class="caixa">
     <a class="marca-app" href="#inicio" aria-label="Aprova, voltar ao topo"><img src="icon.png" alt="" width="38" height="38"><span>Aprova</span></a>
     <nav aria-label="Seções">
+      <a href="#novidades">Novidades</a>
       <a href="#videos">Vídeos</a>
       <a href="#recursos">O que faz</a>
       <a href="#turma">Grupos</a>
@@ -384,7 +401,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
       <a href="#instalar">Instalar</a>
       <a href="#perguntas">Dúvidas</a>
     </nav>
-    <a class="bt bt-azul" id="baixar-topo" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-baixar"/></svg>Baixar grátis</a>
+    <a class="bt bt-azul" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-baixar"/></svg>Baixar grátis</a>
   </div>
 </header>
 
@@ -396,10 +413,10 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
         <h1>Estude com método até ver seu nome na <span class="marcado anima">lista de aprovados</span>.</h1>
         <p class="texto-grande">Provas reais com gabarito oficial, revisão no dia certo, meta da semana, PDFs marcados e grupos de estudo. Tudo em português e pensado para quem estuda depois do trabalho.</p>
         <div class="acoes">
-          <a class="bt bt-azul" id="baixar-principal" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-baixar"/></svg><span>Baixar para Windows</span></a>
+          <a class="bt bt-azul" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-baixar"/></svg>Baixar para Windows</a>
           <a class="bt bt-linha" href="#recursos">Ver o que ele faz<svg aria-hidden="true"><use href="#i-seta"/></svg></a>
         </div>
-        <p class="miudo">Versão 1.26.0 · se atualiza sozinho toda vez que abre · também roda no macOS e no Linux · <a id="link-android" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android.apk">Android (em teste): baixar o APK</a></p>
+        <p class="miudo">Versão 1.26.0 · se atualiza sozinho toda vez que abre · também roda no macOS e no Linux</p>
       </div>
 
       <div class="vitrine">
@@ -428,6 +445,40 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
       <li><strong>Sem repetir questão</strong><span>as que você nunca fez vêm primeiro</span></li>
       <li><strong>Convite por link</strong><span>a turma entra com um clique</span></li>
     </ul></div>
+  </section>
+
+  <section class="secao" id="novidades">
+    <div class="caixa">
+      <div class="cabeca">
+        <span class="rotulo">Novidades</span>
+        <h2>O que chegou <span class="marcado rolar">nas últimas versões</span>.</h2>
+      </div>
+      <article class="novo-destaque">
+        <div class="novo-texto">
+          <span class="selo-novo"><b>NOVO</b> em teste</span>
+          <h3>O Aprova no celular Android</h3>
+          <p>O mesmo app, instalado no celular, sem precisar do computador ligado: provas, revisão, metas e os seus grupos no bolso.</p>
+          <ol class="novo-passos">
+            <li>Abra esta página no celular e toque em <b>Baixar para Android</b>.</li>
+            <li>Abra o arquivo baixado. Se o Android pedir, permita instalar apps desta fonte.</li>
+            <li>Toque em <b>Instalar</b> e pronto.</li>
+          </ol>
+          <div class="acoes">
+            <a class="bt bt-azul" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android.apk"><svg aria-hidden="true"><use href="#i-baixar"/></svg>Baixar para Android</a>
+          </div>
+          <p class="miudo">O app do celular ainda está em teste: se algo não funcionar, conte para a gente. Celular mais antigo (32 bits)? Use <a href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android-antigo.apk">este outro arquivo</a>. iPhone: em preparação.</p>
+        </div>
+        <figure class="novo-cel"><img src="img/celular-inicio.png" width="412" height="1000" alt="Tela inicial do Aprova no celular: a meta da semana com as horas de cada dia e o próximo estudo" loading="lazy"></figure>
+      </article>
+      <div class="novidades-lista">
+        <div class="mini"><span class="versao">1.26</span><h3>Acerto por assunto</h3><p>No Painel, cada disciplina se abre em assuntos: crase, porcentagem, licitações. Você vê exatamente o que mais derruba você.</p></div>
+        <div class="mini"><span class="versao">1.25</span><h3>Meu concurso e contagem regressiva</h3><p>Diga qual é o seu concurso e a data da prova: o Início conta os dias e o foco passa a olhar as provas dele.</p></div>
+        <div class="mini"><span class="versao">1.25</span><h3>Riscar alternativas</h3><p>Elimine as alternativas que você já descartou, como no papel. Um toque no risco, clique direito ou Shift + letra.</p></div>
+        <div class="mini"><span class="versao">1.25</span><h3>Cópia de segurança</h3><p>Salve todos os seus estudos num arquivo e leve para outro computador. O app também guarda uma cópia sozinho toda semana.</p></div>
+        <div class="mini"><span class="versao">1.24</span><h3>Atualização mais segura</h3><p>Se uma versão nova não abrir no seu computador, o Aprova volta sozinho para a anterior. Seus estudos não são tocados.</p></div>
+        <div class="mini"><span class="versao">1.24</span><h3>Sua chave protegida</h3><p>No Windows, a chave da IA e o seu login ficam cifrados pela proteção do próprio sistema.</p></div>
+      </div>
+    </div>
   </section>
 
   <section class="secao" id="videos">
@@ -630,7 +681,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
       <div class="perguntas">
         <details><summary>Quanto custa?</summary><p>Nada. O Aprova é grátis para baixar e usar.</p></details>
         <details><summary>Preciso criar conta?</summary><p>Não. Dá para estudar como visitante, e quem recebe um convite entra no grupo sem fazer cadastro.</p></details>
-        <details><summary>Funciona no celular?</summary><p>Sim, de dois jeitos. No Android, já dá para instalar o app, que ainda está em teste: <a href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android.apk">baixe o APK</a> no celular, abra o arquivo e permita instalar apps desta fonte quando o Android pedir (em celulares mais antigos, use <a href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android-antigo.apk">este outro APK</a>). No iPhone, o app ainda está em preparação. E em qualquer celular o Aprova também abre no navegador, quando o celular está na mesma rede Wi-Fi do computador.</p></details>
+        <details><summary>Funciona no celular?</summary><p>No Android, sim: o app para celular está em teste e o link para baixar fica em <a href="#novidades">Novidades</a>. No iPhone, ele ainda está em preparação. E em qualquer celular o Aprova também abre no navegador, quando o celular está na mesma rede Wi-Fi do computador.</p></details>
         <details><summary>Preciso pagar pela IA?</summary><p>Não. Os botões Perguntar ao Claude e Perguntar ao ChatGPT usam a sua própria conta, que pode ser a grátis. Se quiser a IA trabalhando dentro do app, dá para colocar uma chave do Claude, paga à parte com crédito pré-pago; o app tem o passo a passo.</p></details>
         <details><summary>Onde ficam os meus estudos?</summary><p>No seu computador, numa pasta só do Aprova. Em Ajustes dá para salvar uma cópia de segurança e levar os estudos para outro computador, e o app também guarda uma cópia sozinho toda semana. O ranking e os grupos ficam no servidor, e no ranking aparecem só o seu apelido e os números.</p></details>
         <details><summary>Recebi um convite de grupo. E agora?</summary><p>Abra o link no computador e clique em Entrar no grupo. Se o Aprova ainda não estiver instalado, a página leva ao download e o convite aparece sozinho quando o app abrir.</p></details>
@@ -648,7 +699,6 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
         <p class="texto-grande">Baixe o Aprova, escolha o seu concurso e faça a primeira prova ainda hoje.</p>
         <div class="acoes">
           <a class="bt bt-azul" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-baixar"/></svg>Baixar grátis para Windows</a>
-          <a class="bt bt-linha" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android.apk"><svg aria-hidden="true"><use href="#i-baixar"/></svg>Android (em teste)</a>
           <a class="bt bt-linha" href="https://github.com/NatanaelSantz/aprova" target="_blank" rel="noopener">Ver no GitHub</a>
         </div>
       </div>
@@ -685,19 +735,6 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
 </footer>
 
 <script>
-// no Android, o botão principal baixa o app do celular (em teste) em vez do .zip do Windows
-if (/Android/i.test(navigator.userAgent)) {
-  const b = document.getElementById("baixar-principal");
-  if (b) {
-    b.href = "https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android.apk";
-    b.removeAttribute("target");
-    b.querySelector("span").textContent = "Baixar para Android (em teste)";
-  }
-  const t = document.getElementById("baixar-topo");
-  if (t) { t.href = "https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android.apk"; t.removeAttribute("target"); }
-  const l = document.getElementById("link-android");
-  if (l) { l.href = "https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip"; l.textContent = "Windows: baixar o .zip"; }
-}
 /* troca o vídeo do player pelos botões ao lado */
 (function () {
   const player = document.getElementById('player');
