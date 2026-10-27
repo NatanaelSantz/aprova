@@ -72,8 +72,16 @@ def largura_util(app) -> float:
     return w - (236 + 72 if modo == "lateral" else 88 + 48 if modo == "trilho" else 32)
 
 
-def painel_semana(app, r: dict) -> ft.Control:
-    """Um painel só para a semana: total estudado, ritmo, sequência, hoje e as barras dos 7 dias."""
+def nota_inicio_meta(r: dict) -> str:
+    """Na primeira semana da meta, o aviso de que ela vale só para os dias que restam (ou "")."""
+    if r["proporcional"] and r["inicio"]:
+        return f"Sua meta começou a contar em {r['inicio']:%d/%m}: nesta primeira semana ela vale só para os dias que restam."
+    return ""
+
+
+def painel_semana(app, r: dict, com_nota: bool = True) -> ft.Control:
+    """Um painel só para a semana: total estudado, ritmo, sequência, hoje e as barras dos 7 dias.
+    com_nota=False: o aviso da primeira semana fica com quem chamou (no Início ele vai para o cabeçalho)."""
     c = app.c
     meta, total = r["meta_segundos"], r["total_semana"]
     cumpriu = r["progresso"] >= 1 and meta > 0
@@ -141,8 +149,8 @@ def painel_semana(app, r: dict) -> ft.Control:
         corpo = ft.Column([principal, comp.divisor(c), ft.Row(dados, spacing=10, vertical_alignment=ft.CrossAxisAlignment.START), comp.divisor(c), grafico], spacing=14)
         padding = ft.Padding.symmetric(horizontal=22 if app.largo else 18, vertical=20 if app.largo else 18)
     filhos: list[ft.Control] = []
-    if r["proporcional"] and r["inicio"]:
-        filhos.append(comp.apagado(f"Sua meta começou a contar em {r['inicio']:%d/%m}: nesta primeira semana ela vale só para os dias que restam.", c, 12.5))
+    if com_nota and (nota := nota_inicio_meta(r)):
+        filhos.append(comp.apagado(nota, c, 12.5))
     filhos.append(ft.Container(corpo, bgcolor=c["sup"], border=ft.Border.all(1, c["borda"]), border_radius=18, padding=padding))
     return ft.Column(filhos, spacing=8)
 
@@ -150,7 +158,9 @@ def painel_semana(app, r: dict) -> ft.Control:
 def barras_dias(app, r: dict) -> ft.Control:
     """As horas de cada dia em barras, com a marca da meta do dia. Cabe até no celular (7 colunas)."""
     c = app.c
-    altura = 92 if app.largo else 76
+    estudou = any(x["segundos"] for x in r["semana"])
+    # sem nada estudado na semana, as barras ficam baixinhas: só a linha da meta, sem um vão vazio no cartão
+    altura = (92 if app.largo else 76) if estudou else 34
     maior = max([x["segundos"] for x in r["semana"]] + [x["meta"] for x in r["semana"]] + [3600])
     cores = {"cumprida": c["ok"], "extra": ft.Colors.with_opacity(0.45, c["tinta"]), "abaixo": c["marca"], "hoje": c["tinta"]}
     tem_extra = any(x["situacao"] == "extra" for x in r["semana"])

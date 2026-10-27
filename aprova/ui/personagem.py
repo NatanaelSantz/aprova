@@ -342,7 +342,7 @@ def abrir_criador(app, ao_salvar=None, aba: str = "corpo") -> None:
     escala_previa = 2 if estreito else 3
     previa = _pixel(img_lobby(estado["cfg"], "lobby", escala_previa), 128 * escala_previa, 80 * escala_previa)
     opcoes = ft.Column(spacing=14, tight=True)
-    abas = ft.Row(wrap=True, spacing=6, run_spacing=6)  # abas que quebram linha: todas sempre à vista
+    abas = ft.Row(wrap=True, spacing=5, run_spacing=6)  # abas que quebram linha: todas sempre à vista
 
     def montar_abas():
         abas.controls = [
@@ -352,7 +352,7 @@ def abrir_criador(app, ao_salvar=None, aba: str = "corpo") -> None:
                 bgcolor=c["tinta_suave"] if k == estado["aba"] else None,
                 border=ft.Border.all(1.4, c["tinta"] if k == estado["aba"] else c["borda"]),
                 border_radius=10,
-                padding=ft.Padding.symmetric(horizontal=12, vertical=7),
+                padding=ft.Padding.symmetric(horizontal=10, vertical=7),  # compactas: as 8 abas cabem numa linha
                 on_click=lambda e, k=k: trocar_aba(k),
                 ink=True,
             )
@@ -547,7 +547,8 @@ def abrir_criador(app, ao_salvar=None, aba: str = "corpo") -> None:
     corpo = (
         ft.Column([lado_previa, lado_opcoes], spacing=14, tight=True, scroll=ft.ScrollMode.AUTO)
         if estreito
-        else ft.Row([lado_previa, lado_opcoes], spacing=24, vertical_alignment=ft.CrossAxisAlignment.START)
+        # a prévia fica no meio da altura das opções: em abas compridas não sobra um vão embaixo dela
+        else ft.Row([lado_previa, lado_opcoes], spacing=24, vertical_alignment=ft.CrossAxisAlignment.CENTER)
     )
     app.page.show_dialog(
         ft.AlertDialog(
@@ -555,7 +556,7 @@ def abrir_criador(app, ao_salvar=None, aba: str = "corpo") -> None:
                 [ft.Icon(ft.Icons.AUTO_FIX_HIGH, color=c["tinta"]), ft.Text("Seu personagem", font_family=FONTE_TITULO, size=22)],
                 spacing=10,
             ),
-            content=ft.Container(corpo, width=min(980, largura_tela - 48)),
+            content=ft.Container(corpo, width=min(1000, largura_tela - 48)),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: app.page.pop_dialog()),
                 ft.FilledButton("Salvar", icon=ft.Icons.CHECK, on_click=salvar),

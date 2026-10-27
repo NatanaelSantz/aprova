@@ -43,17 +43,28 @@ class TelaInicio:
         r = metas.resumo(app)
         from .grupos import cartao_plano_ativo
 
+        # no computador, o aviso da primeira semana da meta vai para baixo da saudação (do lado do boneco)
+        nota_cabecalho = app.modo_nav == "lateral" and app.largura >= 1000 and bool(metas.nota_inicio_meta(r))
+        if nota_cabecalho:
+            cabecalho.controls.append(ft.Container(comp.apagado(metas.nota_inicio_meta(r), c, 12.5), padding=ft.Padding.only(top=4)))
         motivacao = ft.Column(
-            [metas.painel_semana(app, r)]
+            [metas.painel_semana(app, r, com_nota=not nota_cabecalho)]
             + ([x] if (x := cartao_plano_ativo(app)) else [])
             + ([x] if (x := metas.proximo_estudo(app)) else []),
             spacing=14,
+            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,  # no celular, "Seu próximo estudo" ocupa a largura toda
         )
         cronometro = app.botao_estudo()
-        from .personagem import cartao_inicio
+        from .personagem import cartao_inicio, tenho_personagem
 
         if app.modo_nav == "lateral" and app.largura >= 1000:
-            cabecalho = ft.Row([cabecalho, ft.Container(expand=True), cartao_inicio(app), cronometro], spacing=18, vertical_alignment=ft.CrossAxisAlignment.END)
+            if tenho_personagem(app):
+                # o boneco fica do lado da saudação, como se desse o "bom dia" (sem faixa vazia em cima do título)
+                cabecalho = ft.Row([cartao_inicio(app), cabecalho, ft.Container(expand=True), cronometro], spacing=24,
+                                   vertical_alignment=ft.CrossAxisAlignment.CENTER)
+            else:
+                cabecalho = ft.Row([cabecalho, ft.Container(expand=True), cartao_inicio(app), cronometro], spacing=18,
+                                   vertical_alignment=ft.CrossAxisAlignment.CENTER)
         elif app.modo_nav == "lateral":
             cabecalho = ft.Row([cabecalho, ft.Container(expand=True), cronometro], vertical_alignment=ft.CrossAxisAlignment.END)
         elif app.modo_nav == "trilho":

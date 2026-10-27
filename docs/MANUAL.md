@@ -38,7 +38,7 @@ App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolv
     - *Quantas questões*: 5, 10, 20, 30 ou todas;
     - *Como fazer*: **Prova** (com cronômetro e nota no fim) ou **Estudo** (vê a resposta e a explicação a cada questão).
   - Vêm primeiro as questões que você nunca fez. O acerto conta para a questão original e os erros vão para a Revisão, igual ao simulado.
-- **Meta semanal (tela Início)**: o painel **Sua semana** mostra as horas estudadas e a meta, o ritmo (em dia, à frente ou quanto falta), a sequência de dias, o dia de hoje e as horas de cada dia em barras, com um tracinho na altura da meta do dia. Embaixo vem “Seu próximo estudo” (revisão do dia ou treino do ponto fraco).
+- **Meta semanal (tela Início)**: o painel **Sua semana** mostra as horas estudadas e a meta, o ritmo (em dia, à frente ou quanto falta), a sequência de dias, o dia de hoje e as horas de cada dia em barras, com um tracinho na altura da meta do dia (numa semana ainda sem estudo, as barras ficam baixinhas, sem um vão vazio). Embaixo vem “Seu próximo estudo” (revisão do dia ou treino do ponto fraco). No computador, o seu personagem fica do lado da saudação, e o aviso da primeira semana da meta aparece logo abaixo dela.
 - **Tempo de estudo**: conta sozinho enquanto você resolve questões (para depois de 8 minutos parado). Para estudo fora do app (livro, aula), use o **cronômetro** ou **lance o tempo** à mão.
 - **Painel**:
   - *Desempenho*: acertos por disciplina com selo Forte / Atenção / Precisa melhorar, evolução nas últimas 8 semanas, acertos por banca e por concurso.
