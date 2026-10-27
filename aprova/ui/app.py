@@ -796,6 +796,18 @@ class App:
             from .personagem import abrir_criador
 
             abrir_criador(self, aba=arg or "corpo")
+        elif nome == "admin":
+            self.ir("admin", aba=arg or "geral")
+        elif nome == "admin_personagem":
+            # abre o personagem de alguém na área do admin (arg = apelido)
+            t = self._tela("admin")
+            for _ in range(40):
+                if t.usuarios:
+                    break
+                await asyncio.sleep(0.5)
+            u = next((x for x in (t.usuarios or []) if x["apelido"] == arg), None)
+            if u:
+                t._ver_personagem(u)
         elif nome == "guia_chave":
             from .chat import dialogo_chave
 

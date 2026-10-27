@@ -55,10 +55,14 @@ class TelaInicio:
             horizontal_alignment=ft.CrossAxisAlignment.STRETCH,  # no celular, "Seu próximo estudo" ocupa a largura toda
         )
         cronometro = app.botao_estudo()
-        from .personagem import cartao_inicio, tenho_personagem
+        from .personagem import balao_de_fala, cartao_inicio, meu_busto, tenho_personagem
 
+        fala = balao_de_fala(app)  # o boneco conversa com você (Personagem → Falas)
         if app.modo_nav == "lateral" and app.largura >= 1000:
             if tenho_personagem(app):
+                if fala:
+                    # o balão sai do lado da cabeça do boneco, em cima da saudação
+                    cabecalho.controls.insert(0, ft.Container(fala, margin=ft.Margin.only(bottom=6)))
                 # o boneco fica do lado da saudação, como se desse o "bom dia" (sem faixa vazia em cima do título)
                 cabecalho = ft.Row([cartao_inicio(app), cabecalho, ft.Container(expand=True), cronometro], spacing=24,
                                    vertical_alignment=ft.CrossAxisAlignment.CENTER)
@@ -75,6 +79,10 @@ class TelaInicio:
                 [ft.Row([cabecalho, ft.Container(expand=True), app.menu_conta(compacto=True)], vertical_alignment=ft.CrossAxisAlignment.START), cronometro],
                 spacing=12,
             )
+        if fala and not (app.modo_nav == "lateral" and app.largura >= 1000):
+            # telas menores: o rostinho do boneco e o balão embaixo da saudação
+            cabecalho = ft.Column([cabecalho, ft.Row([meu_busto(app, 34) or ft.Container(), ft.Container(fala, expand=True)], spacing=8,
+                                                     vertical_alignment=ft.CrossAxisAlignment.START)], spacing=12)
         topo = self._cartoes_topo()
         self.caixa_comunicados = ft.Column(topo, spacing=10, visible=bool(topo))
         if app.largo:

@@ -174,7 +174,8 @@ Tipos de conta:
 A **primeira pessoa que cria conta** no servidor vira administrador sozinha. Depois disso, só um administrador transforma outra conta em administrador. Na tela **Admin**:
 
 - *Visão geral*: contas, quem estudou na semana, horas e questões somadas, quem mais estudou e os concursos mais estudados;
-- *Usuários*: procurar por apelido ou concurso, **tornar administrador**, voltar para aluno, **bloquear** (some do ranking) e desbloquear;
+- *Usuários*: procurar por apelido ou concurso, **tornar administrador**, voltar para aluno, **bloquear** (some do ranking) e desbloquear; clicar no rostinho de alguém abre o personagem dessa pessoa;
+- *Personagens*: a galeria com o personagem de todo mundo, cada um no seu cenário (com a busca por apelido ou concurso). Clique num para ver de perto: ele acena, pula e **dança**, e aparecem as escolhas dele (corpo, cabelo, roupa, acessórios, cenário). Quem usa foto no perfil tem o botão **Tirar a foto de perfil**;
 - *Grupos*: ver e apagar grupos;
 - *Comunicados*: escrever um aviso que aparece na tela Início de todos (ex.: “Simulado coletivo no sábado”), ligar/desligar e apagar.
 
@@ -186,7 +187,8 @@ Sem o servidor configurado, a tela de entrada mostra **Começar a estudar** (o a
 
 Clique na sua bolinha (no menu ou no canto do celular) e escolha **Personagem e foto**. Também dá pelo **Início** (no quadro do personagem) e por **Ajustes → Conta**.
 
-- **Corpo, Rosto, Cabelo, Óculos, Roupa, Acessórios e Cenário**: cada aba muda uma parte do bonequinho. **Sortear** cria um aleatório; **Acenar** e **Pular** mostram os gestos.
+- **Corpo, Rosto, Cabelo, Óculos, Roupa, Acessórios e Cenário**: cada aba muda uma parte do bonequinho. **Sortear** cria um aleatório; **Acenar**, **Pular** e **Dançar** mostram os gestos.
+  - *Dança*: ele balança para os lados quicando, levanta a mão no ritmo, dá um pulinho com os braços para cima e termina com um giro. Ele dança sozinho de vez em quando no Início, na sala da turma e quando você acerta 90% ou mais num simulado.
   - *Corpo*: **magro**, **médio** (o padrão), **forte** (ombro largo) ou **gordinho**, e a cor da pele. Toda roupa, capa e mochila se ajusta ao corpo.
   - *Rosto*: olhos (normal, feliz, determinado, sonolento, piscadinha) e a cor deles (9, até brancos e roxos), boca (sorriso, sorrisão, séria, língua de fora, surpresa) e detalhes (sardas, pinta, bochecha corada, curativo).
   - *Cabelo*: 15 cortes (curto, repartido de lado, espetado, moicano, longo, chanel, coque, rabo de cavalo, maria-chiquinha, tranças, cacheado, black power, com entradas, calvo e careca; o **calvo** tem o alto da cabeça sem cabelo e cabelo dos lados, e **com entradas** tem a testa subindo nos cantos), 11 cores e **barba e bigode** (por fazer, bigode, cavanhaque, barba cheia), na cor do cabelo. O bigode tem as pontas para cima e a barba contorna a boca, acompanhando o sorriso, a boca aberta ou a língua de fora.
@@ -196,6 +198,12 @@ Clique na sua bolinha (no menu ou no canto do celular) e escolha **Personagem e 
 - O desenho tem o dobro de pixels: olhos grandes estilo chibi (íris em degradê, pupila, brilho e faísca), sobrancelhas, mechas de brilho no cabelo, punho nas mangas, brilho nos sapatos e contorno fino.
   - *Sombreamento de pixel art*: a luz vem da esquerda e de cima, com tons mais quentes no claro e mais frios (puxando para o azul) na sombra, como nos jogos. Cada parte (cabelo, rosto, roupa, calça) ganha volume sozinha, há sombra onde uma peça encosta na outra, um leve contorno de luz azul do lado direito e brilho no metal (coroa, armadura, espada). O contorno é escuro em cima e à esquerda e mais suave embaixo e à direita.
   - *Cenários*: **Biblioteca** (estantes de livros com vasinhos, luminárias e poeira dourada no ar), **Floresta** (céu com nuvens, morros e pinheiros ao longe, árvores na frente, flores, borboleta e folhas caindo), **Noite na cidade** (lua com halo, estrelas que piscam, estrela cadente, prédios com janelas que acendem e apagam e poste com luz), **Castelo** (pedras com musgo, estandartes e tochas com faíscas) e **Sala de aula** (lousa com giz, relógio com o ponteiro andando e pozinho de giz). Todos são animados.
+- **Falas**: o personagem conversa com você num balão do lado dele, no Início, digitando como num jogo. Clique no balão para ele dizer outra coisa. Tudo é personalizável:
+  - ligar ou desligar; **como ele te chama** (ex.: “Vamos estudar, Natanael!”; sem nome, ele fala sem o nome);
+  - o que ele fala: **Motivação**, **Engraçadas** (“Eu estudaria por você, mas eu sou feito de pixels”), **Dicas de estudo** e **Lembretes do dia** (revisão esperando, meta de hoje, sequência de dias e a hora: de madrugada ele manda você dormir);
+  - **suas frases**, uma por linha, com `{nome}` onde vai o seu nome (aparecem mais vezes que as outras);
+  - de quanto em quanto tempo ele troca de frase (12 s, 30 s, 1 min e meio ou só quando você abre o app). **Ouvir uma** mostra um exemplo.
+  - Algumas falas vêm com gesto: com a meta do dia cumprida, ele diz “Hoje eu danço!” e dança. As falas ficam só neste computador (não vão para o servidor).
 - **Foto**: escolha uma imagem do computador. O Aprova recorta em quadrado, diminui e tira os dados escondidos da foto. Ligue **Mostrar a foto** para ela aparecer no lugar do personagem nos grupos e no ranking.
 - **Onde aparece**: na sua bolinha do menu, no Início (o boneco no cenário), no resultado do simulado (ele comemora quando você vai bem e dá força quando não), nas mensagens e na lista de membros dos grupos, no ranking e na **sala da turma**.
 - **Sala da turma**: no topo de cada grupo, os personagens de quem está no grupo aparecem juntos, como no lobby de um jogo. Quem ainda não criou o seu aparece com um personagem sorteado. **Esconder** guarda a sala.

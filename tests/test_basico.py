@@ -1901,6 +1901,64 @@ def test_foto_de_perfil_fica_pequena_e_quadrada(tmp_path):
         av.preparar_foto(pequena.getvalue())
 
 
+def test_danca_e_retrato_do_personagem():
+    import io as _io
+
+    from PIL import Image
+
+    from aprova import avatar as av
+
+    cfg = av.validar({**av.PADRAO, "cabelo": "calvo", "item": "livro"})
+    # a dança é animada, dura mais que um gesto curto e entra no lobby e na sala da turma
+    im = Image.open(_io.BytesIO(av.animacao(cfg, "danca", 1, cenario=False)))
+    assert getattr(im, "is_animated", False) and im.n_frames >= len(av._quadros_danca(None))  # (quadros iguais seguidos viram um)
+    assert av.duracao("danca") > av.duracao("aceno") and "danca" in dict(av.GESTOS)
+    assert any(kw.get("gingado") for kw, _ in av.SEQUENCIAS["lobby"](cfg))
+    assert len(av._sequencia_membro("qualquer")) == 60
+    # gingado: o tronco vai para o lado e os pés ficam no lugar; vira: o boneco espelhado
+    parado, torto = av.boneco(cfg), av.boneco(cfg, gingado=3)
+    assert parado.crop((0, 74, 64, 80)).tobytes() == torto.crop((0, 74, 64, 80)).tobytes()
+    assert parado.crop((0, 10, 64, 40)).tobytes() != torto.crop((0, 10, 64, 40)).tobytes()
+    assert av.boneco(cfg, vira=True).tobytes() == parado.transpose(Image.FLIP_LEFT_RIGHT).tobytes()
+    # retrato: o boneco parado no cenário, imagem fixa (para a galeria do admin)
+    r = Image.open(_io.BytesIO(av.retrato(cfg, 2, 40)))
+    assert r.format == "PNG" and r.size == (160, 160)
+
+
+def test_falas_do_personagem():
+    import random
+
+    from aprova import falas
+
+    # {nome} vira o nome; sem nome, a vírgula some junto
+    assert falas.formatar("Vamos estudar, {nome}!", "Natanael") == "Vamos estudar, Natanael!"
+    assert falas.formatar("Vamos estudar, {nome}!", "") == "Vamos estudar!"
+    assert falas.formatar("{nome}, bora!", "") == "Bora!"
+    # ajustes mexidos voltam ao formato conhecido; frases próprias são limpas e limitadas
+    v = falas.validar({"ligado": 0, "tipos": ["engracadas", "xx"], "minhas": ["  oi  ", "", 3, "a" * 200], "intervalo": 7, "nome": " Nat "})
+    assert v == {"ligado": False, "nome": "Nat", "tipos": ["engracadas"], "minhas": ["oi", "a" * falas.MAX_TAMANHO],
+                 "intervalo": falas.PADRAO["intervalo"]}
+    assert falas.linhas_para_frases("Bora, {nome}!\n\n  Foco  \n") == ["Bora, {nome}!", "Foco"]
+    assert falas.validar(None) == falas.PADRAO
+    # só sai frase dos tipos escolhidos (e das próprias), com o nome, sem repetir a anterior
+    rnd = random.Random(3)
+    so_minhas = {"tipos": [], "minhas": ["Bora, {nome}!", "Foco, {nome}."]}
+    ditas = {falas.escolher(so_minhas, rnd=rnd, nome_padrao="Ana")[0] for _ in range(20)}
+    assert ditas == {"Bora, Ana!", "Foco, Ana."}
+    a = falas.escolher(so_minhas, anterior="Bora, Ana!", rnd=rnd, nome_padrao="Ana")
+    assert a == ("Foco, Ana.", "")
+    assert falas.escolher({"tipos": [], "minhas": []}) is None
+    # lembretes do dia: revisão, meta, sequência e hora; meta cumprida faz o boneco dançar
+    dia = dict(falas.do_dia({"hora": 23, "revisao": 13, "meta_hoje": 7200, "feito_hoje": 7200, "sequencia": 5}))
+    assert any("13 questões" in f for f in dia) and dia["Meta do dia cumprida! Hoje eu danço!"] == "danca"
+    assert any("5 dias seguidos" in f for f in dia) and any("tarde" in f for f in dia)
+    assert any("Faltam 1h00" in f for f, _ in falas.do_dia({"hora": 15, "meta_hoje": 7200, "feito_hoje": 3600}))
+    # todas as frases prontas cabem no balão
+    for lista in falas.FRASES.values():
+        for frase, gesto in lista:
+            assert len(falas.formatar(frase, "Natanael")) <= 70 and gesto in ("", "aceno", "pulo", "danca")
+
+
 def test_avatar_no_servidor_grupo_ranking_e_forum(tmp_path):
     sys.path.insert(0, str(Path(__file__).parent))
     from servidor_falso import CHAVE, ServidorFalso

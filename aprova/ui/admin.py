@@ -10,8 +10,16 @@ from .. import ranking as rk
 from . import comp, metas
 from .tema import FONTE_TITULO
 
-ABAS = [("geral", "Visão geral"), ("usuarios", "Usuários"), ("grupos", "Grupos"), ("comunicados", "Comunicados"), ("config", "Configurações")]
+ESPACO_GRADE, CARTAO_MIN = 14, 170  # galeria de personagens: espaço entre os cartões e largura mínima de cada um
+ABAS = [("geral", "Visão geral"), ("usuarios", "Usuários"), ("personagens", "Personagens"), ("grupos", "Grupos"), ("comunicados", "Comunicados"),
+        ("config", "Configurações")]
 QUEBRAS_NUM = {"um": 0, "tres": 1000}
+
+
+def _tem_personagem(u: dict) -> bool:
+    from .. import avatar as av
+
+    return isinstance(u.get("avatar"), dict) and av.tem_personagem(u["avatar"])
 
 
 def _data(iso: str | None) -> str:
@@ -75,7 +83,8 @@ class TelaAdmin:
         elif self.usuarios is None:
             corpo = comp.carregando("Buscando os dados do servidor…", c)
         else:
-            corpo = {"geral": self._geral, "usuarios": self._usuarios, "grupos": self._grupos, "comunicados": self._comunicados, "config": self._config}[self.aba]()
+            corpo = {"geral": self._geral, "usuarios": self._usuarios, "personagens": self._personagens, "grupos": self._grupos,
+                     "comunicados": self._comunicados, "config": self._config}[self.aba]()
         return ft.Column([topo, ft.ListView([corpo, ft.Container(height=30)], expand=True)], spacing=16, expand=True)
 
     def _trocar(self, e):
@@ -96,6 +105,8 @@ class TelaAdmin:
         except rk.ErroRanking as ex:
             self.erro = str(ex)
         self.carregando = False
+        if self.usuarios:
+            app.page.run_task(self._desenhar_retratos)  # a aba Personagens abre na hora
         if not self.r.eh_admin:
             app.montar()  # perdeu o acesso de admin
             return
@@ -223,7 +234,10 @@ class TelaAdmin:
 
         tem_foto = isinstance(u.get("avatar"), dict) and av.validar(u["avatar"])["foto"] > 0
         avatar = (
-            busto(app, u.get("avatar"), u["apelido"], 36, u["id"])
+            ft.Container(busto(app, u.get("avatar"), u["apelido"], 36, u["id"]), border_radius=18, tooltip="Ver o personagem",
+                         on_click=lambda e, u=u: self._ver_personagem(u))
+            if _tem_personagem(u) and not u.get("bloqueado")
+            else busto(app, u.get("avatar"), u["apelido"], 36, u["id"])
             if isinstance(u.get("avatar"), dict) and not u.get("bloqueado")
             else ft.Container(
                 ft.Text(u["apelido"][:1].upper(), size=15, weight=ft.FontWeight.W_700, color=c["sobre_tinta"]),
@@ -299,6 +313,150 @@ class TelaAdmin:
             return
         self.usuarios = await app.em_segundo_plano(self.r.usuarios)
         self._redesenhar()
+
+    # ------------------------------------------------------------------ personagens
+
+    async def _desenhar_retratos(self):
+        """Desenha os bonecos em segundo plano (a galeria abre sem travar, mesmo com muita gente)."""
+        from .personagem import img_retrato
+
+        def desenhar(lista):
+            for u in lista:
+                img_retrato(u["avatar"], 2, 40)
+
+        try:
+            await self.app.em_segundo_plano(desenhar, [u for u in (self.usuarios or []) if _tem_personagem(u)])
+        except Exception:  # noqa: BLE001 - só adianta trabalho; a galeria desenha o que faltar
+            pass
+
+    def _personagens(self) -> ft.Control:
+        c = self.app.c
+        busca = ft.TextField(
+            value=self.filtro,
+            hint_text="Procurar por apelido ou concurso",
+            prefix_icon=ft.Icons.SEARCH,
+            dense=True,
+            border_radius=10,
+            on_change=lambda e: self._filtrar_personagens(e.control.value),
+        )
+        com = [u for u in (self.usuarios or []) if _tem_personagem(u)]
+        sem = len(self.usuarios or []) - len(com)
+        resumo = f"{len(com)} personagen{'s' if len(com) != 1 else ''}"
+        if sem:
+            resumo += f" · {sem} pessoa{'s' if sem != 1 else ''} sem personagem (nos grupos aparece{'m' if sem != 1 else ''} com um sorteado)"
+        self._grade_personagens = ft.Row(wrap=True, spacing=ESPACO_GRADE, run_spacing=ESPACO_GRADE, vertical_alignment=ft.CrossAxisAlignment.START)
+        self._preencher_personagens()
+        return ft.Column(
+            [busca, comp.apagado(resumo + ". Clique num personagem para ver de perto, acenar, pular e dançar.", c, 12.5), self._grade_personagens],
+            spacing=12,
+        )
+
+    def _filtrar_personagens(self, valor: str):
+        self.filtro = valor or ""
+        self._preencher_personagens()
+        try:
+            self._grade_personagens.update()
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _preencher_personagens(self):
+        c = self.app.c
+        f = (self.filtro or "").lower().strip()
+        itens = [u for u in (self.usuarios or []) if _tem_personagem(u) and (not f or f in u["apelido"].lower() or f in (u.get("concurso") or "").lower())]
+        self._grade_personagens.controls = [self._cartao_personagem(u) for u in itens] or [
+            comp.apagado("Ninguém encontrado." if f else "Ninguém criou personagem ainda.", c, 13)
+        ]
+
+    def _largura_cartao(self) -> float:
+        """Os cartões se esticam para preencher a linha toda (sem sobrar espaço na direita)."""
+        largura = max(300.0, self.app.largura_conteudo - 4)
+        n = max(2, int((largura + ESPACO_GRADE) // (CARTAO_MIN + ESPACO_GRADE)))
+        return (largura - (n - 1) * ESPACO_GRADE) / n
+
+    def _cartao_personagem(self, u: dict) -> ft.Control:
+        c = self.app.c
+        from .personagem import _pixel, img_retrato
+
+        selos: list[ft.Control] = []
+        if u.get("papel") == "admin":
+            selos.append(comp.pilula("admin", c["tinta_suave"], c["tinta"], tamanho=10.5))
+        if u.get("bloqueado"):
+            selos.append(comp.pilula("bloqueado", c["erro_suave"], c["erro"], tamanho=10.5))
+        if u.get("voce"):
+            selos.append(comp.pilula("você", c["sup2"], c["texto2"], tamanho=10.5))
+        largura = self._largura_cartao()
+        lado = min(160 if largura < 200 else 240, largura - 18)
+        escala = 3 if lado >= 240 else 2
+        figura = ft.Stack(
+            [
+                ft.Container(_pixel(img_retrato(u["avatar"], escala, 40), lado, lado, ajuste=ft.BoxFit.CONTAIN), border_radius=12,
+                             clip_behavior=ft.ClipBehavior.ANTI_ALIAS, width=lado, height=lado),
+                # selos por cima da imagem: todos os cartões ficam da mesma altura
+                *([ft.Container(ft.Row(selos, spacing=4), left=6, top=6)] if selos else []),
+            ],
+            width=lado,
+            height=lado,
+        )
+        return ft.Container(
+            ft.Column(
+                [
+                    figura,
+                    ft.Text(u["apelido"], size=14, weight=ft.FontWeight.W_600, color=c["texto"], max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                    comp.apagado(u.get("concurso") or "sem concurso", c, 12),
+                ],
+                spacing=3,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                tight=True,
+            ),
+            width=largura,
+            padding=ft.Padding.only(left=9, right=9, top=9, bottom=10),
+            border_radius=16,
+            bgcolor=c["sup"],
+            border=ft.Border.all(1, c["borda"]),
+            on_click=lambda e, u=u: self._ver_personagem(u),
+            ink=True,
+            tooltip=f"Ver o personagem de {u['apelido']}",
+        )
+
+    def _ver_personagem(self, u: dict):
+        """Janela com o personagem grande no cenário (acena, pula e dança) e as escolhas dele."""
+        app, c = self.app, self.app.c
+        from .. import avatar as av
+        from .personagem import busto, descricao, vitrine
+
+        cfg = av.validar(u["avatar"])
+        estreito = (app.largura or 900) < 820
+        palco = vitrine(app, cfg, 256 if estreito else 384)
+        linhas = [
+            ft.Row([ft.Text(rot, size=12.5, color=c["texto2"], width=82), ft.Text(val, size=13.5, color=c["texto"], expand=True)],
+                   spacing=8, vertical_alignment=ft.CrossAxisAlignment.START)
+            for rot, val in descricao(cfg)
+        ]
+        detalhes: list[ft.Control] = [*linhas]
+        if cfg["usar_foto"] and cfg["foto"]:
+            detalhes.append(comp.apagado("Usa foto no perfil; nos grupos, a sala da turma mostra este personagem.", c, 12.5))
+        if cfg["foto"] and not u.get("voce"):
+            async def tirar(e):
+                app.page.pop_dialog()
+                await self._acao("foto", u)
+
+            detalhes.append(ft.Row([comp.botao_texto("Tirar a foto de perfil", tirar, ft.Icons.HIDE_IMAGE_OUTLINED)]))
+        lado = ft.Column(detalhes, spacing=8, tight=True, expand=not estreito)
+        corpo = ft.Column([palco, lado], spacing=14, tight=True) if estreito else ft.Row([palco, lado], spacing=22,
+                                                                                            vertical_alignment=ft.CrossAxisAlignment.CENTER)
+        info = " · ".join(x for x in (u.get("concurso") or "", f"desde {_data(u.get('criado_em'))}") if x)
+        app.page.show_dialog(
+            ft.AlertDialog(
+                title=ft.Row(
+                    [busto(app, u.get("avatar"), u["apelido"], 40, u["id"]),
+                     ft.Column([ft.Text(u["apelido"], font_family=FONTE_TITULO, size=21), comp.apagado(info, c, 12.5)], spacing=0, tight=True)],
+                    spacing=12,
+                ),
+                content=ft.Container(corpo, width=min(760, (app.largura or 900) - 48)),
+                actions=[ft.TextButton("Fechar", on_click=lambda e: app.page.pop_dialog())],
+                scrollable=True,
+            )
+        )
 
     # ------------------------------------------------------------------ grupos
 

@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.21.1" src="https://img.shields.io/badge/vers%C3%A3o-1.21.1-2340A8">
+  <img alt="Versão 1.22.0" src="https://img.shields.io/badge/vers%C3%A3o-1.22.0-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -239,6 +239,7 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
+| **1.22.0** | O personagem fala com você (frases motivacionais, engraçadas, dicas, lembretes do dia e as suas, com o seu nome) e dança; Admin → Personagens com a galeria de todo mundo |
 | **1.21.1** | Início sem espaço sobrando (personagem do lado da saudação, barras da semana baixinhas sem estudo), abas do personagem numa linha; vídeo tutorial atualizado |
 | **1.21.0** | Telas largas sem espaço sobrando: Ajustes em duas colunas, resultado lado a lado, questão centralizada e sala da turma na largura do cartão; vídeo tutorial atualizado |
 | **1.20.0** | Cabelos novos: calvo (sem cabelo no alto da cabeça, com cabelo dos lados) e com entradas |

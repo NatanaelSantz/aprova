@@ -1258,6 +1258,17 @@ def _boneco_cache(chave_cfg: tuple, chave_kw: tuple) -> Image.Image:
     hd = _detalhar(_epx(cores, W, H), cfg, pal, 2 * kw.get("respira", 0), kw.get("piscando", False), kw.get("alegre", False))
     saida = Image.new("RGBA", (W2, H2), (0, 0, 0, 0))
     saida.putdata([p[:4] for p in hd])
+    g = kw.get("gingado", 0)
+    if g:
+        # dança: o tronco e a cabeça vão para o lado e o quadril acompanha aos poucos; os pés ficam no chão
+        torto = Image.new("RGBA", (W2, H2), (0, 0, 0, 0))
+        for y in range(H2):
+            dx = g if y < GINGA_TOPO else round(g * (GINGA_PE - y) / (GINGA_PE - GINGA_TOPO)) if y < GINGA_PE else 0
+            faixa = saida.crop((0, y, W2, y + 1))
+            torto.paste(faixa, (dx, y), faixa)
+        saida = torto
+    if kw.get("vira"):
+        saida = saida.transpose(Image.FLIP_LEFT_RIGHT)  # um giro rápido (o boneco de costas seria igual de frente)
     pulo = 2 * kw.get("pulo", 0)
     if pulo:
         sobe = Image.new("RGBA", (W2, H2), (0, 0, 0, 0))
@@ -1267,13 +1278,14 @@ def _boneco_cache(chave_cfg: tuple, chave_kw: tuple) -> Image.Image:
 
 
 def boneco(cfg: dict, respira: int = 0, piscando: bool = False, braco: str = "", aceno: int = 0, alegre: bool = False,
-           pulo: int = 0, vapor: int = 0) -> Image.Image:
+           pulo: int = 0, vapor: int = 0, gingado: int = 0, vira: bool = False) -> Image.Image:
     """Um quadro do personagem (64 x 80, fundo transparente, com contorno). Não altere a imagem devolvida (fica guardada).
 
-    respira: 0/1 (o tronco desce); braco: "", "aceno" ou "dois"; pulo: quanto sobe (em pixels da grade de montagem)."""
+    respira: 0/1 (o tronco desce); braco: "", "aceno" ou "dois"; pulo: quanto sobe (em pixels da grade de montagem);
+    gingado: quanto o tronco vai para o lado na dança (pixels da grade final, + = direita); vira: espelhado (giro)."""
     cfg = validar(cfg)
     kw = {"respira": respira, "piscando": piscando, "braco": braco, "aceno": aceno, "alegre": alegre, "pulo": pulo,
-          "vapor": vapor % 6 if cfg["item"] == "cafe" else 0}
+          "vapor": vapor % 6 if cfg["item"] == "cafe" else 0, "gingado": gingado, "vira": vira}
     return _boneco_cache(tuple(sorted(cfg.items())), tuple(sorted(kw.items())))
 
 
@@ -1316,21 +1328,51 @@ def _quadros_pulo(cfg):
     return seq
 
 
+GINGA_TOPO, GINGA_PE = 54, 68  # na dança: acima de GINGA_TOPO tudo balança junto; dali até GINGA_PE, cada vez menos
+
+
+def _quadros_danca(cfg):
+    """Dança (2,3 s): balança para os lados quicando, mão para cima no ritmo, pulinho com os braços para cima,
+    "raise the roof" e um giro no fim."""
+    seq = []
+    for g, r in ((-3, 1), (0, 0), (3, 1), (0, 0)):  # balança quicando
+        seq.append((dict(gingado=g, respira=r, alegre=True), 120))
+    for i, (g, r) in enumerate(((-3, 1), (0, 0), (3, 1), (0, 0))):  # a mão no alto, no ritmo
+        seq.append((dict(gingado=g, respira=r, braco="aceno", aceno=i % 2, alegre=True), 120))
+    for h in (1, 2, 1):  # pulinho com os dois braços
+        seq.append((dict(braco="dois", pulo=h, alegre=True), 90))
+    for g, r in ((3, 1), (0, 0), (-3, 1), (0, 0)):  # braços para cima, balançando
+        seq.append((dict(gingado=g, respira=r, braco="dois", alegre=True), 120))
+    seq.append((dict(vira=True, respira=1, alegre=True), 110))  # giro
+    seq.append((dict(alegre=True), 110))
+    seq.append((dict(vira=True, alegre=True), 110))
+    seq.append((dict(respira=1, alegre=True), 160))
+    return seq
+
+
 SEQUENCIAS = {
     "parado": lambda c: _quadros_parado(c, 1),
     "aceno": lambda c: _quadros_parado(c, 1)[:4] + _quadros_aceno(c) + _quadros_parado(c, 1)[:6],
     "pulo": lambda c: _quadros_pulo(c) + _quadros_pulo(c) + _quadros_parado(c, 1)[:6],
-    "lobby": lambda c: _quadros_parado(c, 3) + _quadros_aceno(c) + _quadros_parado(c, 2) + _quadros_pulo(c) + _quadros_parado(c, 1),
+    "danca": lambda c: _quadros_danca(c) + _quadros_danca(c) + _quadros_parado(c, 1)[:6],
+    "lobby": lambda c: (_quadros_parado(c, 3) + _quadros_aceno(c) + _quadros_parado(c, 2) + _quadros_pulo(c) + _quadros_parado(c, 2)
+                        + _quadros_danca(c) + _quadros_parado(c, 1)),
 }
+GESTOS = [("aceno", "Acenar"), ("pulo", "Pular"), ("danca", "Dançar")]
+
+
+def duracao(anim: str) -> float:
+    """Quanto dura uma volta da animação, em segundos (para a prévia voltar ao lobby na hora certa)."""
+    return sum(d for _, d in SEQUENCIAS.get(anim, SEQUENCIAS["parado"])(None)) / 1000
 
 
 def _sequencia_membro(semente: str):
     """Para a sala da turma: cada pessoa faz a sua dança em hora diferente (todas com a mesma duração)."""
     rnd = random.Random(semente)
-    gesto = rnd.choice(["aceno", "pulo", "aceno"])
+    gesto = rnd.choice(["aceno", "pulo", "aceno", "danca"])
     antes = rnd.randrange(0, 4)
     base = _quadros_parado(None, 5)  # 60 quadros, 7,2 s
-    extra = _quadros_aceno(None) if gesto == "aceno" else _quadros_pulo(None)
+    extra = {"aceno": _quadros_aceno, "pulo": _quadros_pulo, "danca": _quadros_danca}[gesto](None)
     i = antes * 12
     seq = base[:i] + extra + base[i + len(extra):]
     return seq[: len(base)]
@@ -1739,6 +1781,18 @@ def animacao(cfg: dict, anim: str = "lobby", escala: int = 2, cenario: bool = Tr
             q.alpha_composite(b)
         quadros.append((_ampliar(q, escala), dur))
     return _webp(quadros)
+
+
+def retrato(cfg: dict, escala: int = 2, largura: int = 40) -> bytes:
+    """PNG do boneco parado no próprio cenário, (2 x largura) x 80 por escala (leve: para galerias com muita gente)."""
+    cfg = validar(cfg)
+    x = largura - W2 // 2
+    q = _quadro_cena(cfg["cenario"], largura, 0).copy()
+    q.alpha_composite(_sombra_pulo({}, cfg["corpo"]), (x, 0))
+    q.alpha_composite(boneco(cfg), (x, 0))
+    b = io.BytesIO()
+    _ampliar(q, escala).save(b, "PNG")
+    return b.getvalue()
 
 
 def membro(cfg: dict, semente: str, escala: int = 1) -> bytes:
