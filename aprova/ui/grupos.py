@@ -107,7 +107,7 @@ class TelaGrupos:
         from .anexos import VisorAnexos
 
         self.visor = VisorAnexos(app)
-        self._pendentes: list[dict] = []  # fotos/arquivos já enviados, esperando o "Publicar"
+        self._pendentes: list[dict] = []  # caminhos locais: só sobem quando a mensagem for publicada
         self._enviando: list[str] = []  # nomes dos arquivos subindo agora
         self._rapidos: list[dict] = []  # figurinhas e GIFs indo agora: {"tipo", "valor", "post": id da mensagem (resposta) ou None}
         # figurinha ou GIF escolhido, esperando o envio (como no Teams): na mensagem nova (None) ou na resposta de um post
@@ -672,7 +672,6 @@ class TelaGrupos:
 
         def tirar(anexo):
             self._pendentes = [a for a in self._pendentes if a is not anexo]
-            self.app.page.run_task(app.em_segundo_plano, self.r.apagar_anexos, [anexo])
             self._redesenhar()
 
         def figurinhas_gifs(e):
@@ -773,47 +772,59 @@ class TelaGrupos:
 
     async def _publicar_com_figurinha(self, g: dict, texto: str, tipo: str, titulo: str, anexos: list[dict], escolhida: dict | None,
                                       post_id: int | None = None) -> None:
-        """Envia a mensagem (ou resposta) com a figurinha escolhida. A sua figurinha sobe só agora, na hora de enviar."""
+        """Só faz o upload quando envia; limpa os novos arquivos se o envio falhar."""
         from .anexos import conteudo_rapido
 
-        extra: dict = {}
         subiram: list[dict] = []
-        if escolhida:
-            extra = await conteudo_rapido(self.app, g["codigo"], escolhida["tipo"], escolhida["valor"])
-            subiram = [a for a in extra.get("anexos") or [] if a.get("caminho")]
-            for a in extra.get("anexos") or []:
-                self.visor.lembrar(a)
-        todos = list(anexos) + list(extra.get("anexos") or [])
         try:
+            extra: dict = {}
+            if escolhida:
+                extra = await conteudo_rapido(self.app, g["codigo"], escolhida["tipo"], escolhida["valor"])
+                if escolhida["tipo"] == "minha":
+                    subiram.extend(a for a in extra.get("anexos") or [] if a.get("caminho"))
+                for a in extra.get("anexos") or []:
+                    self.visor.lembrar(a)
+
+            todos: list[dict] = []
+            for anexo in anexos:
+                if anexo.get("local"):
+                    novo = await self.app.em_segundo_plano(self.r.enviar_anexo, g["codigo"], Path(anexo["local"]))
+                    subiram.append(novo)
+                    todos.append(novo)
+                else:
+                    todos.append(anexo)
+            todos.extend(extra.get("anexos") or [])
+
             if post_id is None:
                 await self.app.em_segundo_plano(
                     lambda: self.r.forum_publicar(g["codigo"], texto, tipo, titulo, anexos=todos or None, figurinha=extra.get("figurinha"))
                 )
             else:
-                await self.app.em_segundo_plano(lambda: self.r.forum_responder(post_id, texto, anexos=todos or None, figurinha=extra.get("figurinha")))
-        except rk.ErroRanking:
-            if subiram:  # a figurinha que subiu e não foi: apaga do servidor
-                self.app.page.run_task(self.app.em_segundo_plano, self.r.apagar_anexos, subiram)
+                await self.app.em_segundo_plano(
+                    lambda: self.r.forum_responder(post_id, texto, anexos=todos or None, figurinha=extra.get("figurinha"))
+                )
+        except Exception:
+            # Só remove uploads desta tentativa: anexos já publicados nunca entram em 'subiram'.
+            if subiram:
+                await self.app.em_segundo_plano(self.r.apagar_anexos, subiram)
             raise
 
     async def _anexar_caminhos(self, g: dict, caminhos: list[Path]):
-        """Sobe os arquivos escolhidos; eles ficam esperando o "Publicar" (com o texto, se tiver)."""
+        """Mantém os arquivos no computador até o usuário confirmar em Publicar."""
         app = self.app
         vagas = rk.MAX_ANEXOS - len(self._pendentes)
         if len(caminhos) > vagas:
             app.msg(f"Dá para mandar até {rk.MAX_ANEXOS} arquivos por mensagem.")
-        for cam in caminhos[: max(0, vagas)]:
-            self._enviando.append(cam.name)
-            self._redesenhar()
-            try:
-                anexo = await app.em_segundo_plano(self.r.enviar_anexo, g["codigo"], cam)
-            except rk.ErroRanking as ex:
-                app.msg(str(ex))
-            else:
-                self._pendentes.append(anexo)
-            finally:
-                self._enviando.remove(cam.name)
-            self._redesenhar()
+        for cam in caminhos[:max(0, vagas)]:
+            if not cam.is_file():
+                app.msg(f"Não consegui acessar “{cam.name}”. Escolha o arquivo de novo.")
+                continue
+            ext = cam.suffix.lower().lstrip(".")
+            if ext not in rk.TIPOS_ARQUIVO:
+                app.msg(f"Formato de “{cam.name}” não permitido.")
+                continue
+            self._pendentes.append({"local": str(cam), "nome": cam.name, "tipo": rk.TIPOS_ARQUIVO[ext][1]})
+        self._redesenhar()
 
     async def _mandar_rapido(self, g: dict, tipo: str, valor):
         """Figurinha ou GIF vai na hora, como numa conversa: aparece na lista já, enquanto sobe."""
@@ -1102,20 +1113,14 @@ class TelaGrupos:
                 caminhos = await escolher_arquivos(app)
                 if not caminhos:
                     return
-                app.msg(f"Enviando {len(caminhos)} arquivo{'s' if len(caminhos) > 1 else ''}…")
-                lista = []
-                for cam in caminhos:
-                    try:
-                        lista.append(await app.em_segundo_plano(self.r.enviar_anexo, g["codigo"], cam))
-                    except rk.ErroRanking as ex:
-                        app.msg(str(ex))
-                if not lista:
-                    return
+                # A resposta é enviada ao selecionar; o helper apaga uploads se falhar.
                 try:
-                    await app.em_segundo_plano(lambda: self.r.forum_responder(p["id"], campo.value or "", anexos=lista))
+                    locais = [{"local": str(cam), "nome": cam.name, "tipo": "arquivo"} for cam in caminhos]
+                    await self._publicar_com_figurinha(g, campo.value or "", "", "", locais, None, post_id=p["id"])
                 except rk.ErroRanking as ex:
                     app.msg(str(ex))
                     return
+                self._rascunho_resposta.pop(p["id"], None)
                 await recarregar()
 
             def figurinhas_gifs(e):
@@ -1185,17 +1190,23 @@ class TelaGrupos:
         async def apagar(e):
             app.page.pop_dialog()
             try:
+                # Busca TODAS as respostas no servidor, inclusive as não abertas na tela.
+                anexos = await app.em_segundo_plano(self.r.forum_anexos_post, p["id"])
                 await app.em_segundo_plano(self.r.forum_apagar, p["id"])
             except rk.ErroRanking as ex:
                 app.msg(str(ex))
                 return
-            # os arquivos vão junto: os da mensagem e os das respostas (cada um da pasta de quem mandou)
-            if p.get("anexos"):
-                await app.em_segundo_plano(self.r.apagar_anexos, p["anexos"], p.get("autor"))
-            for r in self.respostas.pop(p["id"], None) or []:
-                if r.get("anexos"):
-                    await app.em_segundo_plano(self.r.apagar_anexos, r["anexos"], r.get("autor"))
-            app.msg("Mensagem apagada.")
+            self.respostas.pop(p["id"], None)
+            falhas = 0
+            for item in anexos:
+                try:
+                    await app.em_segundo_plano(self.r.apagar_anexos, item["anexos"], item["autor"], False)
+                except rk.ErroRanking:
+                    falhas += 1
+            if falhas:
+                app.msg("Mensagem apagada, mas alguns anexos não foram removidos do Storage.")
+            else:
+                app.msg("Mensagem apagada.")
             self._atualizar()
 
         quem = "sua mensagem" if p.get("meu") else f"a mensagem de {p.get('apelido')}"
@@ -1209,9 +1220,17 @@ class TelaGrupos:
 
     async def _apagar_resposta(self, p: dict, r: dict):
         try:
+            dados = await self.app.em_segundo_plano(self.r.forum_anexos_resposta, r["id"])
             await self.app.em_segundo_plano(self.r.forum_apagar_resposta, r["id"])
-            if r.get("anexos"):
-                await self.app.em_segundo_plano(self.r.apagar_anexos, r["anexos"], r.get("autor"))
+        except rk.ErroRanking as ex:
+            self.app.msg(str(ex))
+            return
+        if dados and dados["anexos"]:
+            try:
+                await self.app.em_segundo_plano(self.r.apagar_anexos, dados["anexos"], dados["autor"], False)
+            except rk.ErroRanking:
+                self.app.msg("Resposta apagada, mas o anexo não pôde ser removido do Storage.")
+        try:
             self.respostas[p["id"]] = await self.app.em_segundo_plano(self.r.forum_respostas, p["id"])
         except rk.ErroRanking as ex:
             self.app.msg(str(ex))
