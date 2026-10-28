@@ -779,7 +779,7 @@ def dialogo_figurinhas_gifs(app, ao_escolher) -> None:
 
 
 def chip_pendente(app, a: dict, ao_remover) -> ft.Control:
-    """Anexo já enviado, esperando a mensagem ser publicada."""
+    """Arquivo selecionado, esperando a mensagem ser publicada."""
     c = app.c
     if a.get("tipo") in ("imagem", "gif") and a.get("caminho"):
         dados = rk._ler_cache(a["caminho"])

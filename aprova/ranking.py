@@ -890,7 +890,10 @@ class Ranking:
         ]
         if caminhos:
             try:
-                self._pedir("DELETE", "/storage/v1/object/anexos", json={"prefixes": caminhos})
+                apagados = self._pedir("DELETE", "/storage/v1/object/anexos", json={"prefixes": caminhos}).json()
+                removidos = {a.get("name") for a in apagados if isinstance(a, dict)} if isinstance(apagados, list) else set()
+                if not tolerar_falha and set(caminhos) - removidos:
+                    raise ErroRanking("O servidor não confirmou a remoção de todos os anexos. Confira as permissões do Storage.")
             except ErroRanking:
                 if not tolerar_falha:
                     raise

@@ -34,6 +34,29 @@ class ErroFigurinha(Exception):
     pass
 
 
+def caminho_seguro(pasta: Path, arquivo) -> Path | None:
+    """Aceita só um nome de imagem dentro da coleção, inclusive em índices restaurados.
+
+    Barras dos dois sistemas são recusadas também ao abrir uma cópia feita em outro sistema.
+    A resolução real impede que um link de arquivo ou de pasta leve para fora da coleção.
+    """
+    if not isinstance(arquivo, str) or not arquivo or any(c in arquivo for c in ("/", "\\", ":", "\x00")):
+        return None
+    if Path(arquivo).suffix.lower().lstrip(".") not in TIPOS:
+        return None
+    pasta = Path(pasta)
+    try:
+        raiz = pasta.resolve()
+        if raiz != pasta.parent.resolve() / pasta.name:
+            return None  # a própria pasta da coleção é um link para outro lugar
+        caminho = pasta / arquivo
+        if caminho.resolve().parent != raiz:
+            return None
+    except (OSError, ValueError, RuntimeError):
+        return None
+    return caminho
+
+
 def _ler_imagem(dados: bytes):
     from PIL import Image
 
@@ -89,11 +112,15 @@ class Colecao:
             itens = json.loads(self._indice.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return []
-        itens = [i for i in itens if isinstance(i, dict) and (self.pasta / str(i.get("arquivo", ""))).is_file()]
+        itens = [i for i in itens if isinstance(i, dict)
+                 and (cam := caminho_seguro(self.pasta, i.get("arquivo"))) is not None and cam.is_file()]
         return sorted(itens, key=lambda i: -float(i.get("usada") or i.get("criada") or 0))
 
     def caminho(self, item: dict) -> Path:
-        return self.pasta / item["arquivo"]
+        caminho = caminho_seguro(self.pasta, item.get("arquivo"))
+        if caminho is None:
+            raise ErroFigurinha("caminho de figurinha inválido")
+        return caminho
 
     def dados(self, ident: str) -> tuple[dict, bytes] | None:
         for item in self.lista():

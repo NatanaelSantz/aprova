@@ -114,6 +114,7 @@ class TelaGrupos:
         self._figurinha_escolhida: dict[int | None, dict] = {}
         self._rascunho_resposta: dict[int, str] = {}
         self._assunto = ""
+        self._rascunhos_grupos: dict[str, dict] = {}
 
     @property
     def r(self) -> rk.Ranking:
@@ -121,7 +122,7 @@ class TelaGrupos:
 
     def preparar(self, codigo: str | None = None, aba: str | None = None, **_):
         if codigo:
-            self.codigo = codigo
+            self._selecionar_grupo(codigo)
             self.posts = {k: v for k, v in self.posts.items() if k[0] != codigo}
             if self.grupos is not None and codigo not in {g["codigo"] for g in self.grupos}:
                 self.grupos = None  # recarrega (pode ser um grupo novo ou o admin visitando)
@@ -270,7 +271,7 @@ class TelaGrupos:
             msg.content = comp.aviso(str(ex), c, "erro")
             app.page.update()
             return False
-        self.codigo = cod
+        self._selecionar_grupo(cod)
         app.aj.set("grupo_atual", cod)
         self.grupos = None
         self.visitando = None
@@ -470,10 +471,48 @@ class TelaGrupos:
         self.aba = e.control.selected[0] if e.control.selected else "conversa"
         self._redesenhar()
 
+    def _selecionar_grupo(self, codigo: str | None):
+        """Troca o formulário ativo sem levar o rascunho para outra turma."""
+        if codigo == self.codigo:
+            return
+        if self.codigo:
+            self._rascunhos_grupos[self.codigo] = {
+                "texto": self._rascunho,
+                "assunto": self._assunto,
+                "tipo": self.tipo_novo,
+                "pendentes": self._pendentes,
+                "figurinha": self._figurinha_escolhida.get(None),
+            }
+        rascunho = self._rascunhos_grupos.pop(codigo, {})
+        self._rascunho = rascunho.get("texto", "")
+        self._assunto = rascunho.get("assunto", "")
+        self.tipo_novo = rascunho.get("tipo", "conversa")
+        self._pendentes = rascunho.get("pendentes", [])
+        self._figurinha_escolhida.pop(None, None)
+        if rascunho.get("figurinha") is not None:
+            self._figurinha_escolhida[None] = rascunho["figurinha"]
+        self.codigo = codigo
+
+    def _limpar_rascunho_grupo(self, codigo: str):
+        """O envio que terminou em outra turma não pode apagar o formulário atual."""
+        self._rascunhos_grupos.pop(codigo, None)
+        if codigo == self.codigo:
+            self._rascunho = ""
+            self._assunto = ""
+            self._pendentes = []
+            self._figurinha_escolhida.pop(None, None)
+            self.tipo_novo = "conversa"
+
+    def _restaurar_figurinha_grupo(self, codigo: str, escolhida: dict):
+        if codigo == self.codigo:
+            self._figurinha_escolhida[None] = escolhida
+        else:
+            self._rascunhos_grupos.setdefault(codigo, {})["figurinha"] = escolhida
+
     def _trocar_grupo(self, codigo: str | None):
         if not codigo or codigo == self.codigo:
             return
-        self.codigo = codigo
+        self._selecionar_grupo(codigo)
         if not (self.visitando and self.visitando["codigo"] == codigo):
             self.app.aj.set("grupo_atual", codigo)
         self.abertos.clear()
@@ -518,7 +557,7 @@ class TelaGrupos:
             except rk.ErroRanking:
                 pass
         if not self.visitando and self.codigo not in codigos:
-            self.codigo = self.grupos[0]["codigo"] if self.grupos else None
+            self._selecionar_grupo(self.grupos[0]["codigo"] if self.grupos else None)
         self._redesenhar()
         if self.codigo:
             await self.carregar_grupo()
@@ -645,7 +684,7 @@ class TelaGrupos:
             except rk.ErroRanking as ex:
                 if item is not None:
                     self._rapidos = [r for r in self._rapidos if r is not item]
-                    self._figurinha_escolhida[None] = escolhida  # volta para a caixa, para tentar de novo
+                    self._restaurar_figurinha_grupo(g["codigo"], escolhida)
                     self._redesenhar()
                     app.msg(f"A figurinha não foi: {ex}")
                     return
@@ -657,11 +696,7 @@ class TelaGrupos:
             finally:
                 if item is not None:
                     self._rapidos = [r for r in self._rapidos if r is not item]
-            self._rascunho = ""
-            self._assunto = ""
-            self._pendentes = []
-            self._figurinha_escolhida.pop(None, None)
-            self.tipo_novo = "conversa"
+            self._limpar_rascunho_grupo(g["codigo"])
             await self._atualizar_conversa(g["codigo"])
             self._redesenhar()
 
@@ -775,6 +810,9 @@ class TelaGrupos:
         """Só faz o upload quando envia; limpa os novos arquivos se o envio falhar."""
         from .anexos import conteudo_rapido
 
+        extras_anexos = int(bool(escolhida and escolhida["tipo"] != "figurinha"))
+        if len(anexos) + extras_anexos > rk.MAX_ANEXOS:
+            raise rk.ErroRanking(f"Dá para mandar até {rk.MAX_ANEXOS} arquivos por mensagem.")
         subiram: list[dict] = []
         try:
             extra: dict = {}
@@ -806,7 +844,10 @@ class TelaGrupos:
         except Exception:
             # Só remove uploads desta tentativa: anexos já publicados nunca entram em 'subiram'.
             if subiram:
-                await self.app.em_segundo_plano(self.r.apagar_anexos, subiram)
+                try:
+                    await self.app.em_segundo_plano(self.r.apagar_anexos, subiram, None, False)
+                except rk.ErroRanking:
+                    self.app.msg("O envio falhou e alguns arquivos enviados não puderam ser removidos. Tente novamente quando a conexão voltar.")
             raise
 
     async def _anexar_caminhos(self, g: dict, caminhos: list[Path]):
@@ -828,16 +869,11 @@ class TelaGrupos:
 
     async def _mandar_rapido(self, g: dict, tipo: str, valor):
         """Figurinha ou GIF vai na hora, como numa conversa: aparece na lista já, enquanto sobe."""
-        from .anexos import conteudo_rapido
-
         item = {"tipo": tipo, "valor": valor, "post": None}
         self._rapidos.append(item)
         self._redesenhar()
         try:
-            extra = await conteudo_rapido(self.app, g["codigo"], tipo, valor)
-            for a in extra.get("anexos") or []:
-                self.visor.lembrar(a)
-            await self.app.em_segundo_plano(lambda: self.r.forum_publicar(g["codigo"], "", **extra))
+            await self._publicar_com_figurinha(g, "", "conversa", "", [], {"tipo": tipo, "valor": valor})
             await self._atualizar_conversa(g["codigo"])
         except rk.ErroRanking as ex:
             self.app.msg(f"A figurinha não foi: {ex}")
@@ -1263,7 +1299,7 @@ class TelaGrupos:
                 app.msg(str(ex))
                 return
             app.msg(f"Você saiu do grupo {g['nome']}.")
-            self.codigo = None
+            self._selecionar_grupo(None)
             app.aj.set("grupo_atual", "")
             self.grupos = None
             self._redesenhar()
@@ -1287,7 +1323,8 @@ class TelaGrupos:
                 app.msg(str(ex))
                 return
             app.msg(f"Grupo {g['nome']} apagado.")
-            self.codigo = None
+            self._selecionar_grupo(None)
+            self._rascunhos_grupos.pop(g["codigo"], None)
             app.aj.set("grupo_atual", "")
             self.grupos = None
             self.visitando = None

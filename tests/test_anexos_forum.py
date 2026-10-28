@@ -130,7 +130,7 @@ def test_falha_ao_listar_anexos_impede_exclusao():
 
 def test_falha_limpeza_pode_ser_reportada():
     ranking = rk.Ranking.__new__(rk.Ranking)
-    ranking.usuario_id = "dono"
+    ranking.aj = {"ranking_usuario": "dono"}
 
     def pedir(metodo, url, **kwargs):
         raise rk.ErroRanking("storage indisponível")
@@ -139,4 +139,109 @@ def test_falha_limpeza_pode_ser_reportada():
     anexos = [{"caminho": "A/dono/arquivo.pdf"}]
     ranking.apagar_anexos(anexos)  # padrão mantém compatibilidade
     with pytest.raises(rk.ErroRanking, match="storage indisponível"):
+        ranking.apagar_anexos(anexos, tolerar_falha=False)
+
+
+def test_falha_no_segundo_upload_limpa_so_arquivos_novos(tmp_path):
+    r = RankingFalso()
+    enviar = r.enviar_anexo
+
+    def upload(codigo, caminho):
+        if Path(caminho).name == "quebrado.pdf":
+            raise rk.ErroRanking("segundo upload falhou")
+        return enviar(codigo, caminho)
+
+    r.enviar_anexo = upload
+    tela = TelaGrupos(AppFalso(r))
+    anexos = [{"caminho": "TURMA-0001/usuario-test/publicado.pdf"},
+              {"local": str(tmp_path / "novo.pdf")},
+              {"local": str(tmp_path / "quebrado.pdf")}]
+    with pytest.raises(rk.ErroRanking, match="segundo upload falhou"):
+        asyncio.run(tela._publicar_com_figurinha({"codigo": "TURMA-0001"}, "", "conversa", "", anexos, None))
+    assert r.eventos == [("upload", "novo.pdf"), ("limpar", ["TURMA-0001/usuario-test/novo.pdf"])]
+
+
+def test_resposta_falha_limpa_upload_sem_apagar_anexo_existente():
+    r = RankingFalso()
+
+    def responder(*args, **kw):
+        raise rk.ErroRanking("resposta falhou")
+
+    r.forum_responder = responder
+    tela = TelaGrupos(AppFalso(r))
+    with pytest.raises(rk.ErroRanking, match="resposta falhou"):
+        asyncio.run(tela._publicar_com_figurinha(
+            {"codigo": "TURMA-0001"}, "resposta", "", "",
+            [{"local": "novo.pdf"}, {"caminho": "TURMA-0001/usuario-test/publicado.pdf"}], None, post_id=10))
+    assert r.eventos[-1] == ("limpar", ["TURMA-0001/usuario-test/novo.pdf"])
+
+
+def test_figurinha_rapida_falha_desfaz_upload(monkeypatch):
+    from aprova.ui import anexos
+
+    async def conteudo(app, codigo, tipo, valor):
+        assert tipo == "minha"
+        return {"anexos": [app.ranking.enviar_anexo(codigo, "figurinha.webp")]}
+
+    monkeypatch.setattr(anexos, "conteudo_rapido", conteudo)
+    r = RankingFalso(falha_publicacao=True)
+    app = AppFalso(r)
+    tela = TelaGrupos(app)
+    tela.visor = SimpleNamespace(lembrar=lambda a: None)
+    asyncio.run(tela._mandar_rapido({"codigo": "TURMA-0001"}, "minha", "figurinha-id"))
+    assert [x[0] for x in r.eventos] == ["upload", "publicar", "limpar"]
+    assert tela._rapidos == []
+    assert any("A figurinha não foi" in m for m in app.mensagens)
+
+
+def test_figurinha_publicada_nao_e_apagada_se_recarregar_falha(monkeypatch):
+    from aprova.ui import anexos
+
+    async def conteudo(app, codigo, tipo, valor):
+        return {"anexos": [app.ranking.enviar_anexo(codigo, "figurinha.webp")]}
+
+    async def atualizar(codigo):
+        raise rk.ErroRanking("recarregar falhou")
+
+    monkeypatch.setattr(anexos, "conteudo_rapido", conteudo)
+    r = RankingFalso()
+    tela = TelaGrupos(AppFalso(r))
+    tela.visor = SimpleNamespace(lembrar=lambda a: None)
+    tela._atualizar_conversa = atualizar
+    asyncio.run(tela._mandar_rapido({"codigo": "TURMA-0001"}, "minha", "figurinha-id"))
+    assert [x[0] for x in r.eventos] == ["upload", "publicar"]
+
+
+def test_limite_inclui_figurinha_antes_de_subir_arquivos():
+    r = RankingFalso()
+    tela = TelaGrupos(AppFalso(r))
+    with pytest.raises(rk.ErroRanking, match="até"):
+        asyncio.run(tela._publicar_com_figurinha(
+            {"codigo": "TURMA-0001"}, "", "conversa", "",
+            [{"local": f"{i}.pdf"} for i in range(rk.MAX_ANEXOS)], {"tipo": "minha", "valor": "figurinha-id"}))
+    assert r.eventos == []
+
+
+def test_falha_na_limpeza_avisa_e_preserva_erro_original():
+    r = RankingFalso(falha_publicacao=True)
+
+    def limpar(*args):
+        raise rk.ErroRanking("limpeza falhou")
+
+    r.apagar_anexos = limpar
+    app = AppFalso(r)
+    tela = TelaGrupos(app)
+    with pytest.raises(rk.ErroRanking, match="falha simulada"):
+        asyncio.run(tela._publicar_com_figurinha({"codigo": "TURMA-0001"}, "", "conversa", "", [{"local": "novo.pdf"}], None))
+    assert any("não puderam ser removidos" in m for m in app.mensagens)
+
+
+@pytest.mark.parametrize("apagados", [[], [{"name": "A/dono/outro.pdf"}]])
+def test_limpeza_sem_confirmacao_do_storage_e_reportada(apagados):
+    ranking = rk.Ranking.__new__(rk.Ranking)
+    ranking.aj = {"ranking_usuario": "dono"}
+    ranking._pedir = lambda *a, **kw: SimpleNamespace(json=lambda: apagados)
+    anexos = [{"caminho": "A/dono/arquivo.pdf"}]
+    ranking.apagar_anexos(anexos)
+    with pytest.raises(rk.ErroRanking, match="não confirmou"):
         ranking.apagar_anexos(anexos, tolerar_falha=False)
