@@ -881,11 +881,8 @@ class Ranking:
         _guardar_cache(chave, dados)
         return dados
 
-    def apagar_anexos(self, anexos: list[dict], dono: str | None = None) -> None:
-        """Apaga do servidor os arquivos de uma mensagem (melhor esforço).
-
-        Só os que estão na pasta de quem mandou a mensagem (dono; por padrão, você): uma mensagem
-        que aponte para o arquivo de outra pessoa não faz quem modera apagar o arquivo dela."""
+    def apagar_anexos(self, anexos: list[dict], dono: str | None = None, tolerar_falha: bool = True) -> None:
+        """Apaga somente objetos na pasta do autor. Por padrão, é melhor esforço."""
         dono = str(dono or self.usuario_id or "")
         caminhos = [
             a["caminho"] for a in anexos or []
@@ -895,7 +892,39 @@ class Ranking:
             try:
                 self._pedir("DELETE", "/storage/v1/object/anexos", json={"prefixes": caminhos})
             except ErroRanking:
-                pass
+                if not tolerar_falha:
+                    raise
+
+    def forum_anexos_post(self, post_id: int) -> list[dict]:
+        """Captura anexos do post e de todas as respostas antes de excluir em cascata."""
+        pid = int(post_id)
+        posts = self._pedir("GET", f"/rest/v1/forum_posts?id=eq.{pid}&select=autor,anexos").json()
+        if not posts:
+            raise ErroRanking("Essa mensagem não está mais disponível.")
+        resultado = [{"autor": x["autor"], "anexos": _lista_anexos(x.get("anexos"))} for x in posts]
+        ultimo = 0
+        while True:
+            # Paginação por ID evita o limite de 200 respostas da tela.
+            pagina = self._pedir(
+                "GET",
+                f"/rest/v1/forum_respostas?post_id=eq.{pid}&id=gt.{ultimo}&select=id,autor,anexos&order=id.asc&limit=200",
+            ).json()
+            for x in pagina:
+                resultado.append({"autor": x["autor"], "anexos": _lista_anexos(x.get("anexos"))})
+            if len(pagina) < 200:
+                break
+            novo = int(pagina[-1]["id"])
+            if novo <= ultimo:
+                raise ErroRanking("Não foi possível listar todos os anexos da mensagem.")
+            ultimo = novo
+        return [x for x in resultado if x["anexos"]]
+
+    def forum_anexos_resposta(self, resposta_id: int) -> dict | None:
+        """Lê os anexos atuais da resposta, sem depender do cache da interface."""
+        linhas = self._pedir("GET", f"/rest/v1/forum_respostas?id=eq.{int(resposta_id)}&select=autor,anexos").json()
+        if not linhas:
+            return None
+        return {"autor": linhas[0]["autor"], "anexos": _lista_anexos(linhas[0].get("anexos"))}
 
     # ---- configurações do app (admin) e GIFs
 
