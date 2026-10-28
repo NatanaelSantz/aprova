@@ -3,8 +3,10 @@ name: Testes no Windows
 
 on:
   push:
-    branches: [main]
+    branches: [main, fix/anexos-forum-sem-orfaos]
     paths-ignore: ["docs/**", "**.md"]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
