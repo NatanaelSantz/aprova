@@ -73,9 +73,9 @@ class TelaAjustes:
         if app.desktop:
             esquerda.append(self._voz())
         direita = ([] if app.celular else [self._celular()]) + [self._ranking(), self._claude()]
-        if app.desktop:
-            from .atualizacao import secao_ajustes
+        from .atualizacao import disponivel_celular, secao_ajustes
 
+        if app.desktop or disponivel_celular(app):
             direita.append(secao_ajustes(app, self))
         if not app.modo_web:
             direita.append(self._copia())
@@ -177,8 +177,11 @@ class TelaAjustes:
         app = self.app
         picker = getattr(app, "_picker", None) or ft.FilePicker()
         app._picker = picker
-        arquivos = await picker.pick_files(dialog_title="Escolha a cópia de segurança (.aprova)", file_type=ft.FilePickerFileType.CUSTOM,
-                                           allowed_extensions=["aprova", "zip"], with_data=not app.desktop)
+        # no Android, o filtro por extensão não reconhece ".aprova" (deixava o arquivo cinza, sem dar para escolher):
+        # lá mostra todos os arquivos e quem confere se é uma cópia do Aprova é a restauração
+        filtro = dict(file_type=ft.FilePickerFileType.CUSTOM, allowed_extensions=["aprova", "zip"]) if not app.celular \
+            else dict(file_type=ft.FilePickerFileType.ANY)
+        arquivos = await picker.pick_files(dialog_title="Escolha a cópia de segurança (.aprova)", with_data=not app.desktop, **filtro)
         if not arquivos:
             return
         f = arquivos[0]

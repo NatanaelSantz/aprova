@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.27.0" src="https://img.shields.io/badge/vers%C3%A3o-1.27.0-2340A8">
+  <img alt="Versão 1.28.0" src="https://img.shields.io/badge/vers%C3%A3o-1.28.0-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -131,7 +131,7 @@
 3. Pronto: o Aprova abre sozinho e cria o atalho **Aprova** na área de trabalho. Dali em diante, abra por ele.
 
 > [!TIP]
-> **Android (em teste):** baixe o **[Aprova-android.apk](https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android.apk)** no celular, abra o arquivo e permita instalar apps desta fonte quando o Android pedir. Em celulares mais antigos (32 bits), use o [Aprova-android-antigo.apk](https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android-antigo.apk). O app do celular ainda está em teste.
+> **Android (em teste):** baixe o **[Aprova-android.apk](https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android.apk)** no celular, abra o arquivo e permita instalar apps desta fonte quando o Android pedir. Em celulares mais antigos (32 bits), use o [Aprova-android-antigo.apk](https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android-antigo.apk). Da 1.28 em diante, o app avisa quando sai versão nova e a versão nova instala por cima (quem tem a 1.27 ou anterior precisa desinstalar uma última vez). O app do celular ainda está em teste.
 
 > [!NOTE]
 > **Atualizações:** da versão 1.9 em diante, o Aprova procura versão nova sozinho e mostra o aviso **Nova versão** no Início: é só tocar em **Atualizar** e depois em **Reiniciar agora**. Quem tem a 1.8 ou anterior precisa baixar o .zip uma última vez e extrair por cima da pasta antiga (os estudos ficam guardados à parte, na pasta `.aprova`).
@@ -248,6 +248,7 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
+| **1.28.0** | **Celular**: aviso de versão nova ao abrir, com **Baixar e instalar** (e versão obrigatória, se preciso); APK sempre com a mesma assinatura, para as próximas versões instalarem por cima; restaurar a cópia aceita o arquivo .aprova |
 | **1.27.0** | **Celular**: o seu boneco dá oi no alto de todas as telas e um toque nele abre o menu (Personagem, **Ajustes**, Conta); atalho dos Ajustes sempre à mão; o Voltar do Android volta uma tela; abas todas à vista; cartão-resposta, Meu concurso e figurinhas dos grupos corrigidos |
 | **1.26.0** | Painel com **acerto por assunto** dentro de cada disciplina (Crase, Concordância, Porcentagem, Licitações…) e o que mais derruba você; **relatórios de erro** opcionais com a aba Erros no Admin; **modelos da IA** trocados pelo servidor; APK do Android na página da versão |
 | **1.25.0** | Riscar alternativas na questão (ícone, clique direito ou Shift + letra); **Meu concurso** com contagem regressiva no Início, o Onde focar nas provas dele e o personagem lembrando os dias; **cópia de segurança** dos estudos (salvar, restaurar em outro computador e uma cópia automática por semana) |

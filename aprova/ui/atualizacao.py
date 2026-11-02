@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import platform
 import subprocess
 import sys
 import time
@@ -27,6 +28,167 @@ def disponivel(app) -> bool:
     if not app.desktop:
         return False
     return not config.FIXTURES_DIR or bool(os.environ.get("APROVA_ATUALIZACAO_URL"))
+
+
+# ---------------------------------------------------------------- app do celular (APK)
+
+# o APK de cada versão fica na página dela (o robô celular.yml põe lá uns 15 minutos depois da versão sair)
+APK = "https://github.com/NatanaelSantz/aprova/releases/download/v{versao}/{arquivo}"
+TAMANHO_APK = "uns 160 MB"
+
+
+def disponivel_celular(app) -> bool:
+    """App instalado no Android: procura versão nova e manda baixar o APK novo."""
+    if not app.celular or app.modo_web:
+        return False
+    return not config.FIXTURES_DIR or bool(os.environ.get("APROVA_ATUALIZACAO_URL"))
+
+
+def arquivo_apk(maquina: str | None = None) -> str:
+    """O APK certo para o processador: o de 64 bits (celulares de hoje) ou o "antigo" (32 bits)."""
+    m = (platform.machine() if maquina is None else maquina).lower()
+    return "Aprova-android.apk" if "64" in m else "Aprova-android-antigo.apk"
+
+
+def url_apk(versao: str, maquina: str | None = None) -> str:
+    modelo = os.environ.get("APROVA_APK_URL") or APK  # testes: outro endereço
+    return modelo.format(versao=versao, arquivo=arquivo_apk(maquina))
+
+
+def apk_publicado(url: str, timeout: float = 10) -> bool:
+    """O APK da versão já está na página dela? (logo depois da versão sair, ele ainda está sendo montado)"""
+    import urllib.error
+    import urllib.request
+
+    class SemSeguir(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *args, **kwargs):
+            return None  # o GitHub responde "está ali" (302 para o arquivo); não precisa ir até o arquivo
+
+    try:
+        pedido = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "Aprova-atualizador"})
+        with urllib.request.build_opener(SemSeguir).open(pedido, timeout=timeout) as resp:
+            return resp.status == 200
+    except urllib.error.HTTPError as e:
+        return e.code in (301, 302, 303, 307, 308)  # 404: o APK ainda está sendo montado
+    except Exception:  # noqa: BLE001 - sem internet
+        return False
+
+
+def obrigatoria(info: dict | None) -> bool:
+    """Quem mantém o app marcou que, abaixo de certa versão, o celular tem que atualizar para continuar."""
+    minima = str((info or {}).get("celular_minima") or "")
+    return bool(minima) and atualizar.mais_nova(minima, __version__)
+
+
+async def verificar_celular(app, forcar: bool = False) -> dict | None:
+    """Versão nova com o APK já publicado (senão, avisa só quando ele estiver lá)."""
+    info = await verificar(app, forcar)
+    if not info:
+        return None
+    url = url_apk(info["versao"])
+    if not await app.em_segundo_plano(apk_publicado, url):
+        app.atualizacao = None
+        return None
+    info = {**info, "apk": url}
+    app.atualizacao = info
+    return info
+
+
+async def vigiar_celular(app) -> None:
+    """No celular: ao abrir (e a cada 3 horas com o app aberto) procura versão nova e abre a janela para atualizar."""
+    await asyncio.sleep(4)
+    avisar_atualizado(app)
+    primeira = True
+    while True:
+        info = None
+        try:
+            info = await verificar_celular(app, forcar=primeira)
+        except atualizar.ErroAtualizacao:
+            pass  # sem internet agora
+        except Exception as e:  # noqa: BLE001
+            config.registrar(f"atualização (celular): falhou ao verificar ({e!r})")
+        primeira = False
+        if info:
+            # não interrompe uma prova nem o login: espera a pessoa sair deles
+            while app.foco is not None or app.em_login:
+                await asyncio.sleep(5)
+            avisar_celular(app, info)
+        await asyncio.sleep(INTERVALO)
+
+
+def avisar_celular(app, info: dict) -> bool:
+    """Abre a janela da versão nova: uma vez por versão a cada vez que o app abre (sempre, se for obrigatória)."""
+    if getattr(app, "_aviso_celular", None) == info["versao"] and not obrigatoria(info):
+        return False
+    app._aviso_celular = info["versao"]
+    if app.secao == "inicio":
+        try:
+            app.recarregar_tela()  # o cartão "Nova versão" aparece no Início
+        except Exception:  # noqa: BLE001
+            pass
+    dialogo_celular(app, info)
+    return True
+
+
+def dialogo_celular(app, info: dict) -> None:
+    """Versão nova no celular: o botão baixa o APK pelo navegador; a pessoa abre o arquivo e toca em Instalar.
+    Os estudos ficam (o APK novo instala por cima do anterior)."""
+    c = app.c
+    forcada = obrigatoria(info)
+    url = info.get("apk") or url_apk(info["versao"])
+    notas = info.get("notas") or ["Melhorias e correções."]
+    lista = ft.Column(
+        [ft.Row([ft.Icon(ft.Icons.CHECK_CIRCLE_OUTLINE, size=18, color=c["ok"]), ft.Text(n, size=14.5, color=c["texto"], expand=True)],
+                spacing=8, vertical_alignment=ft.CrossAxisAlignment.START) for n in notas],
+        spacing=8,
+    )
+    passos = comp.apagado(
+        f"Toque em Baixar e instalar: o celular baixa o Aprova novo ({TAMANHO_APK}, melhor no Wi-Fi). Quando terminar, abra o arquivo "
+        "baixado e toque em Instalar (se o Android pedir, permita instalar apps desta fonte). Seus estudos continuam no celular.",
+        c, 13.5,
+    )
+    estado = comp.apagado("", c, 13.5)
+    estado.visible = False
+    topo = (comp.aviso("Esta versão é obrigatória: atualize para continuar usando o Aprova.", c, "alerta") if forcada
+            else comp.apagado(f"Você está na {__version__}." + (f" A nova saiu em {info['data']}." if info.get("data") else ""), c, 13))
+    corpo = ft.Column(
+        [topo, comp.texto("O que tem de novo", c, 15, peso=ft.FontWeight.W_700), lista, passos, estado],
+        spacing=10,
+        tight=True,
+        horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+    )
+    baixar_bt = ft.FilledButton("Baixar e instalar", icon=ft.Icons.DOWNLOAD)
+    acoes: list[ft.Control] = [] if forcada else [ft.TextButton("Agora não", on_click=lambda e: app.page.pop_dialog())]
+    acoes.append(baixar_bt)
+
+    async def baixar(e=None):
+        await app.abrir_url(url)
+        estado.value = "O download começou. Quando terminar, toque na notificação (ou abra o arquivo em Downloads) e depois em Instalar."
+        estado.visible = True
+        baixar_bt.content = "Baixar de novo"
+        try:
+            dlg.update()
+        except Exception:  # noqa: BLE001
+            pass
+
+    async def reabrir():
+        await asyncio.sleep(0.3)
+        app.page.show_dialog(dlg)
+
+    def ao_fechar(e=None):
+        if forcada:
+            app.page.run_task(reabrir)  # o Voltar do Android fecha a janela: na obrigatória, ela volta
+
+    baixar_bt.on_click = baixar
+    dlg = ft.AlertDialog(
+        modal=forcada,
+        title=ft.Text("Atualize o Aprova" if forcada else f"Versão nova: {info['versao']}", font_family=FONTE_TITULO, size=21),
+        content=ft.Container(corpo, width=min(480, (app.page.width or 520) - 48)),
+        actions=acoes,
+        scrollable=True,  # a janela rola só se não couber (uma coluna que rola ocuparia a tela toda)
+        on_dismiss=ao_fechar,
+    )
+    app.page.show_dialog(dlg)
 
 
 def ver_pronta(app) -> None:
@@ -162,7 +324,7 @@ async def abrir_pela_notificacao(app) -> None:
     info = app.atualizacao
     if not info:
         try:
-            info = await verificar(app, forcar=True)
+            info = await (verificar_celular(app, forcar=True) if app.celular else verificar(app, forcar=True))
         except atualizar.ErroAtualizacao as ex:
             app.msg(str(ex))
             return
@@ -244,7 +406,7 @@ def secao_ajustes(app, secao) -> ft.Control:
         acoes.controls = [comp.carregando("Procurando…", c)]
         acoes.update()
         try:
-            info = await verificar(app, forcar=True)
+            info = await (verificar_celular(app, forcar=True) if app.celular else verificar(app, forcar=True))
         except atualizar.ErroAtualizacao as ex:
             desenhar()
             status.value = str(ex)
@@ -267,6 +429,9 @@ def secao_ajustes(app, secao) -> ft.Control:
 
 
 def dialogo_atualizar(app, info: dict) -> None:
+    if app.celular:
+        dialogo_celular(app, info)
+        return
     c = app.c
     notas = info.get("notas") or ["Melhorias e correções."]
     lista = ft.Column(

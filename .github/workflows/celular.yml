@@ -52,9 +52,30 @@ jobs:
         id: versao
         run: echo "valor=$(python -c "import re;print(re.search(r'__version__ = \"([^\"]+)\"', open('aprova/__init__.py', encoding='utf-8').read()).group(1))")" >> "$GITHUB_OUTPUT"
 
+      # Chave fixa de assinatura (segredos ANDROID_CHAVE_BASE64 e ANDROID_CHAVE_SENHA, em Settings → Secrets
+      # and variables → Actions): com ela, o APK novo instala por cima do anterior e os estudos do celular ficam.
+      # Sem ela, o Flutter assina com uma chave de teste criada na hora, diferente a cada APK, e o Android
+      # só instala a versão nova depois de desinstalar a antiga.
+      - name: Chave de assinatura
+        id: chave
+        env:
+          CHAVE_BASE64: ${{ secrets.ANDROID_CHAVE_BASE64 }}
+        run: |
+          if [ -n "$CHAVE_BASE64" ]; then
+            printf '%s' "$CHAVE_BASE64" | base64 -d > "$RUNNER_TEMP/aprova-upload.p12"
+            echo "arquivo=$RUNNER_TEMP/aprova-upload.p12" >> "$GITHUB_OUTPUT"
+            echo "APK assinado com a chave fixa do Aprova."
+          else
+            echo "::warning::Sem a chave fixa (segredo ANDROID_CHAVE_BASE64): este APK não instala por cima da versão anterior."
+          fi
+
       # um APK por tipo de processador (bem menor que um só para todos): arm64 é o dos celulares de hoje,
       # armeabi-v7a o dos mais antigos; x86_64 (emuladores) fica de fora
       - name: Montar o APK
+        env:
+          FLET_ANDROID_SIGNING_KEY_STORE: ${{ steps.chave.outputs.arquivo }}
+          FLET_ANDROID_SIGNING_KEY_STORE_PASSWORD: ${{ steps.chave.outputs.arquivo && secrets.ANDROID_CHAVE_SENHA || '' }}
+          FLET_ANDROID_SIGNING_KEY_ALIAS: upload
         run: >-
           flet build apk --yes --no-rich-output --skip-flutter-doctor --split-per-abi --cleanup-packages
           --arch arm64-v8a armeabi-v7a
@@ -72,6 +93,13 @@ jobs:
             esac
           done
           ls -la saida
+
+      # a "impressão digital" da chave: tem que ser a mesma em todas as versões para o APK instalar por cima
+      - name: Conferir a assinatura
+        continue-on-error: true
+        run: |
+          AS="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner"
+          for f in saida/*.apk; do echo "$f"; "$AS" verify --print-certs "$f" | grep -i "SHA-256" | head -1; done
 
       # Na página da versão (Releases), ao lado do Aprova.zip: o link
       # github.com/NatanaelSantz/aprova/releases/latest/download/Aprova-android.apk sempre leva ao último.

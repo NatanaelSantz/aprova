@@ -2705,3 +2705,81 @@ def test_celular_boneco_dando_oi_e_cartao():
     assert altura_cartao(16, 390) < 844 * 0.85 < altura_cartao(120, 390)
     assert altura_cartao(16, 390, com_finalizar=False) < altura_cartao(16, 390)
     assert comp.aparelho() == "computador"  # nos testes não é o app do celular
+
+
+def test_atualizacao_no_celular(monkeypatch):
+    """APK: escolhe o arquivo pelo processador, só avisa com o APK já publicado e a obrigatória não tem "Agora não"."""
+    import asyncio
+    import json
+
+    import flet as ft
+
+    from aprova import __version__, atualizar, config
+    from aprova.ui import atualizacao as at
+    from aprova.ui import tema
+
+    assert at.arquivo_apk("aarch64") == "Aprova-android.apk"
+    assert at.arquivo_apk("armv8l") == at.arquivo_apk("armv7l") == "Aprova-android-antigo.apk"  # Android de 32 bits
+    assert at.url_apk("2.0.0", "aarch64").endswith("/releases/download/v2.0.0/Aprova-android.apk")
+
+    # o versao.json pode marcar a versão mínima do celular (abaixo dela, atualizar é obrigatório)
+    base = {"versao": "99.0.0", "notas": ["x"], "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v99.0.0.zip"}
+    for extra, esperado in (({}, None), ({"celular_minima": "99.0.0"}, "99.0.0"), ({"celular_minima": "<script>"}, None)):
+        monkeypatch.setattr(atualizar, "_baixar", lambda url, timeout, d={**base, **extra}: json.dumps(d).encode())
+        info = atualizar.verificar(__version__)
+        assert info.get("celular_minima") == esperado
+    assert at.obrigatoria({"celular_minima": "99.0.0"}) and not at.obrigatoria({"celular_minima": __version__}) and not at.obrigatoria({})
+
+    class Pagina:
+        width = 390
+
+        def __init__(self):
+            self.dialogos = []
+
+        def show_dialog(self, d):
+            self.dialogos.append(d)
+
+        def pop_dialog(self):
+            pass
+
+        def run_task(self, f, *a):
+            pass
+
+    class AppFalso:
+        celular, modo_web, secao, foco, em_login = True, False, "provas", None, False
+        sessao = config.AjustesMemoria()
+        c = tema.paleta("claro")
+        atualizacao = None
+        atualizacao_pronta = None
+
+        def __init__(self):
+            self.page = Pagina()
+
+        async def em_segundo_plano(self, f, *a):
+            return f(*a)
+
+    publicado = {"ok": False}
+    monkeypatch.setattr(at, "apk_publicado", lambda url: publicado["ok"])
+
+    async def verificar_falso(app, forcar=False):
+        app.atualizacao = {"versao": "99.0.0", "notas": ["Novidade"], "zip": "z"}
+        return app.atualizacao
+
+    monkeypatch.setattr(at, "verificar", verificar_falso)
+    app = AppFalso()
+    assert asyncio.run(at.verificar_celular(app)) is None and app.atualizacao is None  # o APK ainda está sendo montado
+    publicado["ok"] = True
+    info = asyncio.run(at.verificar_celular(app))
+    assert info["apk"] == at.url_apk("99.0.0") and app.atualizacao == info
+    # aviso normal: uma vez por abertura, com "Agora não"
+    assert at.avisar_celular(app, info) and not at.avisar_celular(app, info)
+    dlg = app.page.dialogos[-1]
+    assert isinstance(dlg, ft.AlertDialog) and not dlg.modal and len(dlg.actions) == 2
+    # obrigatória: aparece sempre e só tem o botão de baixar
+    forcada = {**info, "celular_minima": "99.0.0"}
+    assert at.avisar_celular(app, forcada) and at.avisar_celular(app, forcada)
+    dlg = app.page.dialogos[-1]
+    assert dlg.modal and len(dlg.actions) == 1
+    # no app do computador nada disso liga
+    app.celular = False
+    assert not at.disponivel_celular(app)

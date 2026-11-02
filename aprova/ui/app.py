@@ -536,6 +536,8 @@ class App:
         atualizacao.ver_pronta(self)
         if atualizacao.disponivel(self):
             p.run_task(atualizacao.vigiar, self)
+        elif atualizacao.disponivel_celular(self):
+            p.run_task(atualizacao.vigiar_celular, self)  # APK: avisa da versão nova e manda baixar
         if self.ranking.configurado and self.ranking.logado and not config.FIXTURES_DIR:
             from .personagem import sincronizar
 

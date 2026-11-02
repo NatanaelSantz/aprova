@@ -1,11 +1,10 @@
 {
-  "versao": "1.27.0",
+  "versao": "1.28.0",
   "data": "02/11/2026",
   "notas": [
-    "Celular: o seu boneco dá oi no alto de todas as telas; um toque nele abre o menu com Personagem, Ajustes e Conta",
-    "Celular: botão dos Ajustes sempre à mão e o Voltar do Android volta uma tela (antes fechava o app)",
-    "Celular: abas do Painel, do Estudar e do Admin todas à vista, cartão-resposta sem folha em branco e textos que falam em celular",
-    "Correções: cartão Meu concurso que virava caixa cinza no celular, figurinhas e fotos dos grupos que ficavam carregando"
+    "Celular: ao abrir, o app avisa quando sai versão nova, com o botão Baixar e instalar (dá para marcar uma versão como obrigatória)",
+    "Celular: o APK passa a sair sempre com a mesma assinatura, então as próximas versões instalam por cima sem perder os estudos (quem tem a 1.27 ou anterior precisa desinstalar uma última vez)",
+    "Celular: restaurar a cópia de segurança agora deixa escolher o arquivo .aprova"
   ],
-  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.27.0.zip"
+  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.28.0.zip"
 }

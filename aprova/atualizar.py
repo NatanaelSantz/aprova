@@ -84,7 +84,11 @@ def verificar(versao_atual: str, url: str = URL_VERSAO, timeout: float = 8, past
     if pasta is not None and str(dados["versao"]) == versao_pulada(pasta):
         return None
     notas = dados.get("notas") or []
-    return {"versao": str(dados["versao"]), "data": str(dados.get("data") or ""), "notas": [str(n) for n in notas][:12], "zip": dados["zip"]}
+    info = {"versao": str(dados["versao"]), "data": str(dados.get("data") or ""), "notas": [str(n) for n in notas][:12], "zip": dados["zip"]}
+    minima = str(dados.get("celular_minima") or "")
+    if re.fullmatch(r"\d+(\.\d+){0,3}", minima):
+        info["celular_minima"] = minima  # app do celular abaixo disso: a atualização é obrigatória
+    return info
 
 
 def _versao_no_zip(z: zipfile.ZipFile, raiz_zip: str) -> str:

@@ -97,6 +97,10 @@ Seus estudos, contas, ajustes e PDFs marcados ficam na pasta `.aprova` e não mu
 
 **Se a versão nova não abrir no seu computador** (da 1.24 em diante), o Aprova volta sozinho para a versão anterior e avisa no Início. A versão com problema é pulada, e a próxima (com a correção) chega normalmente. Seus estudos não são tocados.
 
+**No celular (Android, da 1.28 em diante):** toda vez que o app abre (e a cada 3 horas com ele aberto), ele confere se saiu versão nova. Quando o APK novo já está na página da versão, aparece a janela **Versão nova** com as novidades e o botão **Baixar e instalar**: o celular baixa o arquivo (uns 160 MB, melhor no Wi-Fi), você abre o arquivo baixado e toca em **Instalar**. O app novo entra por cima do antigo e os estudos do celular continuam. Também dá em **Ajustes → Atualizações → Procurar atualização**. Quem mantém o app pode marcar uma versão como obrigatória (`python ferramentas/nova_versao.py --obrigatoria-celular X.Y.Z ...`): aí a janela não tem o *Agora não* até a pessoa atualizar.
+
+Até a 1.27, cada APK saía assinado com uma chave diferente, e o Android não instala um por cima do outro. Por isso, quem tem a 1.27 ou anterior no celular precisa desinstalar o Aprova uma última vez antes de instalar a 1.28 (antes, salve os estudos em **Ajustes → Cópia de segurança → Salvar cópia agora** e restaure depois). Da 1.28 em diante, as versões instalam por cima.
+
 Quem tem a versão 1.8 ou anterior precisa baixar o .zip uma última vez no [site](https://natanaelsantz.github.io/aprova/) e extrair por cima da pasta antiga (substituindo os arquivos). Os estudos não se perdem, porque ficam à parte, na pasta `.aprova`.
 
 ## Usar no celular
