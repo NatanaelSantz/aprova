@@ -3,8 +3,10 @@ name: Testes no Windows
 
 on:
   push:
-    branches: [main]
+    branches: [main, fix/anexos-forum-sem-orfaos]
     paths-ignore: ["docs/**", "**.md"]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -40,3 +42,29 @@ jobs:
                   print(f"::error title={caso.get('name')}::{texto}")
           PY
           exit 1
+
+  sql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: aprova-testes
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      APROVA_PG: host=127.0.0.1 port=5432 user=postgres password=aprova-testes dbname=postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install pytest "psycopg[binary]"
+      - name: Regras SQL e permissões do Supabase
+        run: python -m pytest -q tests/test_sql_supabase.py -p no:cacheprovider

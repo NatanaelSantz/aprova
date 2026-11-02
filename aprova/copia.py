@@ -152,6 +152,8 @@ def restaurar(arquivo: Path, pasta: Path, banco, ajustes) -> dict:
             if nome in ("marcados/indice.json", "figurinhas/indice.json"):
                 continue
             alvo = pasta / nome
+            if not alvo.resolve().is_relative_to(pasta.resolve()):
+                continue  # um link local também não pode levar a extração para fora da conta
             alvo.parent.mkdir(parents=True, exist_ok=True)
             alvo.write_bytes(z.read(nome))
         _juntar_indice_marcados(z, pasta)
@@ -178,17 +180,25 @@ def _juntar_indice_marcados(z: zipfile.ZipFile, pasta: Path) -> None:
 
 
 def _juntar_indice_figurinhas(z: zipfile.ZipFile, pasta: Path) -> None:
+    from .minhas_figurinhas import caminho_seguro
+
+    arq = pasta / "figurinhas" / "indice.json"
+    if not arq.resolve().is_relative_to(pasta.resolve()):
+        return
     try:
         vindas = json.loads(z.read("figurinhas/indice.json").decode("utf-8"))
     except (KeyError, ValueError):
         return
-    arq = pasta / "figurinhas" / "indice.json"
     try:
         atuais = json.loads(arq.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         atuais = []
+    atuais = [i for i in (atuais if isinstance(atuais, list) else [])
+              if isinstance(i, dict) and caminho_seguro(arq.parent, i.get("arquivo")) is not None]
     ids = {i.get("id") for i in atuais if isinstance(i, dict)}
-    atuais += [i for i in (vindas or []) if isinstance(i, dict) and i.get("id") not in ids]
+    atuais += [i for i in (vindas if isinstance(vindas, list) else [])
+               if isinstance(i, dict) and i.get("id") not in ids
+               and caminho_seguro(arq.parent, i.get("arquivo")) is not None]
     arq.parent.mkdir(parents=True, exist_ok=True)
     arq.write_text(json.dumps(atuais, ensure_ascii=False, indent=1), encoding="utf-8")
 
