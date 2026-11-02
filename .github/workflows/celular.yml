@@ -76,10 +76,16 @@ jobs:
           FLET_ANDROID_SIGNING_KEY_STORE: ${{ steps.chave.outputs.arquivo }}
           FLET_ANDROID_SIGNING_KEY_STORE_PASSWORD: ${{ steps.chave.outputs.arquivo && secrets.ANDROID_CHAVE_SENHA || '' }}
           FLET_ANDROID_SIGNING_KEY_ALIAS: upload
-        run: >-
-          flet build apk --yes --no-rich-output --skip-flutter-doctor --split-per-abi --cleanup-packages
-          --arch arm64-v8a armeabi-v7a
-          --build-version "${{ steps.versao.outputs.valor }}" --build-number "${{ github.run_number }}" -v
+        # às vezes o download do NDK do Android vem quebrado ("Archive is not a ZIP archive"): tenta de novo
+        run: |
+          for tentativa in 1 2 3; do
+            flet build apk --yes --no-rich-output --skip-flutter-doctor --split-per-abi --cleanup-packages \
+              --arch arm64-v8a armeabi-v7a \
+              --build-version "${{ steps.versao.outputs.valor }}" --build-number "${{ github.run_number }}" -v && exit 0
+            echo "::warning::A montagem do APK falhou (tentativa $tentativa de 3)."
+            rm -rf "$ANDROID_HOME/ndk/"*.temp "$ANDROID_HOME/.temp" 2>/dev/null || true
+          done
+          exit 1
 
       - name: Dar nome aos APKs
         run: |
