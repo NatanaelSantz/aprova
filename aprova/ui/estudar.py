@@ -231,7 +231,10 @@ class TelaEstudar:
         )
 
     def _trocar_aba(self, e):
-        self.aba = e.control.selected[0] if e.control.selected else "biblioteca"
+        self._ir_aba(e.control.selected[0] if e.control.selected else "biblioteca")
+
+    def _ir_aba(self, aba: str) -> None:
+        self.aba = aba
         self._recarregar()
 
     def build(self) -> ft.Control:
@@ -326,7 +329,13 @@ class TelaEstudar:
             corpo = [self._pdfs()]
         else:
             corpo = [explicacao, comp.subtitulo("Suas provas", c, 21), comp.bloco(lista, c, padding=8), self._historico()]
-        abas = self._abas() if app.largo else ft.Row([self._abas()], scroll=ft.ScrollMode.AUTO)
+        if app.largo:
+            abas = self._abas()
+        else:
+            # no celular, as abas quebram a linha: todas à vista (na faixa que rolava de lado, "Marcar PDF" ficava escondida)
+            rev = app.db.revisao_resumo()["pendentes"]
+            abas = comp.abas_chips([("biblioteca", "Biblioteca"), ("revisao", f"Revisão ({rev})" if rev else "Revisão"), ("duvidas", "Dúvidas"),
+                                    ("pdfs", "Marcar PDF")], self.aba, self._ir_aba, c)
         return ft.Column(
             [topo, abas, *corpo, ft.Container(height=30)],
             spacing=18,

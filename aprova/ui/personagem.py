@@ -105,7 +105,7 @@ async def salvar_meu(app, cfg: dict, foto: bytes | None = None, apagar_foto: boo
             await app.em_segundo_plano(app.ranking.salvar_avatar, cfg)
             app.aj.set("avatar_enviado", cfg["t"])
         except ErroRanking as e:
-            app.msg(f"Salvo neste computador. A turma ainda não vê: {e}")
+            app.msg(f"Salvo neste {comp.aparelho()}. A turma ainda não vê: {e}")
     return cfg
 
 
@@ -224,6 +224,7 @@ def cartao_inicio(app) -> ft.Control:
         cfg = meu(app)
         quadro = lobby(cfg, 192, raio=12, cena=48)
         app._img_inicio = quadro.content  # para o boneco fazer o gesto da fala (acenar, pular, dançar)
+        app._img_inicio_sozinho = False
         return ft.Container(
             quadro,
             on_click=lambda e: abrir_criador(app),
@@ -295,23 +296,170 @@ def contexto_falas(app) -> dict:
 
 
 def gesto_no_inicio(app, nome: str) -> None:
-    """O boneco do Início faz um gesto (e depois volta ao normal)."""
+    """O boneco do Início faz um gesto (e depois volta ao normal).
+    No computador é o boneco no cenário; no celular, o boneco da barra de cima."""
     img = getattr(app, "_img_inicio", None)
     if img is None or nome not in dict(av.GESTOS):
         return
     cfg = meu(app)
+    no_cenario = not getattr(app, "_img_inicio_sozinho", False)
+
+    def quadro(anim: str) -> bytes:
+        return img_lobby(cfg, anim, 2, 48) if no_cenario else img_sozinho(cfg, anim, 2)
 
     async def fazer():
         try:
-            img.src = img_lobby(cfg, nome, 2, 48)
+            img.src = quadro(nome)
             img.update()
             await asyncio.sleep(av.duracao(nome))
-            img.src = img_lobby(cfg, "lobby", 2, 48)
+            img.src = quadro("lobby" if no_cenario else "parado")
             img.update()
         except Exception:  # noqa: BLE001 - a tela mudou
             pass
 
     app.page.run_task(fazer)
+
+
+# ---------------------------------------------------------------------- celular: o boneco no alto de todas as telas
+
+# o que ele diz em cada tela (no Início ele conversa com as falas do Personagem → Falas)
+OI_TELAS = {
+    "concursos": "Vamos achar o seu concurso?",
+    "provas": "Qual prova vamos fazer hoje?",
+    "estudar": "Bora estudar?",
+    "grupos": "A sua turma está aqui.",
+    "painel": "Olha como você está indo!",
+    "ajustes": "Aqui você deixa o Aprova do seu jeito.",
+    "admin": "Tudo certo por aqui?",
+}
+LARGURA_BONECO, ALTURA_BONECO = 51, 64  # o boneco de 64 x 80 (escala 2) um pouco menor: cabe na barra
+
+
+def _boneco_barra(dados: bytes) -> tuple[ft.Control, ft.Image]:
+    """O boneco inteiro, sem a sobra transparente dos lados. Sem corte em cima: quando pula, sai um pouco da barra."""
+    img = _pixel(dados, LARGURA_BONECO, ALTURA_BONECO, ajuste=ft.BoxFit.CONTAIN, left=-7, top=0)
+    return ft.Stack([img], width=37, height=ALTURA_BONECO, clip_behavior=ft.ClipBehavior.NONE), img
+
+
+def frase_oi(app, secao: str) -> str:
+    nome = (app.nome_exibicao or "").strip().split(" ")[0]
+    oi = f"Oi, {nome}!" if nome else "Oi!"
+    resto = OI_TELAS.get(secao, "")
+    return f"{oi} {resto}".strip()
+
+
+def barra_celular(app, voltar=None) -> ft.Control:
+    """No celular, em cima de todas as telas: o seu boneco dando oi (toque nele para o menu: personagem,
+    ajustes e conta), o que ele diz naquela tela e o atalho dos Ajustes."""
+    c = app.c
+    secao = app.secao
+    app._barra_vez = getattr(app, "_barra_vez", 0) + 1
+    vez = app._barra_vez
+    app._img_inicio = None
+    meu_boneco = tenho_personagem(app)
+    foto = minha_foto(app) if meu(app)["usar_foto"] and not meu_boneco else None
+    convite = False
+    if meu_boneco:
+        cfg = meu(app)
+        figura, img = _boneco_barra(img_sozinho(cfg, "aceno", 2))
+    elif foto:
+        cfg, img = None, None
+        figura = ft.Container(_busto_foto(foto, 42), padding=ft.Padding.only(top=10, bottom=10))
+    else:
+        # ainda sem personagem: um boneco de exemplo acena e convida para criar o seu
+        cfg = av.sortear(app.ranking.usuario_id or "visitante-aprova")
+        figura, img = _boneco_barra(img_sozinho(cfg, "aceno", 2))
+        convite = True
+
+    if img is not None:
+        if secao == "inicio" and meu_boneco:
+            app._img_inicio, app._img_inicio_sozinho = img, True  # as falas fazem ele acenar, pular e dançar
+
+        async def descansar():
+            # acena ao chegar na tela e depois fica respirando e piscando
+            await asyncio.sleep(av.duracao("aceno"))
+            if getattr(app, "_barra_vez", 0) != vez:
+                return
+            try:
+                img.src = img_sozinho(cfg, "parado", 2)
+                img.update()
+            except Exception:  # noqa: BLE001 - a tela mudou
+                pass
+
+        app.page.run_task(descansar)
+
+    boneco = ft.Container(
+        figura,
+        on_click=lambda e: abrir_menu_celular(app),
+        tooltip="Seu menu: personagem, ajustes e conta",
+        border_radius=12,
+        padding=ft.Padding.only(left=4, right=4),
+        ink=True,
+    )
+    fala = None
+    if convite:
+        fala = balao(c, ft.Text("Oi! Toque em mim para criar o seu personagem.", size=13.5, color=c["texto"], weight=ft.FontWeight.W_500, max_lines=2),
+                     lambda e: abrir_criador(app), "Criar o meu personagem")
+    elif minhas_falas(app)["ligado"] or not meu_boneco:
+        if secao == "inicio" and meu_boneco:
+            fala = balao_de_fala(app)
+        else:
+            fala = balao(c, ft.Text(frase_oi(app, secao), size=13.5, color=c["texto"], weight=ft.FontWeight.W_500, max_lines=2))
+    itens: list[ft.Control] = []
+    if voltar is not None:
+        itens.append(ft.IconButton(ft.Icons.ARROW_BACK, tooltip="Voltar", on_click=lambda e: voltar(), icon_color=c["texto"]))
+    itens.append(boneco)
+    itens.append(ft.Container(fala, expand=True, padding=ft.Padding.only(top=4)) if fala else ft.Container(expand=True))
+    if secao != "ajustes":
+        itens.append(ft.IconButton(ft.Icons.TUNE_OUTLINED, tooltip="Ajustes", on_click=lambda e: app.ir("ajustes"), icon_color=c["texto2"]))
+    return ft.Container(
+        ft.Row(itens, spacing=6, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+        padding=ft.Padding.only(left=8, right=6, top=6, bottom=2),
+    )
+
+
+def abrir_menu_celular(app) -> None:
+    """Menu do boneco no celular (de baixo para cima): personagem, ajustes e a conta."""
+    from .login import dialogo_conta
+
+    c = app.c
+    logado = app.ranking.logado
+    nome = app.nome_exibicao or "Visitante"
+    papel = "Administrador" if app.ranking.eh_admin else ("Aluno" if logado else "Sem conta")
+
+    def item(rotulo: str, icone, acao) -> ft.Control:
+        def tocar(e):
+            app.page.pop_dialog()
+            acao()
+
+        return ft.ListTile(leading=ft.Icon(icone, color=c["tinta"]), title=ft.Text(rotulo, size=15.5, color=c["texto"]), on_click=tocar,
+                           shape=comp.forma(12))
+
+    itens = [item("Personagem e foto", ft.Icons.AUTO_FIX_HIGH, lambda: abrir_criador(app)),
+             item("Ajustes", ft.Icons.TUNE_OUTLINED, lambda: app.ir("ajustes"))]
+    if app.ranking.eh_admin:
+        itens.append(item("Administração", ft.Icons.ADMIN_PANEL_SETTINGS_OUTLINED, lambda: app.ir("admin")))
+    if logado:
+        itens += [item("Minha conta", ft.Icons.MANAGE_ACCOUNTS_OUTLINED, lambda: dialogo_conta(app)),
+                  item("Sair / trocar de conta", ft.Icons.LOGOUT, app.sair_da_conta)]
+    else:
+        itens.append(item("Entrar ou criar conta", ft.Icons.LOGIN, app.mostrar_login))
+    topo = ft.Row(
+        [meu_busto(app, 44) or _iniciais(nome, 44),
+         ft.Column([ft.Text(nome, size=16, weight=ft.FontWeight.W_600, color=c["texto"], max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                    ft.Text(papel, size=12.5, color=c["texto2"])], spacing=0, expand=True)],
+        spacing=12,
+    )
+    app.page.show_dialog(
+        ft.BottomSheet(
+            ft.Container(
+                ft.Column([topo, ft.Divider(height=14, color=c["borda"]), *itens], spacing=2, tight=True),
+                padding=ft.Padding.only(left=16, right=16, top=18, bottom=16),
+            ),
+            bgcolor=c["sup"],
+            show_drag_handle=True,
+        )
+    )
 
 
 def _texto_digitando(frase: str, mostrados: int, c: dict, tamanho: float = 13.5) -> list[ft.TextSpan]:
@@ -663,7 +811,7 @@ def abrir_criador(app, ao_salvar=None, aba: str = "corpo") -> None:
             tipos = [x for x in f["tipos"] if x != t] if t in f["tipos"] else f["tipos"] + [t]
             mudar_falas("tipos", [x for x, _ in falas.TIPOS if x in tipos])
 
-        ligado = ft.Switch(label="O personagem fala comigo no Início", value=f["ligado"], on_change=lambda e: mudar_falas("ligado", bool(e.control.value)))
+        ligado = comp.interruptor("O personagem fala comigo", f["ligado"], lambda e: mudar_falas("ligado", bool(e.control.value)))
         nome = ft.TextField(
             label="Como ele te chama", value=f["nome"], hint_text=app.nome_exibicao or "Seu nome ou apelido", dense=True, max_length=30,
             border_radius=10, width=300, on_change=lambda e: mudar_falas("nome", e.control.value or "", False),
@@ -698,7 +846,7 @@ def abrir_criador(app, ao_salvar=None, aba: str = "corpo") -> None:
             ft.Column([comp.rotulo("O que ele fala", c), tipos], spacing=6),
             minhas,
             comp.apagado("Use {nome} para ele dizer o seu nome. Lembretes do dia: revisão esperando, meta de hoje, sequência e hora. "
-                         "As frases ficam só neste computador.", c, 12),
+                         f"As frases ficam só neste {comp.aparelho()}.", c, 12),
             ft.Column([comp.rotulo("Trocar de frase", c), intervalo], spacing=6),
             ft.Row([balao(c, exemplo_txt), comp.botao_texto("Ouvir uma", ouvir, ft.Icons.CHAT_BUBBLE_OUTLINE)], spacing=8, wrap=True,
                    vertical_alignment=ft.CrossAxisAlignment.CENTER),
@@ -707,11 +855,11 @@ def abrir_criador(app, ao_salvar=None, aba: str = "corpo") -> None:
     def parte_foto() -> ft.Control:
         dados = estado["foto"] or (None if estado["apagar_foto"] else foto_atual)
         mostra = _busto_foto(dados, 96) if dados else _circulo(ft.Icon(ft.Icons.PERSON_OUTLINE, size=44, color=c["texto2"]), 96, c["sup2"])
-        usar = ft.Switch(
-            label="Mostrar a foto no lugar do personagem nos grupos e no ranking",
-            value=bool(dados) and estado["cfg"].get("usar_foto", False),
+        usar = comp.interruptor(
+            "Mostrar a foto no lugar do personagem nos grupos e no ranking",
+            bool(dados) and estado["cfg"].get("usar_foto", False),
+            lambda e: estado["cfg"].__setitem__("usar_foto", bool(e.control.value)),
             disabled=not dados,
-            on_change=lambda e: estado["cfg"].__setitem__("usar_foto", bool(e.control.value)),
         )
         botoes = [comp.botao_contorno("Escolher foto", lambda e: app.page.run_task(escolher_foto), ft.Icons.ADD_A_PHOTO_OUTLINED)]
         if dados:
@@ -790,6 +938,7 @@ def abrir_criador(app, ao_salvar=None, aba: str = "corpo") -> None:
             comp.botao_texto("Sortear", sortear, ft.Icons.CASINO_OUTLINED),
         ],
         spacing=0,
+        run_spacing=0,
         wrap=True,
         alignment=ft.MainAxisAlignment.CENTER,
     )

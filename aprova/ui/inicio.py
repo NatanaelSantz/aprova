@@ -60,7 +60,8 @@ class TelaInicio:
         cronometro = app.botao_estudo()
         from .personagem import balao_de_fala, cartao_inicio, meu_busto, tenho_personagem
 
-        fala = balao_de_fala(app)  # o boneco conversa com você (Personagem → Falas)
+        # o boneco conversa com você (Personagem → Falas); no celular ele e o balão ficam na barra de cima de todas as telas
+        fala = balao_de_fala(app) if app.largo else None
         if app.modo_nav == "lateral" and app.largura >= 1000:
             if tenho_personagem(app):
                 if fala:
@@ -77,11 +78,8 @@ class TelaInicio:
         elif app.modo_nav == "trilho":
             cabecalho = ft.Row([cabecalho, ft.Container(expand=True), cronometro], vertical_alignment=ft.CrossAxisAlignment.END)
         else:
-            # celular: o menu da conta fica no canto do cabeçalho
-            cabecalho = ft.Column(
-                [ft.Row([cabecalho, ft.Container(expand=True), app.menu_conta(compacto=True)], vertical_alignment=ft.CrossAxisAlignment.START), cronometro],
-                spacing=12,
-            )
+            # celular: o menu da conta é o boneco da barra de cima (toque nele)
+            cabecalho = ft.Column([cabecalho, cronometro], spacing=12)
         if fala and not (app.modo_nav == "lateral" and app.largura >= 1000):
             # telas menores: o rostinho do boneco e o balão embaixo da saudação
             cabecalho = ft.Column([cabecalho, ft.Row([meu_busto(app, 34) or ft.Container(), ft.Container(fala, expand=True)], spacing=8,

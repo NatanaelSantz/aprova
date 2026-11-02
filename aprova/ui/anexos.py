@@ -147,6 +147,9 @@ class VisorAnexos:
         self.app = app
         self._bytes: dict[str, bytes] = {}
         self._baixando: set[str] = set()
+        # caixas que esperam a mesma imagem: se a tela foi redesenhada no meio do download, a caixa nova
+        # também recebe a imagem (antes ela ficava girando até a próxima vez que a tela fosse montada)
+        self._esperando: dict[str, list[tuple]] = {}
 
     @property
     def r(self) -> rk.Ranking:
@@ -215,9 +218,10 @@ class VisorAnexos:
             caixa.content = ft.Image(src=self._bytes[chave], width=w, height=h, fit=ajuste, gapless_playback=True)
         else:
             caixa.content = ft.ProgressRing(width=22, height=22, stroke_width=2.4, color=c["tinta"])
+            self._esperando.setdefault(chave, []).append((caixa, w, h, ajuste))
             if chave not in self._baixando:
                 self._baixando.add(chave)
-                self.app.page.run_task(self._carregar, a, caixa, w, h, ajuste)
+                self.app.page.run_task(self._carregar, a)
         return caixa
 
     def _adesivo(self, a: dict, compacto: bool, lado: int | None = None) -> ft.Control:
@@ -232,9 +236,10 @@ class VisorAnexos:
             caixa.content = ft.Image(src=self._bytes[chave], width=lado, height=lado, fit=ft.BoxFit.CONTAIN, gapless_playback=True)
         else:
             caixa.content = ft.ProgressRing(width=22, height=22, stroke_width=2.4, color=self.app.c["tinta"])
+            self._esperando.setdefault(chave, []).append((caixa, lado, lado, ft.BoxFit.CONTAIN))
             if chave not in self._baixando:
                 self._baixando.add(chave)
-                self.app.page.run_task(self._carregar, a, caixa, lado, lado, ft.BoxFit.CONTAIN)
+                self.app.page.run_task(self._carregar, a)
         return caixa
 
     def abrir_adesivo(self, a: dict):
@@ -269,21 +274,25 @@ class VisorAnexos:
             self.app.page.pop_dialog()
         self.app.msg("Guardada nas suas figurinhas (🙂 → Minhas)." if nova else "Você já tinha essa figurinha.")
 
-    async def _carregar(self, a: dict, caixa: ft.Container, w: int, h: int, ajuste):
+    async def _carregar(self, a: dict):
         chave = a.get("caminho") or ""
+        dados = None
         try:
             dados = await self.app.em_segundo_plano(self.r.baixar_anexo, a)
-        except rk.ErroRanking:
-            caixa.content = ft.Icon(ft.Icons.BROKEN_IMAGE_OUTLINED, color=self.app.c["texto2"])
-        else:
             self._bytes[chave] = dados
-            caixa.content = ft.Image(src=dados, width=w, height=h, fit=ajuste, gapless_playback=True)
+        except rk.ErroRanking:
+            pass
         finally:
             self._baixando.discard(chave)
-        try:
-            caixa.update()
-        except Exception:  # noqa: BLE001 - saiu da tela
-            pass
+        for caixa, w, h, ajuste in self._esperando.pop(chave, []):
+            if dados is None:
+                caixa.content = ft.Icon(ft.Icons.BROKEN_IMAGE_OUTLINED, color=self.app.c["texto2"])
+            else:
+                caixa.content = ft.Image(src=dados, width=w, height=h, fit=ajuste, gapless_playback=True)
+            try:
+                caixa.update()
+            except Exception:  # noqa: BLE001 - essa caixa já saiu da tela
+                pass
 
     def _arquivo(self, a: dict) -> ft.Control:
         c = self.app.c

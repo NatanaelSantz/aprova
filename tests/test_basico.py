@@ -2686,3 +2686,22 @@ def test_modelos_da_ia_pelo_servidor():
     app.aj.set("claude_modelo", "claude-opus-6")
     asyncio.run(App._buscar_modelos_ia(app))
     assert app.aj["claude_modelo"] == "claude-opus-6"  # continua na lista: não mexe
+
+
+def test_celular_boneco_dando_oi_e_cartao():
+    """No celular o boneco dá oi no alto de cada tela (com o nome, se tiver) e o cartão-resposta só rola quando não cabe."""
+    from aprova.ui import comp
+    from aprova.ui.personagem import OI_TELAS, frase_oi
+    from aprova.ui.prova import altura_cartao
+
+    class AppFalso:
+        nome_exibicao = "Natanael Santos"
+
+    assert frase_oi(AppFalso(), "provas") == "Oi, Natanael! " + OI_TELAS["provas"]
+    AppFalso.nome_exibicao = ""
+    assert frase_oi(AppFalso(), "inicio") == "Oi!"
+    assert all(OI_TELAS[k] for k in ("concursos", "provas", "estudar", "grupos", "painel", "ajustes"))
+    # 16 questões cabem num celular de 390 x 844; 120 não (aí a folha rola)
+    assert altura_cartao(16, 390) < 844 * 0.85 < altura_cartao(120, 390)
+    assert altura_cartao(16, 390, com_finalizar=False) < altura_cartao(16, 390)
+    assert comp.aparelho() == "computador"  # nos testes não é o app do celular

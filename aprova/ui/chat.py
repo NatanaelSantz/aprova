@@ -101,7 +101,7 @@ def dialogo_chave(app) -> None:
         )
     cuidados = comp.aviso(
         "A chave é como um cartão: quem tiver a chave gasta o seu crédito. Não mande no grupo nem mostre em print. "
-        "Ela fica guardada só neste computador.",
+        f"Ela fica guardada só neste {comp.aparelho()}.",
         c,
         "alerta",
     )

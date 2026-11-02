@@ -193,7 +193,7 @@ Sem o servidor configurado, a tela de entrada mostra **Começar a estudar** (o a
 
 ## Personagem e foto de perfil
 
-Clique na sua bolinha (no menu ou no canto do celular) e escolha **Personagem e foto**. Também dá pelo **Início** (no quadro do personagem) e por **Ajustes → Conta**.
+Clique na sua bolinha no menu (no celular, toque no boneco no alto da tela) e escolha **Personagem e foto**. Também dá pelo **Início** (no quadro do personagem) e por **Ajustes → Conta**.
 
 - **Corpo, Rosto, Cabelo, Óculos, Roupa, Acessórios e Cenário**: cada aba muda uma parte do bonequinho. **Sortear** cria um aleatório; **Acenar**, **Pular** e **Dançar** mostram os gestos.
   - *Dança*: ele balança para os lados quicando, levanta a mão no ritmo, dá um pulinho com os braços para cima e termina com um giro. Ele dança sozinho de vez em quando no Início, na sala da turma e quando você acerta 90% ou mais num simulado.
@@ -255,7 +255,7 @@ No celular, a página explica que o Aprova é para computador e oferece copiar o
 
 A **conta rápida** fica só naquele computador. Para entrar de outro lugar, a pessoa coloca e-mail e senha em **Minha conta → Proteger minha conta**.
 
-No celular, a barra de baixo mostra Início, Concursos, Provas, Estudar, Grupos e Painel; **Ajustes** (e **Administração**, para o admin) ficam no menu do seu avatar, na tela Início.
+No celular, a barra de baixo mostra Início, Concursos, Provas, Estudar, Grupos e Painel. No alto de todas as telas, o seu boneco dá oi com uma frase daquela tela; toque nele para abrir o menu (**Personagem e foto**, **Ajustes**, **Administração** para o admin e a conta). O botão de ajustes no canto direito leva direto aos **Ajustes**. O **Voltar** do Android volta uma tela; no Início, ele fecha o app.
 
 ## Ranking (comparar com outras pessoas)
 

@@ -52,7 +52,7 @@ class TelaPainel:
         topo = (
             ft.Row([comp.titulo("Painel", c, 34), ft.Container(expand=True), abas], vertical_alignment=ft.CrossAxisAlignment.CENTER)
             if app.largo
-            else ft.Column([comp.titulo("Painel", c, 28), ft.Row([abas], scroll=ft.ScrollMode.AUTO)], spacing=10)
+            else ft.Column([comp.titulo("Painel", c, 28), self._abas_celular()], spacing=10)
         )
         corpo = {"desempenho": self._desempenho, "tempo": self._tempo, "ranking": self._ranking, "lembretes": self._lembretes, "livros": self._livros}[self.aba]()
         return ft.Column(
@@ -69,8 +69,15 @@ class TelaPainel:
         return self._secao_ranking.build()
 
     def _trocar(self, e):
-        self.aba = e.control.selected[0] if e.control.selected else "desempenho"
+        self._ir_aba(e.control.selected[0] if e.control.selected else "desempenho")
+
+    def _ir_aba(self, aba: str) -> None:
+        self.aba = aba
         self.app.recarregar_tela_sem_perder(self)
+
+    def _abas_celular(self) -> ft.Control:
+        # no celular, as abas quebram a linha: todas à vista (na faixa que rolava de lado, Lembretes e Livros ficavam escondidos)
+        return comp.abas_chips(ABAS, self.aba, self._ir_aba, self.app.c)
 
     # ================================================================ desempenho
 

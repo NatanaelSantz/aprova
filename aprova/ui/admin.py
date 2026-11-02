@@ -77,7 +77,7 @@ class TelaAdmin:
         topo = (
             ft.Row([titulo, ft.Container(expand=True), atualizar, abas], vertical_alignment=ft.CrossAxisAlignment.CENTER)
             if app.modo_nav == "lateral"
-            else ft.Column([ft.Row([titulo, ft.Container(expand=True), atualizar]), ft.Row([abas], scroll=ft.ScrollMode.AUTO)], spacing=10)
+            else ft.Column([ft.Row([titulo, ft.Container(expand=True), atualizar]), comp.abas_chips(ABAS, self.aba, self._ir_aba, c)], spacing=10)
         )
         if self.usuarios is None and not self.carregando and self.erro is None:
             app.page.run_task(self.carregar)
@@ -91,7 +91,10 @@ class TelaAdmin:
         return ft.Column([topo, ft.ListView([corpo, ft.Container(height=30)], expand=True)], spacing=16, expand=True)
 
     def _trocar(self, e):
-        self.aba = e.control.selected[0] if e.control.selected else "geral"
+        self._ir_aba(e.control.selected[0] if e.control.selected else "geral")
+
+    def _ir_aba(self, aba: str) -> None:
+        self.aba = aba
         self._redesenhar()
 
     async def carregar(self, forcar: bool = False):
@@ -131,7 +134,8 @@ class TelaAdmin:
             ft.Row(
                 [
                     ft.Container(ft.Icon(icone, color=cor or c["tinta"], size=22), width=44, height=44, border_radius=22, bgcolor=c["tinta_suave"], alignment=ft.Alignment.CENTER),
-                    ft.Column([comp.apagado(rotulo, c, 12.5), ft.Text(valor, size=24, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["texto"])], spacing=0),
+                    ft.Column([comp.apagado(rotulo, c, 12.5), ft.Text(valor, size=24, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["texto"])],
+                              spacing=0, expand=True),  # no celular o rótulo quebra a linha em vez de sair cortado
                 ],
                 spacing=12,
             ),

@@ -122,7 +122,7 @@ class TelaAjustes:
         ultima = next((a for a in auto if a.name.startswith("semanal-")), None)
         filhos: list[ft.Control] = [
             comp.apagado("Seus estudos ficam só neste aparelho. Salve uma cópia num pen drive ou no seu Drive para não perder nada "
-                         "se trocar ou formatar o computador. O Aprova também guarda sozinho uma cópia por semana.", c, 13),
+                         f"se trocar ou formatar o {comp.aparelho()}. O Aprova também guarda sozinho uma cópia por semana.", c, 13),
             ft.Row(
                 [
                     comp.botao("Salvar cópia agora", lambda e: app.page.run_task(self._salvar_copia), ft.Icons.SAVE_ALT),
@@ -140,7 +140,7 @@ class TelaAjustes:
             filhos.append(ft.Row([comp.apagado(f"Última cópia automática: {quando}.", c, 12.5),
                                   comp.botao_texto("Restaurar esta", lambda e, a=ultima: app.page.run_task(self._confirmar_restauro, a), ft.Icons.HISTORY)],
                                  wrap=True, spacing=4))
-        return self._secao("Cópia de segurança", "Leve seus estudos para outro computador ou volte a um ponto anterior.", *filhos)
+        return self._secao("Cópia de segurança", f"Leve seus estudos para outro {comp.aparelho()} ou volte a um ponto anterior.", *filhos)
 
     async def _salvar_copia(self):
         import tempfile
@@ -435,7 +435,7 @@ class TelaAjustes:
             papel = "administrador" if r.eh_admin else "aluno"
             filhos = [
                 ft.Row([app.menu_conta(), ], spacing=8),
-                comp.apagado(f"Você entrou como {papel}. Seus estudos ficam separados dos de outras contas neste computador.", c, 13),
+                comp.apagado(f"Você entrou como {papel}. Seus estudos ficam separados dos de outras contas neste {comp.aparelho()}.", c, 13),
                 ft.Row(
                     [
                         comp.botao_contorno("Minha conta", lambda e: dialogo_conta(app), ft.Icons.MANAGE_ACCOUNTS_OUTLINED),
@@ -448,7 +448,7 @@ class TelaAjustes:
             ]
         else:
             filhos = [
-                comp.apagado("Você está usando o Aprova sem conta: os estudos ficam só neste computador e você não aparece no ranking.", c, 13.5),
+                comp.apagado(f"Você está usando o Aprova sem conta: os estudos ficam só neste {comp.aparelho()} e você não aparece no ranking.", c, 13.5),
                 ft.Row(
                     [comp.botao("Entrar ou criar conta", lambda e: app.mostrar_login(), ft.Icons.LOGIN),
                      comp.botao_contorno("Criar personagem", lambda e: abrir_criador(app), ft.Icons.AUTO_FIX_HIGH)],
@@ -555,10 +555,10 @@ class TelaAjustes:
         filhos.append(comp.botao_texto("Atualizar dados do site (limpar cache)", limpar_cache, ft.Icons.REFRESH))
         if not app.modo_web:
             filhos.append(
-                ft.Switch(
-                    label="Enviar relatórios de erro para quem mantém o Aprova",
-                    value=bool(app.sessao.get("enviar_erros")),
-                    on_change=lambda e: app.sessao.set("enviar_erros", bool(e.control.value)),
+                comp.interruptor(
+                    "Enviar relatórios de erro para quem mantém o Aprova",
+                    bool(app.sessao.get("enviar_erros")),
+                    lambda e: app.sessao.set("enviar_erros", bool(e.control.value)),
                 )
             )
             filhos.append(comp.apagado("Quando algo der errado, vai só o erro técnico (versão, sistema e a tela), sem seus estudos, "

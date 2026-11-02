@@ -118,19 +118,29 @@ def cartao(app) -> ft.Control | None:
             app.aj.set("meu_concurso_dispensado", True)
             app.recarregar_tela()
 
-        return ft.Container(
-            ft.Row(
-                [
-                    ft.Icon(ft.Icons.EVENT_OUTLINED, color=c["tinta"], size=22),
-                    ft.Text("Para qual concurso você estuda? Diga qual é e quando é a prova: o Aprova conta os dias e foca no que cai nele.",
-                            size=14, color=c["texto"], expand=True),
-                    comp.botao_texto("Escolher meu concurso", lambda e: abrir_dialogo(app), ft.Icons.FLAG_OUTLINED),
-                    ft.IconButton(ft.Icons.CLOSE, icon_size=18, tooltip="Agora não", on_click=dispensar, icon_color=c["texto2"]),
-                ],
+        convite = "Para qual concurso você estuda? Diga qual é e quando é a prova: o Aprova conta os dias e foca no que cai nele."
+        escolher = comp.botao_texto("Escolher meu concurso", lambda e: abrir_dialogo(app), ft.Icons.FLAG_OUTLINED)
+        fechar = ft.IconButton(ft.Icons.CLOSE, icon_size=18, tooltip="Agora não", on_click=dispensar, icon_color=c["texto2"])
+        if app.largo:
+            conteudo = ft.Row(
+                [ft.Icon(ft.Icons.EVENT_OUTLINED, color=c["tinta"], size=22), ft.Text(convite, size=14, color=c["texto"], expand=True), escolher, fechar],
                 spacing=12,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                wrap=not app.largo,
-            ),
+            )
+        else:
+            # celular: texto em cima e o botão embaixo (texto com expand dentro de uma linha que quebra
+            # o Flutter não aceita e a tela virava uma caixa cinza)
+            conteudo = ft.Column(
+                [
+                    ft.Row([ft.Icon(ft.Icons.EVENT_OUTLINED, color=c["tinta"], size=22), ft.Text(convite, size=14, color=c["texto"], expand=True), fechar],
+                           spacing=10, vertical_alignment=ft.CrossAxisAlignment.START),
+                    escolher,
+                ],
+                spacing=2,
+                horizontal_alignment=ft.CrossAxisAlignment.START,
+            )
+        return ft.Container(
+            conteudo,
             bgcolor=c["sup"],
             border=ft.Border.all(1, c["borda"]),
             border_radius=14,

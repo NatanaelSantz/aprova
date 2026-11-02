@@ -178,7 +178,7 @@ class SecaoRanking:
                     ft.Text("Estude junto, mesmo de longe", size=22, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["texto"]),
                     comp.apagado("Compare horas, questões, acerto e sequência da semana com outras pessoas, no geral ou num grupo só seu (a turma do concurso, os amigos do trabalho).", c, 14),
                     _item(c, ft.Icons.VISIBILITY_OUTLINED, "No ranking aparecem só o seu apelido e os números da semana. Seu e-mail fica escondido."),
-                    _item(c, ft.Icons.LOCK_OUTLINE, "A senha não fica guardada no computador."),
+                    _item(c, ft.Icons.LOCK_OUTLINE, f"A senha não fica guardada no {comp.aparelho()}."),
                     _item(c, ft.Icons.DELETE_OUTLINE, "Você pode apagar a conta e os dados quando quiser, em Minha conta."),
                 ],
                 spacing=12,
@@ -505,7 +505,7 @@ def dialogo_conta(app, secao: SecaoRanking) -> None:
         app.page.show_dialog(
             ft.AlertDialog(
                 title=ft.Text("Apagar sua conta?"),
-                content=ft.Text("Seu apelido, seus números e seus grupos somem do ranking. Seus estudos neste computador continuam aqui.", size=14.5),
+                content=ft.Text(f"Seu apelido, seus números e seus grupos somem do ranking. Seus estudos neste {comp.aparelho()} continuam aqui.", size=14.5),
                 actions=[ft.TextButton("Cancelar", on_click=lambda ev: app.page.pop_dialog()), ft.FilledButton("Apagar", on_click=confirmar, style=ft.ButtonStyle(bgcolor=c["erro"], color="#FFFFFF"))],
             )
         )

@@ -18,6 +18,14 @@ LARGURA_RESULTADO = 1240  # resultado do simulado: até isso, em duas colunas qu
 RESULTADO_DUAS_COLUNAS = 1100  # janela a partir disso: o resumo e "Por matéria" ficam lado a lado
 
 
+def altura_cartao(questoes: int, largura: float, com_finalizar: bool = True) -> float:
+    """Altura aproximada do cartão-resposta do celular: título, contagem, bolinhas de 40 px (8 de espaço,
+    20 de margem de cada lado) e o botão Finalizar."""
+    por_linha = max(1, int((max(largura, 200) - 40 + 8) // 48))
+    linhas = -(-max(questoes, 0) // por_linha)
+    return 40 + 30 + 28 + 14 + linhas * 48 + (14 + 48 if com_finalizar else 0) + 40
+
+
 def _fmt_tempo(seg: int) -> str:
     h, r = divmod(int(seg), 3600)
     m, s = divmod(r, 60)
@@ -608,15 +616,20 @@ class TelaProva:
             self.ir_para(i)
 
         c = self.c
+        finalizar = not self.finalizada and self.modo != "revisao"
         conteudo = ft.Column(
             [
                 ft.Text("Cartão-resposta", size=20, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600),
                 comp.apagado(f"{len(self.respostas)} de {len(self.questoes)} respondidas", c, 13.5),
                 self._grade_numeros(clicar) if not self.cartao else self._folha_resposta(),
             ]
-            + ([comp.botao("Finalizar prova", lambda e: (self.app.page.pop_dialog(), self.app.page.run_task(self.finalizar)), ft.Icons.CHECK_ROUNDED)] if not self.finalizada and self.modo != "revisao" else []),
+            + ([comp.botao("Finalizar prova", lambda e: (self.app.page.pop_dialog(), self.app.page.run_task(self.finalizar)), ft.Icons.CHECK_ROUNDED)] if finalizar else []),
             spacing=14,
-            scroll=ft.ScrollMode.AUTO,
+            tight=True,
+            # coluna que rola ocupa a altura toda da folha (é assim no Flet): só rola quando o cartão não cabe,
+            # senão a folha de baixo fica do tamanho do cartão, sem meia tela em branco
+            scroll=None if altura_cartao(len(self.questoes), self.app.largura, finalizar) < self.app.altura * 0.85 and not self.cartao
+            else ft.ScrollMode.AUTO,
         )
         self.app.page.show_dialog(ft.BottomSheet(ft.Container(conteudo, padding=20), show_drag_handle=True, scrollable=True, bgcolor=c["sup"]))
 
@@ -1312,13 +1325,16 @@ class TelaProva:
             )
         coluna = ft.Column(
             [
-                comp.apagado("Resultado", c, 15),
+                # seta de voltar no alto (no celular a lista de erros é longa e o "Voltar à biblioteca" fica lá em cima, no meio)
+                ft.Row([ft.IconButton(ft.Icons.ARROW_BACK, tooltip="Voltar à biblioteca", on_click=lambda e: self._sair(), icon_color=c["texto"]),
+                        comp.apagado("Resultado", c, 15)], spacing=2),
                 ft.Text(self.prova["titulo"], size=24 if app.largo else 20, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["texto"]),
                 ft.ResponsiveRow(lado_a_lado, spacing=28, run_spacing=20, breakpoints=quebras, vertical_alignment=ft.CrossAxisAlignment.START),
                 ft.Container(height=8),
                 comp.subtitulo("O que você errou", c, 20) if blocos_erros else ft.Container(),
                 comp.apagado("Cada uma já está na sua Revisão: ela volta no dia certo até você dominar.", c, 13.5) if blocos_erros else ft.Container(),
                 ft.Column(blocos_erros, spacing=18, horizontal_alignment=ft.CrossAxisAlignment.STRETCH),
+                comp.botao_texto("Voltar à biblioteca", lambda e: self._sair(), ft.Icons.ARROW_BACK) if blocos_erros else ft.Container(),
                 ft.Container(height=30),
             ],
             spacing=14,

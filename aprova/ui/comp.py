@@ -21,6 +21,21 @@ def quebras(app, d: dict | None = None) -> dict:
 MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
 
 
+def interruptor(rotulo: str, value: bool, on_change, disabled: bool = False, tamanho: float = 14) -> ft.Row:
+    """Chave liga/desliga com o texto ao lado que quebra a linha (o rótulo do próprio Switch é uma linha só
+    e saía cortado no celular)."""
+    chave = ft.Switch(value=value, on_change=on_change, disabled=disabled)
+    return ft.Row([chave, ft.Text(rotulo, size=tamanho, expand=True)], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER)
+
+
+def aparelho() -> str:
+    """Onde os estudos ficam guardados, para os textos: "celular" no app do Android/iPhone, senão "computador"
+    (no navegador do celular, pelo "Usar no celular", os dados continuam no computador)."""
+    from .. import plataforma
+
+    return "celular" if plataforma.CELULAR else "computador"
+
+
 def titulo(texto: str, c: dict, tamanho: int = 34, peso=ft.FontWeight.W_600) -> ft.Text:
     return ft.Text(texto, size=tamanho, weight=peso, font_family=FONTE_TITULO, color=c["texto"])
 
@@ -125,6 +140,24 @@ def bloco(content: ft.Control, c: dict, padding: int = 20, **kw) -> ft.Container
 def rotulo(texto_: str, c: dict, cor: str | None = None) -> ft.Text:
     """Rótulo curto acima de um número ou bloco (sem caixa alta)."""
     return ft.Text(texto_, size=13, weight=ft.FontWeight.W_600, color=cor or c["texto2"])
+
+
+def abas_chips(abas: list[tuple[str, str]], atual: str, ao_trocar, c: dict) -> ft.Row:
+    """Abas para telas estreitas (celular): pílulas que quebram a linha, todas à vista."""
+
+    def aba(chave: str, rotulo: str) -> ft.Control:
+        sel = chave == atual
+        return ft.Container(
+            ft.Text(rotulo, size=13.5, weight=ft.FontWeight.W_600 if sel else None, color=c["sobre_tinta"] if sel else c["texto"]),
+            bgcolor=c["tinta"] if sel else c["sup"],
+            border=ft.Border.all(1, c["tinta"] if sel else c["borda"]),
+            border_radius=999,
+            padding=ft.Padding.symmetric(horizontal=14, vertical=7),
+            on_click=lambda e, k=chave: ao_trocar(k),
+            ink=True,
+        )
+
+    return ft.Row([aba(k, v) for k, v in abas], wrap=True, spacing=6, run_spacing=6)
 
 
 def bolha_icone(icone, c: dict, marcada: bool = False, tamanho: int = 36, icone_marcado=None) -> ft.Container:

@@ -305,7 +305,7 @@ class App:
         if not (pasta / "aprova.db").exists() and not self.sessao.get("estudos_levados_para", "") and self._tem_estudos_de_visitante():
             levar = await self._perguntar(
                 "Levar seus estudos para a conta?",
-                "Neste computador já há provas e respostas feitas sem conta. Quer usar esses estudos na sua conta? "
+                f"Neste {comp.aparelho()} já há provas e respostas feitas sem conta. Quer usar esses estudos na sua conta? "
                 "Você não perde nada: o original continua guardado.",
                 "Sim, levar",
                 "Começar do zero",
@@ -327,7 +327,7 @@ class App:
         self.sessao.set("pular_login", False)
         self.em_login = False
         tema.aplicar(self.page, self.aj["tema"])
-        self.secao = "admin" if self.ranking.eh_admin else "inicio"
+        self.secao = "admin" if self.ranking.eh_admin and not self.celular else "inicio"  # no celular, abre no Início (o boneco dá oi)
         if self.convite:
             pendente, self.convite = self.convite, None
             self.secao = "grupos"
@@ -506,7 +506,7 @@ class App:
         sem_login = bool(os.environ.get("APROVA_SEM_LOGIN")) or (bool(config.FIXTURES_DIR) and not os.environ.get("APROVA_LOGIN"))
         if self.ranking.configurado and self.ranking.logado and self.ranking.usuario_id:
             self._abrir_dados(self.ranking.usuario_id)  # conta lembrada: entra direto
-            if self.ranking.eh_admin and self.secao == "inicio" and not os.environ.get("APROVA_TELA_INICIAL"):
+            if self.ranking.eh_admin and self.secao == "inicio" and not os.environ.get("APROVA_TELA_INICIAL") and not self.celular:
                 self.secao = "admin"
         elif not (sem_login or self.sessao.get("pular_login")):
             self.em_login = True
@@ -986,6 +986,7 @@ class App:
         p.controls.clear()
         p.navigation_bar = None
         p.appbar = None
+        self._atualizar_voltar()
         if self.em_login:
             p.controls.append(ft.SafeArea(self._tela_login.build(), expand=True))
             self._vestir_barra("login")
@@ -1015,13 +1016,11 @@ class App:
         else:
             barra = self.destinos_barra()
             self._moldura = ft.Container(self.conteudo, expand=True, padding=self._margens())
+            # em cima de todas as telas: o boneco dando oi (toque nele: personagem, ajustes e conta) e o atalho dos Ajustes
+            self._barra_boneco = ft.Container()
             if self.secao in FORA_DA_BARRA:
                 # Ajustes / Admin no celular: tela cheia com Voltar (sem a barra de baixo)
-                voltar = ft.Container(
-                    ft.TextButton("Voltar", icon=ft.Icons.ARROW_BACK, on_click=lambda e: self._voltar_celular()),
-                    padding=ft.Padding.only(left=4, top=4),
-                )
-                p.controls.append(ft.SafeArea(ft.Column([voltar, self._moldura], spacing=0, expand=True), expand=True))
+                p.controls.append(ft.SafeArea(ft.Column([self._barra_boneco, self._moldura], spacing=0, expand=True), expand=True))
             else:
                 p.navigation_bar = ft.NavigationBar(
                     selected_index=[d[0] for d in barra].index(self.secao),
@@ -1036,7 +1035,7 @@ class App:
                     label_behavior=ft.NavigationBarLabelBehavior.ONLY_SHOW_SELECTED if (p.width or 0) < 460 else ft.NavigationBarLabelBehavior.ALWAYS_SHOW,
                     on_change=lambda e: self.ir(barra[e.control.selected_index][0]),
                 )
-                p.controls.append(ft.SafeArea(self._moldura, expand=True))
+                p.controls.append(ft.SafeArea(ft.Column([self._barra_boneco, self._moldura], spacing=0, expand=True), expand=True))
         self._vestir_barra(modo)
         self.ir(self.secao, reconstruir_layout=False)
 
@@ -1161,6 +1160,41 @@ class App:
             await self.page.window.close()
         except Exception:  # noqa: BLE001
             await self.page.window.destroy()
+
+    # ------------------------------------------------------------ botão Voltar do Android
+
+    def _atualizar_voltar(self) -> None:
+        """No app do celular, o Voltar do sistema volta uma tela (antes fechava o app de qualquer tela).
+        No Início (e no login) ele continua saindo do app, como em todo app de Android."""
+        if not self.celular:
+            return
+        try:
+            v = self.page.views[0]
+            if v.on_confirm_pop is None:
+                v.on_confirm_pop = self._ao_voltar
+            # no login da primeira vez o Voltar sai do app; aberto de dentro do app (visitante), volta para ele
+            primeira_vez = self.em_login and not self.sessao.get("pular_login")
+            v.can_pop = primeira_vez or (not self.em_login and self.foco is None and self.secao == "inicio")
+        except Exception:  # noqa: BLE001 - sem o recurso, o Voltar fecha o app como antes
+            pass
+
+    async def _ao_voltar(self, e) -> None:
+        try:
+            await e.control.confirm_pop(False)  # a tela fica; quem decide para onde voltar é o app
+        except Exception:  # noqa: BLE001
+            pass
+        if self.em_login:
+            self.continuar_sem_conta()
+        elif self.foco is not None:
+            sair = getattr(self.foco, "_sair", None)
+            if sair is not None:
+                sair()  # na prova em andamento, pergunta antes de sair
+            else:
+                self.fechar_foco()
+        elif self.secao in FORA_DA_BARRA:
+            self._voltar_celular()
+        elif self.secao != "inicio":
+            self.ir("inicio")
 
     def _voltar_celular(self) -> None:
         destino = self._antes_extra if self._antes_extra not in FORA_DA_BARRA else "inicio"
@@ -1382,11 +1416,16 @@ class App:
         if self._modo_nav == "inferior" and extra_antes != extra_agora:
             self.montar()  # entra ou sai de Ajustes/Admin: mostra ou esconde a barra de baixo
             return
-        if self._modo_nav == "inferior" and self.page.navigation_bar is not None:
+        if self._modo_nav == "inferior" and self.page.navigation_bar is not None and chave not in FORA_DA_BARRA:
             self.page.navigation_bar.selected_index = [d[0] for d in self.destinos_barra()].index(chave)
         elif self._modo_nav == "trilho" and mudou and reconstruir_layout:
             self.montar()
             return
+        self._atualizar_voltar()
+        if self._modo_nav == "inferior" and getattr(self, "_barra_boneco", None) is not None:
+            from .personagem import barra_celular
+
+            self._barra_boneco.content = barra_celular(self, self._voltar_celular if chave in FORA_DA_BARRA else None)
         self.conteudo.content = tela.build()
         self.page.update()
         if hasattr(tela, "ao_mostrar"):

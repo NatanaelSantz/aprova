@@ -129,7 +129,7 @@ class TelaLogin:
                 item(ft.Icons.DESCRIPTION_OUTLINED, "Provas e gabaritos das bancas, prontos para resolver"),
                 item(ft.Icons.INSIGHTS_OUTLINED, "Onde você está bem e onde precisa melhorar"),
                 item(ft.Icons.LEADERBOARD_OUTLINED, "Ranking com quem estuda para o mesmo concurso"),
-                item(ft.Icons.LOCK_OUTLINE, "Seus estudos separados da conta de outras pessoas neste computador"),
+                item(ft.Icons.LOCK_OUTLINE, f"Seus estudos separados da conta de outras pessoas neste {comp.aparelho()}"),
             ],
             spacing=12,
             alignment=ft.MainAxisAlignment.CENTER,
@@ -242,7 +242,7 @@ class TelaLogin:
                         on_click=lambda e: app.continuar_sem_conta(),
                         style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10), padding=ft.Padding.symmetric(vertical=14)),
                     ),
-                    comp.apagado("Sem conta, seus estudos ficam só neste computador e você não aparece no ranking. Dá para entrar depois.", c, 12.5),
+                    comp.apagado(f"Sem conta, seus estudos ficam só neste {comp.aparelho()} e você não aparece no ranking. Dá para entrar depois.", c, 12.5),
                 ]
                 + ([comp.botao_texto(f"Voltar ao convite do grupo {app.convite['nome']}", lambda e: self._voltar_convite(), ft.Icons.ARROW_BACK)] if app.convite else []),
                 spacing=14,
@@ -311,7 +311,7 @@ class TelaLogin:
                     apelido,
                     self.msg,
                     botao,
-                    comp.apagado("Sua conta fica neste computador. Depois, se quiser, coloque e-mail e senha em Minha conta para entrar de outro lugar.", c, 12.5),
+                    comp.apagado(f"Sua conta fica neste {comp.aparelho()}. Depois, se quiser, coloque e-mail e senha em Minha conta para entrar de outro lugar.", c, 12.5),
                     ft.Row([ft.Container(comp.divisor(c), expand=True), comp.apagado("já tem conta?", c, 12.5), ft.Container(comp.divisor(c), expand=True)], spacing=10),
                     ft.OutlinedButton(
                         "Entrar com e-mail e senha",
@@ -375,7 +375,7 @@ class TelaLogin:
             ft.Text("Bem-vindo ao Aprova", size=26, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["texto"]),
             comp.apagado(
                 "As contas online (ranking e área do administrador) ainda não foram ligadas neste app. "
-                "Você já pode estudar normalmente: seus estudos ficam guardados neste computador.",
+                f"Você já pode estudar normalmente: seus estudos ficam guardados neste {comp.aparelho()}.",
                 c,
                 14,
             ),
@@ -430,7 +430,7 @@ def dialogo_conta(app) -> None:
             return
         if res == "ok":
             app.page.pop_dialog()
-            app.msg("Conta protegida! Agora você entra com e-mail e senha em qualquer computador.")
+            app.msg("Conta protegida! Agora você entra com e-mail e senha em qualquer aparelho.")
             app.montar()
         else:
             msg_proteger.content = comp.aviso("Mandamos um e-mail de confirmação. Confirme e volte aqui para criar a senha.", c, "ok")
@@ -438,7 +438,7 @@ def dialogo_conta(app) -> None:
 
     bloco_proteger = (
         [
-            comp.aviso("Conta rápida: ela vale só neste computador. Coloque e-mail e senha para não perder e entrar de outro lugar.", c, "alerta"),
+            comp.aviso(f"Conta rápida: ela vale só neste {comp.aparelho()}. Coloque e-mail e senha para não perder e entrar de outro lugar.", c, "alerta"),
             novo_email,
             nova_senha,
             msg_proteger,
@@ -483,13 +483,13 @@ def dialogo_conta(app) -> None:
                 return
             app.page.pop_dialog()
             app.page.pop_dialog()
-            app.msg("Sua conta foi apagada. Seus estudos neste computador continuam guardados.")
+            app.msg(f"Sua conta foi apagada. Seus estudos neste {comp.aparelho()} continuam guardados.")
             app.sair_da_conta()
 
         app.page.show_dialog(
             ft.AlertDialog(
                 title=ft.Text("Apagar sua conta?"),
-                content=ft.Text("Seu apelido, seus números do ranking e seus grupos são apagados do servidor. Os estudos neste computador continuam aqui.", size=14.5),
+                content=ft.Text(f"Seu apelido, seus números do ranking e seus grupos são apagados do servidor. Os estudos neste {comp.aparelho()} continuam aqui.", size=14.5),
                 actions=[
                     ft.TextButton("Cancelar", on_click=lambda ev: app.page.pop_dialog()),
                     ft.FilledButton("Apagar", on_click=confirmar, style=ft.ButtonStyle(bgcolor=c["erro"], color="#FFFFFF")),

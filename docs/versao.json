@@ -1,10 +1,11 @@
 {
-  "versao": "1.26.0",
-  "data": "27/10/2026",
+  "versao": "1.27.0",
+  "data": "02/11/2026",
   "notas": [
-    "Painel: acerto por assunto em cada disciplina (Crase, Concordância, Porcentagem...) e o que mais derruba você",
-    "Relatórios de erro opcionais (Ajustes → Geral) para consertar mais rápido",
-    "Lista de modelos da IA atualizada pelo servidor, sem precisar de versão nova"
+    "Celular: o seu boneco dá oi no alto de todas as telas; um toque nele abre o menu com Personagem, Ajustes e Conta",
+    "Celular: botão dos Ajustes sempre à mão e o Voltar do Android volta uma tela (antes fechava o app)",
+    "Celular: abas do Painel, do Estudar e do Admin todas à vista, cartão-resposta sem folha em branco e textos que falam em celular",
+    "Correções: cartão Meu concurso que virava caixa cinza no celular, figurinhas e fotos dos grupos que ficavam carregando"
   ],
-  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.26.0.zip"
+  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.27.0.zip"
 }

@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.26.0" src="https://img.shields.io/badge/vers%C3%A3o-1.26.0-2340A8">
+  <img alt="Versão 1.27.0" src="https://img.shields.io/badge/vers%C3%A3o-1.27.0-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -248,6 +248,7 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
+| **1.27.0** | **Celular**: o seu boneco dá oi no alto de todas as telas e um toque nele abre o menu (Personagem, **Ajustes**, Conta); atalho dos Ajustes sempre à mão; o Voltar do Android volta uma tela; abas todas à vista; cartão-resposta, Meu concurso e figurinhas dos grupos corrigidos |
 | **1.26.0** | Painel com **acerto por assunto** dentro de cada disciplina (Crase, Concordância, Porcentagem, Licitações…) e o que mais derruba você; **relatórios de erro** opcionais com a aba Erros no Admin; **modelos da IA** trocados pelo servidor; APK do Android na página da versão |
 | **1.25.0** | Riscar alternativas na questão (ícone, clique direito ou Shift + letra); **Meu concurso** com contagem regressiva no Início, o Onde focar nas provas dele e o personagem lembrando os dias; **cópia de segurança** dos estudos (salvar, restaurar em outro computador e uma cópia automática por semana) |
 | **1.24.0** | Atualização mais segura: cada versão vem de um .zip fixo (etiqueta no GitHub) e, se a versão nova não abrir, o app volta sozinho para a anterior; chave da IA e login cifrados no Windows; espaço usado no servidor no Admin; bibliotecas em versões fixas; robôs que testam no Windows, mantêm o servidor acordado e conferem os sites todo dia |
