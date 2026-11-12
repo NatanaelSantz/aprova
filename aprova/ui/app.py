@@ -16,7 +16,9 @@ from ..fontes import Centralizador
 from ..pci import ClientePCI
 from ..rede import ServidorCelular
 from ..voz import Leitor
-from . import comp, tema
+from . import comp, movimento, tema
+
+MEDIR = bool(os.environ.get("APROVA_MEDIR"))  # anota no aprova.log quanto cada tela leva para montar e para chegar na tela
 from .tema import FONTE_TITULO
 
 LARGURA_TRILHO = 700  # abaixo disso: celular (barra embaixo)
@@ -90,6 +92,7 @@ def _sessao_maquina(modo_web: bool):
 class App:
     def __init__(self, page: ft.Page, modo_web: bool = False):
         self.page = page
+        movimento.registrar_app(self)
         self.modo_web = modo_web or bool(page.web)
         self.celular = plataforma.CELULAR  # app instalado no Android ou no iPhone (sem janela, sem atualizador do PC)
         self.pci, self.central = _recursos()
@@ -1235,15 +1238,16 @@ class App:
         proximo = {"claro": "sepia", "sepia": "escuro", "escuro": "claro"}
         icone_tema = {"claro": ft.Icons.LIGHT_MODE_OUTLINED, "sepia": ft.Icons.AUTO_STORIES_OUTLINED, "escuro": ft.Icons.DARK_MODE_OUTLINED}
         itens = []
+        self._nav_itens = {}
         for chave, rotulo, icone, icone_sel in destinos:
             sel = chave == self.secao
+            b = comp.bolha_icone(icone, c, marcada=sel, tamanho=38, icone_marcado=icone_sel)
+            t = ft.Text(rotulo, size=11.5, color=c["texto"] if sel else c["texto2"], weight=ft.FontWeight.W_700 if sel else None, max_lines=1)
+            self._nav_itens[chave] = (b, t, icone, icone_sel, 38, "trilho")
             itens.append(
                 ft.Container(
                     ft.Column(
-                        [
-                            comp.bolha_icone(icone, c, marcada=sel, tamanho=38, icone_marcado=icone_sel),
-                            ft.Text(rotulo, size=11.5, color=c["texto"] if sel else c["texto2"], weight=ft.FontWeight.W_700 if sel else None, max_lines=1),
-                        ],
+                        [b, t],
                         spacing=4,
                         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     ),
@@ -1300,16 +1304,17 @@ class App:
         baixa = self.baixa
         bolha = 30 if baixa else 34
         itens = []
+        self._nav_itens = {}
         for chave, rotulo, icone, icone_sel in self.destinos():
             sel = chave == self.secao
+            b = comp.bolha_icone(icone, c, marcada=sel, tamanho=bolha, icone_marcado=icone_sel)
+            t = ft.Text(rotulo, size=15 if baixa else 15.5, color=c["texto"] if sel else c["texto2"], weight=ft.FontWeight.W_700 if sel else ft.FontWeight.W_500)
+            self._nav_itens[chave] = (b, t, icone, icone_sel, bolha, "lateral")
             # cada seção é uma bolinha do cartão-resposta; a atual fica "marcada"
             itens.append(
                 ft.Container(
                     content=ft.Row(
-                        [
-                            comp.bolha_icone(icone, c, marcada=sel, tamanho=bolha, icone_marcado=icone_sel),
-                            ft.Text(rotulo, size=15 if baixa else 15.5, color=c["texto"] if sel else c["texto2"], weight=ft.FontWeight.W_700 if sel else ft.FontWeight.W_500),
-                        ],
+                        [b, t],
                         spacing=14,
                     ),
                     border_radius=22,
@@ -1402,36 +1407,66 @@ class App:
         if chave not in {d[0] for d in self.destinos()}:
             chave = "inicio"
         mudou = chave != self.secao
+        antiga = self.secao
         extra_antes, extra_agora = self.secao in FORA_DA_BARRA, chave in FORA_DA_BARRA
         if extra_agora and not extra_antes:
             self._antes_extra = self.secao
         self.secao = chave
         if self.foco is not None:
             return
+        if mudou or not getattr(self, "_ja_mostrou_tela", False):
+            movimento.abrir_janela(self)  # a tela nova (e o que ela carregar logo em seguida) entra com movimento
         tela = self._tela(chave)
         if kwargs and hasattr(tela, "preparar"):
             tela.preparar(**kwargs)
-        if reconstruir_layout and self._modo_nav == "lateral" and mudou:
-            # redesenha a barra lateral para marcar a seção
-            self.montar()
-            return
+        marcadas: list[ft.Control] = []
+        if reconstruir_layout and self._modo_nav in ("lateral", "trilho") and mudou:
+            # marca a seção no menu sem montar a página inteira de novo (mais leve e sem piscar)
+            marcadas = self._marcar_nav(antiga, chave)
+            if marcadas is None:
+                self.montar()
+                return
         if self._modo_nav == "inferior" and extra_antes != extra_agora:
             self.montar()  # entra ou sai de Ajustes/Admin: mostra ou esconde a barra de baixo
             return
         if self._modo_nav == "inferior" and self.page.navigation_bar is not None and chave not in FORA_DA_BARRA:
             self.page.navigation_bar.selected_index = [d[0] for d in self.destinos_barra()].index(chave)
-        elif self._modo_nav == "trilho" and mudou and reconstruir_layout:
-            self.montar()
-            return
         self._atualizar_voltar()
         if self._modo_nav == "inferior" and getattr(self, "_barra_boneco", None) is not None:
             from .personagem import barra_celular
 
             self._barra_boneco.content = barra_celular(self, self._voltar_celular if chave in FORA_DA_BARRA else None)
-        self.conteudo.content = tela.build()
+        t0 = time.perf_counter()
+        self.conteudo.content = movimento.entrada(self, tela.build(), dy=0.012, duracao=240, de=0.2)
+        t1 = time.perf_counter()
+        self._ja_mostrou_tela = True
         self.page.update()
+        if MEDIR:
+            config.registrar(f"tela {chave}: montar {1000 * (t1 - t0):.0f} ms, enviar {1000 * (time.perf_counter() - t1):.0f} ms")
         if hasattr(tela, "ao_mostrar"):
             tela.ao_mostrar()
+
+    def _marcar_nav(self, antiga: str, nova: str) -> list | None:
+        """Troca a bolinha marcada no menu lateral (ou no trilho) mudando só as duas bolinhas: a cor anima sozinha.
+        None: o menu não está montado do jeito esperado (aí monta tudo de novo)."""
+        itens = getattr(self, "_nav_itens", None) or {}
+        if nova not in itens:
+            return None
+        c = self.c
+        mudados: list[ft.Control] = []
+        for chave, sel in ((antiga, False), (nova, True)):
+            if chave not in itens:
+                continue
+            b, t, icone, icone_sel, tam, modo = itens[chave]
+            b.bgcolor = c["tinta"] if sel else None
+            b.border = ft.Border.all(1.5, c["tinta"] if sel else c["traco"])
+            b.content = ft.Icon(icone_sel if (sel and icone_sel) else icone, size=round(tam * 0.52), color=c["sobre_tinta"] if sel else c["texto2"])
+            b.scale = 1
+            b.animate_scale = ft.Animation(260, movimento.ELASTICA)
+            t.color = c["texto"] if sel else c["texto2"]
+            t.weight = ft.FontWeight.W_700 if sel else (ft.FontWeight.W_500 if modo == "lateral" else None)
+            mudados += [b, t]
+        return mudados
 
     def abrir_foco(self, tela) -> None:
         """Mostra uma tela sem a navegação (ex.: prova em andamento)."""

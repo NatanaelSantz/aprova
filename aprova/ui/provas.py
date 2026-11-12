@@ -11,7 +11,7 @@ import flet as ft
 
 from .. import config, fontes, importador
 from ..pci import Arquivo, ErroRede, ProvaItem
-from . import comp
+from . import comp, movimento
 from .estudar import abrir_prova, escolher_pdfs, importar_arquivos
 from .tema import FONTE_TITULO
 
@@ -382,7 +382,7 @@ class TelaProvas:
             spacing=14,
             wrap=True,
         )
-        return ft.Container(
+        return movimento.realce(self.app, ft.Container(
             ft.Row(
                 [
                     ft.Column([comp.texto(it.cargo, c, 15, peso=ft.FontWeight.W_600), dados], spacing=4, expand=True),
@@ -395,7 +395,7 @@ class TelaProvas:
             on_click=lambda e, i=it, pid=prova_id: self._abrir_pci(i, pid),
             ink=True,
             border_radius=8,
-        )
+        ), fundo=c["sup2"])
 
     def _abrir_pci(self, it: ProvaItem, prova_id: int | None):
         app = self.app

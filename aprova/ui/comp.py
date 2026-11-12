@@ -261,8 +261,14 @@ def bloco_data(iso: str | None, c: dict, dias: int | None, futuro_iso: str | Non
     )
 
 
-def barra(fracao: float, c: dict, cor: str | None = None, altura: int = 8, largura: int | None = None) -> ft.Container:
+def barra(fracao: float, c: dict, cor: str | None = None, altura: int = 8, largura: int | None = None, animar: bool = True) -> ft.Container:
+    """Barra de progresso. Logo depois de trocar de tela, a parte cheia enche da esquerda para a direita."""
+    from . import movimento
+
     fracao = max(0.0, min(1.0, fracao))
+    cheio = ft.Container(bgcolor=cor or c["tinta"], border_radius=altura, expand=max(1, int(fracao * 1000)))
+    if animar and fracao > 0 and (app := movimento.app_atual()) is not None:
+        movimento.crescer(app, cheio)
     return ft.Container(
         height=altura,
         width=largura,
@@ -271,7 +277,7 @@ def barra(fracao: float, c: dict, cor: str | None = None, altura: int = 8, largu
         border_radius=altura,
         content=ft.Row(
             [
-                ft.Container(bgcolor=cor or c["tinta"], border_radius=altura, expand=max(1, int(fracao * 1000))),
+                cheio,
                 ft.Container(expand=max(1, int((1 - fracao) * 1000)) if fracao < 1 else None, visible=fracao < 1),
             ],
             spacing=0,

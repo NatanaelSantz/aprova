@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from collections import defaultdict
 from pathlib import Path
 
 import flet as ft
 
-from .. import ajuda, pdfprova
-from . import comp
+from .. import ajuda, config, pdfprova
+from . import comp, movimento
 from .tema import FONTE_TEXTO, FONTE_TITULO
 
 LARGURA_LEITURA = 860  # coluna da questão: larga o bastante, sem linhas longas demais para ler
+MEDIR = bool(os.environ.get("APROVA_MEDIR"))  # anota no aprova.log quanto custa cada atualização da prova
 LARGURA_RESULTADO = 1240  # resultado do simulado: até isso, em duas colunas quando cabe
 RESULTADO_DUAS_COLUNAS = 1100  # janela a partir disso: o resumo e "Por matéria" ficam lado a lado
 
@@ -152,12 +154,15 @@ class TelaProva:
             return
         app, c = self.app, self.c
         cabecalho = self._cabecalho()
+        self._grade = None
+        self._contagem_resp = None
         principal = self._principal_cartao() if self.cartao else self._principal_questao()
         if app.largo:
             lateral = self._painel_ajuda() if self.ajuda_aberta else self._painel_cartao()
+            self._caixa_principal = ft.Container(principal, expand=True, padding=ft.Padding.only(left=36, right=28, top=22))
             corpo = ft.Row(
                 [
-                    ft.Container(principal, expand=True, padding=ft.Padding.only(left=36, right=28, top=22)),
+                    self._caixa_principal,
                     ft.Container(
                         lateral,
                         width=340 if self.ajuda_aberta else 300,
@@ -171,13 +176,37 @@ class TelaProva:
                 vertical_alignment=ft.CrossAxisAlignment.STRETCH,
             )
         else:
-            corpo = ft.Container(principal, expand=True, padding=ft.Padding.only(left=14, right=14, top=14))
+            corpo = self._caixa_principal = ft.Container(principal, expand=True, padding=ft.Padding.only(left=14, right=14, top=14))
         self.raiz.content = ft.Column([cabecalho, corpo], spacing=0, expand=True)
         self.raiz.bgcolor = c["bg"]
 
     def _atualizar(self):
+        t0 = time.perf_counter()
         self._render()
         self.app.page.update()
+        if MEDIR:
+            config.registrar(f"prova: tudo {1000 * (time.perf_counter() - t0):.0f} ms")
+
+    def _atualizar_questao(self, direcao: int = 0, reacao: str | None = None, numero: int | None = None):
+        """Troca só a questão e as bolinhas do cartão-resposta que mudaram (antes a prova inteira era redesenhada
+        a cada resposta: com 120 questões, eram 120 bolinhas indo para a tela de novo).
+        direcao: 1 (próxima) ou -1 (anterior) faz a questão nova deslizar; reacao: 'certa' ou 'errada' anima a alternativa."""
+        caixa = getattr(self, "_caixa_principal", None)
+        if (self.cartao or self.resultado is not None or (self.ajuda_aberta and self.app.largo) or caixa is None
+                or not movimento._montado(caixa)):
+            self._atualizar()
+            return
+        t0 = time.perf_counter()
+        nova = self._principal_questao()
+        if direcao:
+            nova = movimento.entrada(self.app, nova, dx=0.035 * direcao, dy=0, duracao=230, forcar=True, de=0.25)
+        caixa.content = nova
+        mudados: list[ft.Control] = [caixa] + self._restilizar_grade()
+        self.app.page.update(*mudados)
+        if MEDIR:
+            config.registrar(f"prova: só a questão {1000 * (time.perf_counter() - t0):.0f} ms ({len(mudados)} partes)")
+        if reacao and numero is not None and (linha := self._linhas.get(self.respostas.get(numero) or "")) is not None:
+            self.app.page.run_task(movimento.pulsar if reacao == "certa" else movimento.tremer, self.app, linha)
 
     # ---------------------------------------------------------------- cabeçalho
 
@@ -292,6 +321,7 @@ class TelaProva:
         if q.get("tipo") == "CE" and not alts:
             alts = {"C": "Certo", "E": "Errado"}
         lista_alts = ft.Column(spacing=8)
+        self._linhas: dict[str, ft.Container] = {}
         # riscar (eliminar) alternativas: só antes de corrigir e quando há mais de duas (no Certo/Errado não faz sentido)
         pode_riscar = not corrigida and not self.finalizada and len(alts) > 2
         riscadas = self.riscadas.get(n, set())
@@ -340,6 +370,7 @@ class TelaProva:
                 on_click=None if (corrigida and self.modo != "simulado") or self.finalizada else (lambda e, L=letra: self.responder(L)),
                 ink=not corrigida,
             )
+            self._linhas[letra] = linha
             # clique com o botão direito também risca
             lista_alts.controls.append(ft.GestureDetector(linha, on_secondary_tap=lambda e, L=letra: self.riscar(L)) if pode_riscar else linha)
         blocos.append(lista_alts)
@@ -441,13 +472,16 @@ class TelaProva:
             correta = None if not gab else (gab == "*" or gab == letra)
             self.app.db.registrar_resposta(self.tentativa_id, n, q.get("disciplina") or "Geral", letra, correta, q.get("ref") or "")
             self.app.db.revisao_registrar(self.prova["id"], n, q.get("disciplina") or "Geral", correta, q.get("ref") or "")
-        self._atualizar()
+            self._atualizar_questao(reacao=None if correta is None else ("certa" if correta else "errada"), numero=n)
+            return
+        self._atualizar_questao()
 
     def ir_para(self, idx: int):
         self.app.marcar_atividade()
         if not self.questoes:
             return
         idx = max(0, min(len(self.questoes) - 1, idx))
+        direcao = (1 if idx > self.idx else -1) if idx != self.idx else 0
         if idx != self.idx:
             self.idx = idx
             self.app.leitor.parar()
@@ -462,7 +496,7 @@ class TelaProva:
                 if pagina and pagina != self.pagina_pdf:
                     self.pagina_pdf = pagina
                     self.app.page.run_task(self._carregar_pagina)
-        self._atualizar()
+        self._atualizar_questao(direcao=direcao)
 
     def riscar(self, letra: str):
         """Risca (elimina) uma alternativa, ou desfaz o risco. Riscar a que estava marcada desmarca."""
@@ -478,7 +512,7 @@ class TelaProva:
             riscadas.add(letra)
             if self.respostas.get(n) == letra:
                 self.respostas.pop(n, None)
-        self._atualizar()
+        self._atualizar_questao()
 
     def _marcar(self):
         q = self.q
@@ -486,7 +520,7 @@ class TelaProva:
             self.marcadas ^= {q["numero"]}
             if q["numero"] in self.marcadas and (q.get("enunciado") or "").strip():
                 self.app.db.revisao_adicionar(self.prova["id"], q["numero"], q.get("disciplina") or "Geral", q.get("ref") or "")
-            self._atualizar()
+            self._atualizar_questao()
 
     def tecla(self, e: ft.KeyboardEvent):
         if self._digitando:
@@ -558,13 +592,22 @@ class TelaProva:
             return (c["tinta"], c["sobre_tinta"], c["tinta"])
         return (c["sup"], c["texto2"], c["borda"])
 
-    def _grade_numeros(self, ao_clicar) -> ft.Control:
+    def _estilo_numero(self, i: int) -> tuple:
+        """(fundo, cor do número, largura da borda, cor da borda, dica) da bolinha i do cartão-resposta."""
         c = self.c
+        q = self.questoes[i]
+        fundo, cor, borda = self._estado_numero(q)
+        atual = i == self.idx
+        marc = q["numero"] in self.marcadas
+        return (fundo, cor, 3 if atual else (2 if marc else 1.2), c["marca"] if marc and not atual else (c["texto"] if atual else borda),
+                "Marcada para revisar" if marc else None)
+
+    def _grade_numeros(self, ao_clicar) -> ft.Control:
         itens = []
+        estilos = []
         for i, q in enumerate(self.questoes):
-            fundo, cor, borda = self._estado_numero(q)
-            atual = i == self.idx
-            marc = q["numero"] in self.marcadas
+            fundo, cor, larg, cor_borda, dica = est = self._estilo_numero(i)
+            estilos.append(est)
             itens.append(
                 ft.Container(
                     ft.Text(str(q["numero"]), size=13, weight=ft.FontWeight.W_700, color=cor),
@@ -573,12 +616,36 @@ class TelaProva:
                     shape=ft.BoxShape.CIRCLE,
                     bgcolor=fundo,
                     alignment=ft.Alignment.CENTER,
-                    border=ft.Border.all(3 if atual else (2 if marc else 1.2), c["marca"] if marc and not atual else (c["texto"] if atual else borda)),
+                    border=ft.Border.all(larg, cor_borda),
                     on_click=lambda e, i=i: ao_clicar(i),
-                    tooltip=("Marcada para revisar" if marc else None),
+                    tooltip=dica,
+                    animate=ft.Animation(220, ft.AnimationCurve.EASE_OUT),  # a cor muda suave quando responde
                 )
             )
+        if ao_clicar == self.ir_para:
+            self._grade = (itens, estilos)
         return ft.Row(itens, wrap=True, spacing=8, run_spacing=8)
+
+    def _restilizar_grade(self) -> list[ft.Control]:
+        """Muda só as bolinhas cujo estado mudou (e o "x de y respondidas")."""
+        if not self._grade:
+            return []
+        itens, estilos = self._grade
+        mudados: list[ft.Control] = []
+        for i, item in enumerate(itens):
+            novo = self._estilo_numero(i)
+            if novo == estilos[i]:
+                continue
+            fundo, cor, larg, cor_borda, dica = estilos[i] = novo
+            item.bgcolor, item.border, item.tooltip = fundo, ft.Border.all(larg, cor_borda), dica
+            item.content.color = cor
+            mudados.append(item)
+        if getattr(self, "_contagem_resp", None) is not None:
+            respondidas, total = len(self.respostas), len(self.questoes)
+            self._contagem_resp.value = f"{respondidas} de {total} respondidas"
+            self._barra_resp.content = comp.barra(respondidas / total if total else 0, self.c, altura=6, animar=False)
+            mudados += [self._contagem_resp, self._barra_resp]
+        return mudados
 
     def _painel_cartao(self) -> ft.Control:
         c = self.c
@@ -598,10 +665,12 @@ class TelaProva:
             ),
             spacing=6,
         )
+        self._contagem_resp = comp.apagado(f"{respondidas} de {total} respondidas", c, 13.5)
+        self._barra_resp = ft.Container(comp.barra(respondidas / total if total else 0, c, altura=6, animar=False))
         filhos: list[ft.Control] = [
             ft.Text("Cartão-resposta", size=19, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["texto"]),
-            comp.apagado(f"{respondidas} de {total} respondidas", c, 13.5),
-            comp.barra(respondidas / total if total else 0, c, altura=6),
+            self._contagem_resp,
+            self._barra_resp,
             self._grade_numeros(self.ir_para),
             legenda,
         ]
@@ -1078,6 +1147,8 @@ class TelaProva:
         self.falando = False
         self.app.telas.pop("inicio", None)
         self.app.telas.pop("estudar", None)
+        self._festa = True  # o resultado chega com a nota contando (e confete, se foi bem)
+        movimento.abrir_janela(self.app)
         self._atualizar()
 
     def _calcular_resultado(self):
@@ -1122,6 +1193,7 @@ class TelaProva:
 
     def _ver_resultado(self):
         self.modo = self.modo_original
+        movimento.abrir_janela(self.app)
         self._atualizar()
 
     def _revisar(self, apenas_erradas: bool):
@@ -1147,7 +1219,8 @@ class TelaProva:
 
         numero = ft.Row(
             [
-                ft.Text(f"{r['acertos']}", size=84, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["tinta"]),
+                # a nota conta de zero até os acertos (como um placar)
+                movimento.numero(app, r["acertos"], None, size=84, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["tinta"]),
                 ft.Text(f"/{r['total']}", size=36, font_family=FONTE_TITULO, color=c["texto2"]),
             ]
             + ([ft.Container(festa, margin=ft.Margin.only(left=18))] if taxa is not None and (festa := comemoracao(app, taxa)) else []),
@@ -1341,10 +1414,18 @@ class TelaProva:
             scroll=ft.ScrollMode.AUTO,
             expand=True,
         )
-        return ft.Container(
+        tela = ft.Container(
             ft.Container(coluna, width=LARGURA_RESULTADO if app.largo else None, expand=True),
             padding=ft.Padding.only(left=36 if app.largo else 16, right=16, top=28),
             alignment=ft.Alignment.TOP_LEFT if not app.largo else ft.Alignment.TOP_CENTER,
             bgcolor=c["bg"],
             expand=True,
         )
+        # foi bem no simulado (70% ou mais): chuva de confete por cima, só na hora que o resultado aparece
+        if getattr(self, "_festa", False) and (taxa or 0) >= 0.7:
+            self._festa = False
+            largura = min(app.largura, LARGURA_RESULTADO + 80) if app.largo else app.largura
+            if (chuva := movimento.confete(app, largura, min(520, app.altura))) is not None:
+                return ft.Stack([tela, ft.Container(chuva, top=0, left=0, right=0, alignment=ft.Alignment.TOP_CENTER)], expand=True)
+        self._festa = False
+        return tela

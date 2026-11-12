@@ -7,7 +7,7 @@ from datetime import timedelta
 import flet as ft
 
 from .. import ranking as rk
-from . import comp, metas
+from . import comp, metas, movimento
 from .personagem import busto
 from .tema import FONTE_TITULO
 
@@ -232,6 +232,7 @@ class SecaoRanking:
             if not self.r.logado:
                 self.linhas = None
         self.carregando = False
+        movimento.abrir_janela(app, 1.0)  # a lista chega com as linhas entrando uma depois da outra
         self.recarregar()
 
     def _mudar(self, **kw):
@@ -276,7 +277,7 @@ class SecaoRanking:
         if self.erro:
             filhos.append(comp.aviso(self.erro, c, "erro"))
         if self.carregando and self.linhas is None:
-            filhos.append(comp.carregando("Buscando o ranking…", c))
+            filhos.append(movimento.esqueleto(self.app, c, 5))
         elif self.linhas is not None:
             filhos.append(self._lista(c))
         if self.metrica == "acerto":
@@ -310,6 +311,7 @@ class SecaoRanking:
         itens = []
         for l in linhas[:50]:
             itens.append(self._linha(c, l))
+        itens = movimento.cascata(self.app, itens[:12], dy=0.25) + itens[12:]
         eu = next((l for l in linhas if l.get("voce")), None)
         if eu and eu["posicao"] > 50:
             itens.append(ft.Container(comp.apagado("…", c, 14), padding=ft.Padding.only(left=24)))

@@ -99,8 +99,11 @@ class TelaInicio:
             )
         else:
             corpo = ft.Column([continuar, alarmes, foco, prazos], spacing=28, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)
+        from . import movimento
+
+        # os blocos chegam um depois do outro, subindo de leve (só logo depois de abrir a tela)
         return ft.Column(
-            [cabecalho, self.caixa_comunicados, avisos, motivacao, numeros, corpo, ft.Container(height=30)],
+            [*movimento.cascata(app, [cabecalho, self.caixa_comunicados, avisos, motivacao, numeros, corpo]), ft.Container(height=30)],
             spacing=26,
             scroll=ft.ScrollMode.AUTO,
             expand=True,
@@ -250,26 +253,31 @@ class TelaInicio:
     # ------------------------------------------------------------------
 
     def _numeros(self, est: dict) -> ft.Control:
+        from . import movimento
+
         c = self.app.c
         taxa = est["taxa"]
+        pct = lambda v: f"{v:.0f}%"  # noqa: E731
         itens = [
-            (str(est["respondidas"]), "questões resolvidas"),
-            (f"{taxa * 100:.0f}%" if taxa is not None else "—", "de acerto"),
-            (str(self.app.db.revisao_resumo()["pendentes"]), "para revisar hoje"),
-            (str(est["provas"]), "provas na sua biblioteca"),
+            (est["respondidas"], None, "questões resolvidas"),
+            (taxa * 100 if taxa is not None else None, pct, "de acerto"),
+            (self.app.db.revisao_resumo()["pendentes"], None, "para revisar hoje"),
+            (est["provas"], None, "provas na sua biblioteca"),
         ]
         from .metas import largura_util
 
         # numa linha só quando cabe; senão, duas por linha (sem uma sobrando sozinha)
         uma_linha = largura_util(self.app) >= 760
         blocos = []
-        for i, (valor, rotulo) in enumerate(itens):
+        for i, (valor, fmt, rotulo) in enumerate(itens):
             separa = i if uma_linha else i % 2
             blocos.append(
                 ft.Container(
                     ft.Column(
                         [
-                            ft.Text(valor, size=34 if self.app.largo else 30, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["tinta"] if i == 1 else c["texto"]),
+                            # os números contam de zero até o valor quando a tela abre
+                            movimento.numero(self.app, valor, fmt, size=34 if self.app.largo else 30, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600,
+                                             color=c["tinta"] if i == 1 else c["texto"]),
                             comp.apagado(rotulo, c, 13.5),
                         ],
                         spacing=0,

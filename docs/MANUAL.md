@@ -63,6 +63,7 @@ App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolv
   - Fonte Atkinson Hyperlegible, com tamanho e espaçamento ajustáveis.
   - Leitura em voz alta da questão.
   - Lembrete de pausa 20-20-20.
+- **Animações** (desde a 1.29): a tela nova chega deslizando de leve, os cartões do Início e do Painel entram um depois do outro, os números contam até o valor e as barras enchem. Na prova, a questão seguinte desliza de lado, a alternativa certa dá um pulinho e a errada balança; no resultado, a nota conta como um placar e cai confete quando você faz 70% ou mais. No computador, as linhas das listas acendem quando o mouse passa. São animações do próprio Flutter (o Python só dá a ordem), então não pesam. Para desligar: **Ajustes → Leitura confortável → Animações**.
 - **Celular**: o mesmo app abre no navegador do celular, na mesma rede Wi-Fi.
 - **Marcar PDF** (Estudar → Marcar PDF): marca-texto em 4 cores, sublinhado e notas em qualquer PDF, e um PDF novo com as marcações, editáveis ou fixas. Veja [Marcar PDF](#marcar-pdf).
 - **Atualização automática**: o app avisa no Início quando sai versão nova e atualiza com um toque. Veja [Atualizações](#atualizações).

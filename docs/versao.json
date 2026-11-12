@@ -1,10 +1,11 @@
 {
-  "versao": "1.28.0",
-  "data": "02/11/2026",
+  "versao": "1.29.0",
+  "data": "12/11/2026",
   "notas": [
-    "Celular: ao abrir, o app avisa quando sai versão nova, com o botão Baixar e instalar (dá para marcar uma versão como obrigatória)",
-    "Celular: o APK passa a sair sempre com a mesma assinatura, então as próximas versões instalam por cima sem perder os estudos (quem tem a 1.27 ou anterior precisa desinstalar uma última vez)",
-    "Celular: restaurar a cópia de segurança agora deixa escolher o arquivo .aprova"
+    "Animações em todo o app: a tela nova chega deslizando, os cartões entram um depois do outro, os números contam e as barras enchem",
+    "Na prova: a questão seguinte desliza, a alternativa certa dá um pulinho e a errada balança; confete no resultado quando você vai bem",
+    "Mais rápido: responder e trocar de questão mudam só o que precisa; o menu do computador não redesenha a página; a lista de concursos é desenhada aos poucos",
+    "Ajustes → Leitura confortável: dá para desligar as animações"
   ],
-  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.28.0.zip"
+  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.29.0.zip"
 }

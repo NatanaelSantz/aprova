@@ -305,6 +305,8 @@ class TelaAjustes:
             comp.texto("Espaço entre linhas", c, 14.5),
             ft.Slider(min=1.3, max=2.1, divisions=8, value=float(app.aj["entrelinha"]), label="{value}", on_change=mudar_linha),
             caixa,
+            comp.interruptor("Animações (telas que deslizam, números que contam, confete no simulado)", bool(app.aj["animacoes"]),
+                             lambda e: app.aj.set("animacoes", bool(e.control.value))),
         )
 
     def _pausa(self) -> ft.Control:

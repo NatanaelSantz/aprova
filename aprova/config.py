@@ -34,6 +34,7 @@ PADROES = {
     "entrelinha": 1.55,
     "voz_velocidade": 0,  # -5 (lenta) a +5 (rápida)
     "pausa_olhos": True,
+    "animacoes": True,  # telas e números com movimento (Ajustes → Leitura confortável)
     "pausa_minutos": 20,
     "regiao": "sudeste",
     "claude_api_key": "",

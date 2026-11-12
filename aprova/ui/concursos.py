@@ -5,10 +5,11 @@ from __future__ import annotations
 import flet as ft
 
 from ..pci import REGIOES, Concurso, ErroRede, concurso_de_dict, concurso_para_dict
-from . import comp
+from . import comp, movimento
 from .tema import FONTE_TITULO
 
 NIVEIS = ["Fundamental", "Médio", "Técnico", "Superior"]
+POR_VEZ = 60  # linhas da lista desenhadas de cada vez ("Mostrar mais" desenha as próximas)
 
 
 class TelaConcursos:
@@ -193,8 +194,13 @@ class TelaConcursos:
 
     def _filtrar(self, e):
         self.filtro = e.control.value or ""
+        self._limite = POR_VEZ
         self._preencher()
-        self.app.atualizar()
+        # a cada letra digitada só a lista e a contagem vão para a tela (antes ia a página inteira)
+        try:
+            self.app.page.update(self.lista, self.status)
+        except Exception:  # noqa: BLE001
+            self.app.atualizar()
 
     def _alternar_nivel(self, n: str):
         self.niveis ^= {n}
@@ -313,7 +319,8 @@ class TelaConcursos:
             return
         favs = {d["url"] for d in self.app.db.favoritos()}
         uf_anterior = None
-        for item in itens[:400]:
+        limite = getattr(self, "_limite", POR_VEZ)
+        for item in itens[:limite]:
             if self.aba == "abertos" and item.uf != uf_anterior and not self.filtro:
                 uf_anterior = item.uf
                 self.lista.controls.append(
@@ -323,6 +330,20 @@ class TelaConcursos:
                     )
                 )
             self.lista.controls.append(self._linha(item, item.url in favs))
+        if len(itens) > limite:
+            # lista longa: desenha aos poucos (com 400 concursos, cada letra do filtro mandava 400 linhas para a tela)
+            self.lista.controls.append(
+                ft.Container(comp.botao_contorno(f"Mostrar mais ({len(itens) - limite})", self._mostrar_mais, ft.Icons.EXPAND_MORE),
+                             padding=ft.Padding.only(top=14), alignment=ft.Alignment.CENTER)
+            )
+
+    def _mostrar_mais(self, e=None):
+        self._limite = getattr(self, "_limite", POR_VEZ) + POR_VEZ
+        self._preencher()
+        try:
+            self.app.page.update(self.lista)
+        except Exception:  # noqa: BLE001
+            self.app.atualizar()
 
     def _preencher_bancas(self):
         app, c = self.app, self.app.c
@@ -388,7 +409,7 @@ class TelaConcursos:
                 ft.Text(item.prazo or "—", size=13, color=c["texto2"], text_align=ft.TextAlign.CENTER), width=68, alignment=ft.Alignment.CENTER
             )
         )
-        return ft.Container(
+        return movimento.realce(app, ft.Container(
             content=ft.Row(
                 [
                     esquerda,
@@ -421,7 +442,7 @@ class TelaConcursos:
             on_click=lambda e, it=item: app.page.run_task(abrir_edital, app, it),
             ink=True,
             border_radius=8,
-        )
+        ), fundo=c["sup2"])
 
     def _alternar_favorito(self, e, item: Concurso):
         db = self.app.db

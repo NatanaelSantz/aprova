@@ -2783,3 +2783,76 @@ def test_atualizacao_no_celular(monkeypatch):
     # no app do computador nada disso liga
     app.celular = False
     assert not at.disponivel_celular(app)
+
+
+def test_movimento_animacoes_leves(monkeypatch):
+    """Animações: só logo depois de trocar de tela (ou quando pedidas), desligam nos Ajustes e chegam ao estado final
+    numa atualização só."""
+    import asyncio
+
+    import flet as ft
+
+    from aprova.ui import comp, movimento
+
+    class Pagina:
+        def __init__(self):
+            self.tarefas, self.atualizados = [], []
+
+        def run_task(self, f, *a):
+            self.tarefas.append((f, a))
+
+        def update(self, *ctrls):
+            self.atualizados.append(ctrls)
+
+    class AppFalso:
+        celular = False
+
+        def __init__(self, ligado=True):
+            self.aj = {"animacoes": ligado}
+            self.page = Pagina()
+
+    app = AppFalso()
+    texto = ft.Text("oi", expand=True)
+    assert movimento.entrada(app, texto) is texto  # tela não acabou de abrir: nada muda
+    movimento.abrir_janela(app)
+    caixa = movimento.entrada(app, texto, ordem=2)
+    assert isinstance(caixa, ft.Container) and caixa.opacity == 0 and caixa.expand is True and caixa.content is texto
+    escondido = ft.Text("x", visible=False)
+    assert movimento.entrada(app, escondido) is escondido  # embrulhar deixaria um vão na coluna
+    # cascata: cada um um pouco mais lento (todos revelados juntos)
+    a, b = movimento.cascata(app, [ft.Text("1"), ft.Text("2")])
+    assert a.animate_opacity.duration < b.animate_opacity.duration
+    # números contam a partir de zero; fora da janela já aparecem prontos
+    n = movimento.numero(app, 184, None, size=30)
+    assert n.value == "0" and n.size == 30
+    movimento.fechar_janela(app)
+    assert movimento.numero(app, 184, None).value == "184"
+    assert movimento.numero(app, None, None).value == "—"
+    # revelar: quem já está na tela vai para o estado final numa atualização só
+    monkeypatch.setattr(movimento, "_montado", lambda c: True)
+    asyncio.run(movimento._revelar(app))
+    assert caixa.opacity == 1 and caixa.offset == ft.Offset(0, 0)
+    assert len(app.page.atualizados) == 1 and caixa in app.page.atualizados[0]
+    # Ajustes → Animações desligado: nem com "forçar"
+    desligado = AppFalso(ligado=False)
+    movimento.abrir_janela(desligado)
+    assert movimento.entrada(desligado, texto, forcar=True) is texto
+    assert movimento.confete(desligado, 800) is None
+    # a barra continua funcionando fora de uma sessão do app (sem animação)
+    assert isinstance(comp.barra(0.5, {"sup2": "#eee", "tinta": "#123"}), ft.Container)
+
+
+def test_prova_atualiza_so_o_que_muda(tmp_path):
+    """1.29: responder ou trocar de questão muda só as bolinhas do cartão-resposta que mudaram (não a prova inteira)."""
+    t = _tela_prova(tmp_path, "estudo")
+    t._painel_cartao()  # monta o cartão-resposta (guarda as bolinhas)
+    itens, _ = t._grade
+    assert len(itens) == 2 and t._restilizar_grade()[:-2] == []  # nada mudou: só a contagem
+    t.respostas[1] = "B"
+    t.reveladas.add(1)
+    mudados = t._restilizar_grade()
+    assert itens[0] in mudados and itens[1] not in mudados  # só a questão 1 (agora certa) muda de cor
+    assert itens[0].bgcolor == t.c["ok"] and t._contagem_resp.value == "1 de 2 respondidas"
+    t.idx = 1
+    mudados = t._restilizar_grade()
+    assert itens[0] in mudados and itens[1] in mudados  # o anel de "questão atual" passa da 1 para a 2

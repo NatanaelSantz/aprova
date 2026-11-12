@@ -165,13 +165,18 @@ def barras_dias(app, r: dict) -> ft.Control:
     cores = {"cumprida": c["ok"], "extra": ft.Colors.with_opacity(0.45, c["tinta"]), "abaixo": c["marca"], "hoje": c["tinta"]}
     tem_extra = any(x["situacao"] == "extra" for x in r["semana"])
     colunas = []
-    for x in r["semana"]:
+    from . import movimento
+
+    for i, x in enumerate(r["semana"]):
         seg, meta = x["segundos"], x["meta"]
         h = max(4, altura * seg / maior) if seg else 3
         cor = cores.get(x["situacao"], c["traco"]) if seg else c["borda"]
         if x["hoje"] and seg and x["situacao"] not in ("cumprida", "extra"):
             cor = c["tinta"]
-        pilha: list[ft.Control] = [ft.Container(height=h, bgcolor=cor, border_radius=ft.BorderRadius.only(top_left=6, top_right=6, bottom_left=2, bottom_right=2), width=26 if app.largo else 18, bottom=0)]
+        coluna_dia = ft.Container(height=h, bgcolor=cor, border_radius=ft.BorderRadius.only(top_left=6, top_right=6, bottom_left=2, bottom_right=2), width=26 if app.largo else 18, bottom=0)
+        if seg:
+            movimento.crescer_altura(app, coluna_dia, ordem=i)  # as barras sobem do chão, uma depois da outra
+        pilha: list[ft.Control] = [coluna_dia]
         if meta:
             # tracinho na altura da meta do dia
             pilha.append(ft.Container(height=2, width=36 if app.largo else 26, bgcolor=c["texto2"], bottom=altura * meta / maior - 1, opacity=0.55))

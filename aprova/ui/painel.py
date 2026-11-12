@@ -7,7 +7,7 @@ from datetime import date
 import flet as ft
 
 from .. import analise, livros
-from . import comp, metas
+from . import comp, metas, movimento
 from .app import DESTINOS_LEMBRETE
 from .tema import FONTE_TITULO
 
@@ -73,6 +73,7 @@ class TelaPainel:
 
     def _ir_aba(self, aba: str) -> None:
         self.aba = aba
+        movimento.abrir_janela(self.app)  # a aba nova chega com os cartões subindo
         self.app.recarregar_tela_sem_perder(self)
 
     def _abas_celular(self) -> ft.Control:
@@ -81,13 +82,16 @@ class TelaPainel:
 
     # ================================================================ desempenho
 
-    def _numero(self, valor: str, rotulo: str, detalhe: str = "", cor: str | None = None) -> ft.Container:
+    def _numero(self, valor, rotulo: str, detalhe: str = "", cor: str | None = None, fmt=None) -> ft.Container:
+        """valor: número (conta de zero até ele quando a aba abre) ou texto pronto."""
         c = self.app.c
+        estilo = dict(size=26, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=cor or c["texto"])
+        grande = ft.Text(valor, **estilo) if isinstance(valor, str) else movimento.numero(self.app, valor, fmt, **estilo)
         return ft.Container(
             ft.Column(
                 [
                     comp.apagado(rotulo, c, 13),
-                    ft.Text(valor, size=26, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=cor or c["texto"]),
+                    grande,
                     comp.apagado(detalhe, c, 12.5) if detalhe else ft.Container(),
                 ],
                 spacing=1,
@@ -110,17 +114,18 @@ class TelaPainel:
         var = r["variacao"]
         var_txt = "" if var is None else (f"{'+' if var >= 0 else '−'}{abs(var) * 100:.0f} pontos vs. semana passada")
         numeros = [
-            self._numero(str(r["respondidas"]), "Questões resolvidas", f"{r['acertos']} acertos"),
-            self._numero(_pct(r["taxa"]), "Taxa de acerto", "no total", c["ok"] if (r["taxa"] or 0) >= 0.7 else (c["marca"] if (r["taxa"] or 0) >= 0.5 else c["erro"])),
-            self._numero(str(r["semana_respondidas"]), "Nesta semana", var_txt or "questões corrigidas"),
-            self._numero(str(len(r["fracas"])), "Pontos a melhorar", f"{len(r['fortes'])} pontos fortes"),
+            self._numero(r["respondidas"], "Questões resolvidas", f"{r['acertos']} acertos"),
+            self._numero(r["taxa"] if r["taxa"] is not None else _pct(None), "Taxa de acerto", "no total",
+                         c["ok"] if (r["taxa"] or 0) >= 0.7 else (c["marca"] if (r["taxa"] or 0) >= 0.5 else c["erro"]), fmt=_pct),
+            self._numero(r["semana_respondidas"], "Nesta semana", var_txt or "questões corrigidas"),
+            self._numero(len(r["fracas"]), "Pontos a melhorar", f"{len(r['fortes'])} pontos fortes"),
         ]
         # um bloco só com os quatro números (em vez de quatro cartões iguais)
         linha_numeros = comp.bloco(ft.ResponsiveRow(numeros, spacing=18, run_spacing=14, breakpoints=comp.quebras(self.app, metas.QUEBRAS_CARTOES)), c, padding=18)
         blocos: list[ft.Control] = [linha_numeros, self._bloco_disciplinas(r), self._bloco_evolucao(r)]
         tabelas = [self._tabela("Por banca", r["bancas"]), self._tabela("Por concurso", r["concursos"])]
         blocos.append(_lado_a_lado(tabelas, self.app))
-        return ft.Column(blocos, spacing=16)
+        return ft.Column(movimento.cascata(self.app, blocos), spacing=16)
 
     def _bloco_disciplinas(self, r: dict) -> ft.Control:
         app, c = self.app, self.app.c
@@ -329,7 +334,7 @@ class TelaPainel:
         baixo = [self._por_disciplina(r), metas.cronometro(app)]
         blocos.append(_lado_a_lado(baixo, self.app))
         blocos.append(comp.apagado("O tempo conta sozinho enquanto você resolve questões no app (para depois de 8 minutos sem mexer). Para estudo fora do app, use o cronômetro ou lance o tempo.", c, 12.5))
-        return ft.Column(blocos, spacing=16)
+        return ft.Column(movimento.cascata(self.app, blocos), spacing=16)
 
     def _mapa_calor(self, r: dict) -> ft.Control:
         c = self.app.c
