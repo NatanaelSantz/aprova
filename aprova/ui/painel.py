@@ -1,4 +1,4 @@
-"""Painel: desempenho (onde está bem e mal), tempo de estudo, lembretes e livros."""
+"""Painel: desempenho (onde está bem e mal), tempo de estudo, edital verticalizado, ranking, lembretes e livros."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from . import comp, metas, movimento
 from .app import DESTINOS_LEMBRETE
 from .tema import FONTE_TITULO
 
-ABAS = [("desempenho", "Desempenho"), ("tempo", "Tempo"), ("ranking", "Ranking"), ("lembretes", "Lembretes"), ("livros", "Livros")]
+ABAS = [("desempenho", "Desempenho"), ("tempo", "Tempo"), ("edital", "Edital"), ("ranking", "Ranking"), ("lembretes", "Lembretes"), ("livros", "Livros")]
 NIVEL_COR = {"forte": ("ok_suave", "ok"), "atencao": ("marca_suave", "marca"), "fraco": ("erro_suave", "erro"), "poucos": ("sup2", "texto2")}
 
 
@@ -54,12 +54,19 @@ class TelaPainel:
             if app.largo
             else ft.Column([comp.titulo("Painel", c, 28), self._abas_celular()], spacing=10)
         )
-        corpo = {"desempenho": self._desempenho, "tempo": self._tempo, "ranking": self._ranking, "lembretes": self._lembretes, "livros": self._livros}[self.aba]()
+        corpo = {"desempenho": self._desempenho, "tempo": self._tempo, "edital": self._edital, "ranking": self._ranking, "lembretes": self._lembretes, "livros": self._livros}[self.aba]()
         return ft.Column(
             [topo, ft.ListView([corpo, ft.Container(height=30)], expand=True, spacing=0)],
             spacing=16,
             expand=True,
         )
+
+    def _edital(self) -> ft.Control:
+        from .edital import SecaoEdital
+
+        if getattr(self, "_secao_edital", None) is None:
+            self._secao_edital = SecaoEdital(self.app, self._recarregar)
+        return self._secao_edital.build()
 
     def _ranking(self) -> ft.Control:
         from .ranking import SecaoRanking

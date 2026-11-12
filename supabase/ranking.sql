@@ -1,5 +1,5 @@
 -- Aprova: contas, papéis (admin/aluno), ranking, grupos e fórum dos grupos (Supabase)
--- SQL da versão 1.26 do app. Use sempre o mais novo, direto do GitHub:
+-- SQL da versão 1.30 do app. Use sempre o mais novo, direto do GitHub:
 --   https://github.com/NatanaelSantz/aprova/blob/main/supabase/ranking.sql
 -- (uma cópia antiga dá erro "cannot drop columns from view": ela não tem as colunas novas, como o avatar)
 -- Como usar: no painel do Supabase, abra "SQL Editor", cole este arquivo inteiro e clique em "Run".
@@ -201,6 +201,32 @@ from public.membros m
 join public.ranking_semana r on r.usuario_id = m.usuario_id;
 
 grant select on public.ranking_semana, public.ranking_grupo to authenticated;
+
+-- 1.30: ranking do mês e de sempre. Soma as semanas a partir de "desde" (sem "desde": todas);
+-- a sequência é a maior do período. Com "cod", só quem está no grupo (e só para quem é do grupo,
+-- pelas mesmas regras de membros). Roda com as permissões de quem chama, como as views acima.
+create or replace function public.ranking_periodo(desde date default null, cod text default null)
+returns table (usuario_id uuid, apelido text, concurso text, segundos bigint, questoes bigint, acertos bigint,
+               dias bigint, sequencia integer, semanas bigint, taxa numeric, avatar jsonb)
+language sql stable set search_path = public as $$
+    with soma as (
+        select e.usuario_id, sum(e.segundos)::bigint as segundos, sum(e.questoes)::bigint as questoes,
+               sum(e.acertos)::bigint as acertos, sum(e.dias)::bigint as dias, max(e.sequencia) as sequencia,
+               count(*) as semanas
+        from public.estatisticas e
+        where (desde is null or e.semana >= desde)
+          and (cod is null or exists (select 1 from public.membros m where m.codigo = upper(trim(cod)) and m.usuario_id = e.usuario_id))
+        group by e.usuario_id
+    )
+    select s.usuario_id, p.apelido, p.concurso, s.segundos, s.questoes, s.acertos, s.dias, s.sequencia, s.semanas,
+           case when s.questoes > 0 then round(s.acertos::numeric / s.questoes, 4) end,
+           p.avatar
+    from soma s
+    join public.perfis p on p.id = s.usuario_id
+    where not p.bloqueado;
+$$;
+revoke all on function public.ranking_periodo(date, text) from public, anon;
+grant execute on function public.ranking_periodo(date, text) to authenticated;
 
 -- ---------------------------------------------------------------- comunicados (o admin escreve, todos leem na tela Início)
 create table if not exists public.comunicados (

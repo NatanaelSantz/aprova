@@ -452,6 +452,53 @@ def test_ranking_cadastro_envio_e_grupos(tmp_path):
         srv.parar()
 
 
+def test_ranking_do_mes_e_de_sempre(tmp_path):
+    import sys
+    from datetime import date, timedelta
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from servidor_falso import CHAVE, ServidorFalso
+
+    from aprova import config, ranking
+
+    assert ranking.inicio_periodo("mes", date(2026, 11, 12)) == date(2026, 10, 26)  # a semana do dia 1 conta
+    assert ranking.inicio_periodo("sempre") is None
+    srv = ServidorFalso().iniciar()
+    try:
+        hoje = ranking.inicio_semana()
+        srv.semear([("Camila", "Dataprev", {"segundos": 9000, "questoes": 60, "acertos": 50, "dias": 3, "sequencia": 3}),
+                    ("Rafa", "INSS", {"segundos": 7200, "questoes": 150, "acertos": 120, "dias": 4, "sequencia": 4})], hoje.isoformat())
+        # semanas antigas: a Rafa estudou muito no começo do ano
+        antiga = (hoje - timedelta(days=7 * 30)).isoformat()
+        srv.dados.tabelas["estatisticas"].append({"usuario_id": srv.uid_de("Rafa"), "semana": antiga, "segundos": 90000, "questoes": 300,
+                                                  "acertos": 240, "dias": 7, "sequencia": 21})
+        r = ranking.Ranking(config.Ajustes(tmp_path / "a.json"), {"url": srv.url, "chave": CHAVE})
+        r.criar_conta("eu@exemplo.com", "segredo1", "Natan")
+        for _ in range(2):  # com o SQL da 1.30 e, na volta, num servidor antigo (o app soma as semanas)
+            semana = r.ranking("horas")
+            assert [l["apelido"] for l in semana] == ["Camila", "Rafa"]
+            sempre = r.ranking("horas", periodo="sempre")
+            assert [(l["apelido"], l["segundos"], l["posicao"]) for l in sempre] == [("Rafa", 97200, 1), ("Camila", 9000, 2)]
+            assert next(l for l in sempre if l["apelido"] == "Rafa")["sequencia"] == 21  # a maior sequência
+            assert [l["apelido"] for l in r.ranking("sequencia", periodo="mes")] == ["Rafa", "Camila"]
+            # acerto: no mês precisa de 100 questões, desde o começo de 200
+            assert [l["apelido"] for l in r.ranking("acerto", periodo="mes")] == ["Rafa"]
+            assert [l["apelido"] for l in r.ranking("acerto", periodo="semana")] == ["Camila", "Rafa"]
+            assert [l["apelido"] for l in r.ranking("acerto", periodo="sempre")] == ["Rafa"]
+            assert r.ranking("horas", periodo="passada") == []
+            srv.dados.sem_periodo = True
+        assert r.servidor_sem_periodo
+        # grupo: só os membros
+        codigo = r.criar_grupo("Turma")
+        srv.dados.sem_periodo = False
+        r.servidor_sem_periodo = False
+        assert r.ranking("horas", grupo=codigo, periodo="sempre") == []
+        srv.dados.tabelas["membros"].append({"codigo": codigo, "usuario_id": srv.uid_de("Camila")})
+        assert [l["apelido"] for l in r.ranking("horas", grupo=codigo, periodo="sempre")] == ["Camila"]
+    finally:
+        srv.parar()
+
+
 def test_ranking_config_e_apelido(tmp_path):
     from aprova import ranking
 
@@ -2856,3 +2903,92 @@ def test_prova_atualiza_so_o_que_muda(tmp_path):
     t.idx = 1
     mudados = t._restilizar_grade()
     assert itens[0] in mudados and itens[1] in mudados  # o anel de "questão atual" passa da 1 para a 2
+
+
+EDITAL_CEBRASPE = """CONHECIMENTOS BÁSICOS
+LÍNGUA PORTUGUESA: 1 Compreensão e interpretação de textos de gêneros variados. 2 Domínio da ortografia oficial.
+3 Domínio da estrutura morfossintática do período. 3.1 Emprego dos sinais de pontuação. 3.2 Concordância verbal e nominal.
+3.3 Emprego do sinal indicativo de crase. NOÇÕES DE INFORMÁTICA: 1 Noções de sistema operacional (ambientes Linux e Windows).
+2 Redes de computadores. LEGISLAÇÃO: 1 Lei nº 8.112/1990 e alterações. 2 Lei 14.133 de 2021 (licitações). 3 Lei nº 13.709/2018 (LGPD)."""
+
+
+def test_edital_ler_o_texto_colado():
+    """1.30: o conteúdo programático colado vira disciplinas e tópicos (Cebraspe, Vunesp, FGV)."""
+    from aprova import edital
+
+    ed = edital.ler_texto(EDITAL_CEBRASPE)
+    assert [d["nome"] for d in ed] == ["Língua Portuguesa", "Noções de Informática", "Legislação"]
+    port = ed[0]["topicos"]
+    assert [t["texto"] for t in port][:2] == ["Compreensão e interpretação de textos de gêneros variados", "Domínio da ortografia oficial"]
+    assert [(t["texto"], t["nivel"]) for t in port][-1] == ("Emprego do sinal indicativo de crase", 1)
+    # números de lei não viram tópicos novos
+    assert [t["texto"] for t in ed[2]["topicos"]] == ["Lei nº 8.112/1990 e alterações", "Lei 14.133 de 2021 (licitações)", "Lei nº 13.709/2018 (LGPD)"]
+    assert edital.disciplina_do_app("Noções de Informática") == "Informática"
+    vunesp = edital.ler_texto("Língua Portuguesa\nLeitura e interpretação de textos. Sinônimos e antônimos. Pontuação. Crase.\n\n"
+                              "Matemática\nRazão e proporção. Porcentagem. Regra de três simples e composta.")
+    assert [(d["nome"], len(d["topicos"])) for d in vunesp] == [("Língua Portuguesa", 4), ("Matemática", 3)]
+    fgv = edital.ler_texto("Direito Constitucional: Princípios fundamentais; Direitos e garantias fundamentais; Organização do Estado.\n"
+                           "Raciocínio Lógico: Estruturas lógicas; Diagramas lógicos; Probabilidade.")
+    assert [d["nome"] for d in fgv] == ["Direito Constitucional", "Raciocínio Lógico"] and len(fgv[1]["topicos"]) == 3
+    assert edital.ler_texto("") == [] and edital.nome_bonito("NOÇÕES DE TI") == "Noções de TI"
+    assert sum(len(d["topicos"]) for d in edital.modelo_basico()) > 40
+
+
+def test_edital_marcas_acerto_e_progresso(tmp_path):
+    """1.30: a marca de questões vem sozinha do que a pessoa resolveu; colar de novo mantém as marcas."""
+    from aprova import edital
+    from aprova.db import Banco
+
+    b = Banco(tmp_path / "e.db")
+    p = b.criar_prova(titulo="P", origem_url="u1")
+    b.salvar_questoes(p, [{"numero": i + 1, "enunciado": "Assinale o uso correto do acento indicativo de crase.", "disciplina": "Língua Portuguesa",
+                           "alternativas": {"A": "a"}, "gabarito": "A"} for i in range(12)])
+    t = b.iniciar_tentativa(p, "estudo")
+    for n in range(1, 13):
+        b.registrar_resposta(t, n, "Língua Portuguesa", "A" if n <= 9 else "B", n <= 9)
+    ed = edital.novo("TRT", edital.ler_texto(EDITAL_CEBRASPE))
+    v = edital.vincular(b, ed)
+    crase = next(j for j, x in enumerate(ed["disciplinas"][0]["topicos"]) if "crase" in x["texto"])
+    assert v["topicos"][(0, crase)]["total"] == 12 and v["topicos"][(0, crase)]["taxa"] == 0.75
+    assert v["disciplinas"][0]["total"] == 12 and 1 not in v["disciplinas"]  # Informática: nada resolvido
+    topico = ed["disciplinas"][0]["topicos"][crase]
+    assert edital.marcado(topico, "questoes", v["topicos"][(0, crase)]) and edital.automatico(topico, v["topicos"][(0, crase)])
+    antes = edital.progresso(ed, v)
+    assert antes["feitas"] == 1 and antes["topicos"] == 11 and antes["completos"] == 0
+    # a pessoa marca teoria e revisão da crase: tópico completo
+    topico["teoria"] = topico["revisao"] = True
+    assert edital.progresso(ed, v)["completos"] == 1 and edital.progresso(ed, v, so=0)["feitas"] == 3
+    # desmarcar o automático vale (a pessoa manda)
+    topico["questoes"] = False
+    assert not edital.marcado(topico, "questoes", v["topicos"][(0, crase)])
+    # colar de novo (com um tópico a mais) mantém as marcas dos tópicos que continuam iguais
+    novo = edital.novo("TRT", edital.ler_texto(EDITAL_CEBRASPE + " ÉTICA: 1 Código de Ética."), ed)
+    t2 = next(x for x in novo["disciplinas"][0]["topicos"] if "crase" in x["texto"])
+    assert t2["teoria"] is True and t2["questoes"] is False and len(novo["disciplinas"]) == 4
+
+
+def test_edital_na_tela(tmp_path):
+    """1.30: Painel → Edital monta as disciplinas, e tocar numa marca muda só a linha, a disciplina e o topo."""
+    from types import SimpleNamespace
+
+    from aprova import config, edital
+    from aprova.db import Banco
+    from aprova.ui import tema
+    from aprova.ui.edital import SecaoEdital, resumo
+
+    atualizados = []
+    app = SimpleNamespace(db=Banco(tmp_path / "t.db"), aj=config.AjustesMemoria(), c=tema.paleta("claro"), largo=True,
+                          page=SimpleNamespace(update=lambda *cs: atualizados.append(cs), run_task=lambda *a: None), msg=lambda t: None)
+    s = SecaoEdital(app, lambda: None)
+    vazio = s.build()
+    assert "Edital verticalizado" in str(vazio.content.controls[1].value) and resumo(app) is None
+    app.aj.set("edital", edital.novo("TRT", edital.ler_texto(EDITAL_CEBRASPE)))
+    s.vinculo = {"topicos": {}, "disciplinas": {}}
+    s.build()
+    assert s.abertas == {0, 1, 2} and len(s._linhas) == 11  # poucos tópicos: tudo aberto
+    s._trocar(0, 0, "teoria")
+    assert app.aj.get("edital")["disciplinas"][0]["topicos"][0]["teoria"] is True
+    assert len(atualizados[-1]) == 3  # linha + cabeçalho da disciplina + topo
+    assert resumo(app)["feitas"] == 1
+    s._trocar(0, 0, "teoria")
+    assert app.aj.get("edital")["disciplinas"][0]["topicos"][0]["teoria"] is False

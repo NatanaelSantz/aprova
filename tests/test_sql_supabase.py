@@ -197,6 +197,33 @@ def test_ranking_e_comunicados(db):
     assert db.como(B).q("select titulo from comunicados") == [("Simulado sábado",)]
 
 
+def test_ranking_do_mes_e_de_sempre(db):
+    from datetime import date, timedelta
+
+    seg = date.today() - timedelta(days=date.today().weekday())
+    db.como(B).q("insert into estatisticas (usuario_id, semana, segundos, questoes, acertos, dias, sequencia) values (%s, %s, 7200, 100, 80, 5, 9)", (B, seg))
+    db.como(B).q("insert into estatisticas (usuario_id, semana, segundos, questoes, acertos, dias, sequencia) values (%s, %s, 3600, 100, 60, 4, 4)", (B, seg - timedelta(days=7)))
+    # semanas antigas (o app só manda as duas últimas; estas vieram de semanas passadas)
+    db.como(None).q("insert into estatisticas (usuario_id, semana, segundos, questoes, acertos, dias, sequencia) values (%s, %s, 1800, 50, 50, 2, 12)", (B, seg - timedelta(days=35)))
+    db.como(None).q("insert into estatisticas (usuario_id, semana, segundos, questoes) values (%s, %s, 99999, 10)", (D, seg))  # bloqueado
+    sempre = db.como(C).q("select apelido, segundos, questoes, acertos, dias, sequencia, semanas, taxa::float from ranking_periodo() order by segundos desc")
+    assert sempre == [("Beto", 12600, 250, 190, 11, 12, 3, 0.76), ("Caio", 3600, 10, 7, 0, 0, 1, 0.7)]
+    assert db.como(C).q("select segundos, sequencia, semanas from ranking_periodo(%s) where apelido = 'Beto'", (seg - timedelta(days=7),)) == [(10800, 9, 2)]
+    # do grupo: só quem é do grupo vê, e só aparecem os membros
+    assert db.como(B).q("select apelido from ranking_periodo(null, ' convite-01 ')") == [("Beto",)]
+    assert db.como(C).q("select apelido from ranking_periodo(null, 'CONVITE-01')") == []
+    # sem login não roda
+    con = db.con.cursor()
+    con.execute("reset role")
+    con.execute("set role anon")
+    try:
+        con.execute("select * from ranking_periodo()")
+        raise AssertionError("anon não deveria ver o ranking")
+    except psycopg.Error as e:
+        assert "permission denied" in str(e)
+    con.execute("reset role")
+
+
 def test_anexos_figurinhas_e_arquivos(db):
     db.como(B).q("insert into grupos (codigo, nome, criado_por) values ('ANEXO-0001', 'Turma', %s)", (B,))
     db.como(B).q("insert into membros (codigo, usuario_id) values ('ANEXO-0001', %s)", (B,))

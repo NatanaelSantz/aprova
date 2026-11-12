@@ -1,8 +1,6 @@
-"""Painel → Ranking: compare seu estudo da semana com outras pessoas."""
+"""Painel → Ranking: compare seu estudo da semana, do mês ou de sempre com outras pessoas."""
 
 from __future__ import annotations
-
-from datetime import timedelta
 
 import flet as ft
 
@@ -12,6 +10,17 @@ from .personagem import busto
 from .tema import FONTE_TITULO
 
 MEDALHAS = {1: "#C98E12", 2: "#8A94A6", 3: "#A0612D"}
+
+
+# como cada período aparece na frase "Você está em 3º … nesta semana"
+NO_PERIODO = {"semana": "nesta semana", "passada": "na semana passada", "mes": "neste mês", "sempre": "desde o começo"}
+LONGO = ("mes", "sempre")  # períodos que somam várias semanas
+
+
+def _nome_metrica(metrica: str, periodo: str) -> str:
+    if metrica == "sequencia" and periodo in LONGO:
+        return "Maior sequência"
+    return rk.METRICAS[metrica][1]
 
 
 def _valor(metrica: str, l: dict) -> str:
@@ -32,7 +41,7 @@ class SecaoRanking:
         self.recarregar = recarregar  # redesenha o Painel
         self.metrica = "horas"
         self.grupo: str | None = None
-        self.semana_passada = False
+        self.periodo = "semana"  # semana, passada, mes ou sempre (rk.PERIODOS)
         self.linhas: list[dict] | None = None
         self.grupos: list[dict] = []
         self.erro: str | None = None
@@ -220,13 +229,12 @@ class SecaoRanking:
         app = self.app
         self.carregando, self.erro = True, None
         self.recarregar()
-        semana = rk.inicio_semana() - (timedelta(days=7) if self.semana_passada else timedelta(0))
         try:
             await app.em_segundo_plano(app.sincronizar_ranking_agora)
             self.grupos = await app.em_segundo_plano(self.r.meus_grupos)
             if self.grupo and self.grupo not in {g["codigo"] for g in self.grupos}:
                 self.grupo = None
-            self.linhas = await app.em_segundo_plano(self.r.ranking, self.metrica, semana, self.grupo)
+            self.linhas = await app.em_segundo_plano(lambda: self.r.ranking(self.metrica, grupo=self.grupo, periodo=self.periodo))
         except rk.ErroRanking as ex:
             self.erro = str(ex)
             if not self.r.logado:
@@ -255,14 +263,24 @@ class SecaoRanking:
             on_select=lambda e: self._mudar(grupo=None if e.control.value == "geral" else e.control.value),
             dense=True,
             border_radius=10,
-            width=200,
+            width=200 if app.largo else 170,  # no celular: grupo e período lado a lado
         )
-        semana = ft.SegmentedButton(
-            selected=["passada" if self.semana_passada else "esta"],
-            segments=[ft.Segment(value="esta", label=ft.Text("Esta semana")), ft.Segment(value="passada", label=ft.Text("Semana passada"))],
-            show_selected_icon=False,
-            on_change=lambda e: self._mudar(semana_passada=e.control.selected[0] == "passada"),
-        )
+        if app.largo:
+            periodo: ft.Control = ft.SegmentedButton(
+                selected=[self.periodo],
+                segments=[ft.Segment(value=k, label=ft.Text(v)) for k, v in rk.PERIODOS.items()],
+                show_selected_icon=False,
+                on_change=lambda e: self._mudar(periodo=e.control.selected[0]),
+            )
+        else:  # no celular os quatro botões não cabem numa linha
+            periodo = ft.Dropdown(
+                value=self.periodo,
+                options=[ft.DropdownOption(key=k, text=v) for k, v in rk.PERIODOS.items()],
+                on_select=lambda e: self._mudar(periodo=e.control.value),
+                dense=True,
+                border_radius=10,
+                width=170,
+            )
         acoes = ft.Row(
             [
                 ft.IconButton(ft.Icons.REFRESH, tooltip="Atualizar", on_click=lambda e: app.page.run_task(self.carregar)),
@@ -272,7 +290,7 @@ class SecaoRanking:
             spacing=6,
             wrap=True,
         )
-        controles = ft.Row([metricas, escopo, semana], spacing=10, wrap=True, run_spacing=10)
+        controles = ft.Row([metricas, escopo, periodo], spacing=10, wrap=True, run_spacing=10)
         filhos: list[ft.Control] = [ft.Row([self._cabecalho(c), acoes], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, wrap=True, run_spacing=8), controles]
         if self.erro:
             filhos.append(comp.aviso(self.erro, c, "erro"))
@@ -281,19 +299,28 @@ class SecaoRanking:
         elif self.linhas is not None:
             filhos.append(self._lista(c))
         if self.metrica == "acerto":
-            filhos.append(comp.apagado(f"No ranking de acerto entram só pessoas com {rk.MIN_QUESTOES_ACERTO} questões ou mais na semana.", c, 12.5))
+            filhos.append(comp.apagado(f"No ranking de acerto entram só pessoas com {rk.MIN_ACERTO[self.periodo]} questões ou mais {self._no_periodo()}.", c, 12.5))
+        if self.periodo in LONGO:
+            filhos.append(comp.apagado(
+                ("Este mês soma as semanas que passam por ele (a semana do dia 1 também). " if self.periodo == "mes" else
+                 "Desde o começo soma todas as semanas desde que a pessoa entrou no ranking. ")
+                + "Na sequência vale a maior que a pessoa já fez no período.", c, 12))
         filhos.append(comp.apagado("Os números são enviados pelo próprio app de cada pessoa (horas estudadas, questões corrigidas, acerto e dias seguidos).", c, 12))
         return ft.Column(filhos, spacing=14)
 
+    def _no_periodo(self) -> str:
+        return {"semana": "na semana", "passada": "na semana", "mes": "no mês", "sempre": "no total"}[self.periodo]
+
     def _cabecalho(self, c: dict) -> ft.Control:
         eu = next((l for l in (self.linhas or []) if l.get("voce")), None)
-        nome = rk.METRICAS[self.metrica][1].lower()
+        nome = _nome_metrica(self.metrica, self.periodo).lower()
         if eu:
             texto = f"Você está em {eu['posicao']}º de {len(self.linhas or [])}"
-            sub = f"em {nome}, {'na semana passada' if self.semana_passada else 'nesta semana'} · {_valor(self.metrica, eu)}"
+            sub = f"em {nome}, {NO_PERIODO[self.periodo]} · {_valor(self.metrica, eu)}"
         else:
             texto = f"Olá, {self.r.apelido}"
-            sub = "Estude e resolva questões para aparecer no ranking." if self.metrica != "acerto" else f"Resolva {rk.MIN_QUESTOES_ACERTO} questões na semana para entrar no ranking de acerto."
+            sub = ("Estude e resolva questões para aparecer no ranking." if self.metrica != "acerto"
+                   else f"Resolva {rk.MIN_ACERTO[self.periodo]} questões {self._no_periodo()} para entrar no ranking de acerto.")
         return ft.Column(
             [ft.Text(texto, size=22, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["texto"]), comp.apagado(sub, c, 13.5)],
             spacing=2,
@@ -305,7 +332,8 @@ class SecaoRanking:
             return comp.vazio(
                 ft.Icons.LEADERBOARD_OUTLINED,
                 "Ninguém no ranking ainda",
-                "Os números aparecem assim que as pessoas estudam pelo app nesta semana. Crie um grupo e mande o código para os amigos.",
+                f"Os números aparecem assim que as pessoas estudam pelo app {NO_PERIODO[self.periodo]}. Crie um grupo e mande o código para os amigos."
+                if self.periodo != "sempre" else "Os números aparecem assim que as pessoas estudam pelo app. Crie um grupo e mande o código para os amigos.",
                 c,
             )
         itens = []
@@ -329,7 +357,8 @@ class SecaoRanking:
             bgcolor=cor or c["sup2"],
             alignment=ft.Alignment.CENTER,
         )
-        detalhe = "   ".join(x for x in (l.get("concurso") or "", f"{l.get('dias') or 0} dias de estudo") if x)
+        dias = l.get("dias") or 0
+        detalhe = "   ".join(x for x in (l.get("concurso") or "", f"{dias} dia{'s' if dias != 1 else ''} de estudo") if x)
         return ft.Container(
             ft.Row(
                 [

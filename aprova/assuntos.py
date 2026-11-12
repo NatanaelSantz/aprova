@@ -36,7 +36,7 @@ _R = {
         ("Semântica e vocabulário", r"\bsinonimo|\bantonimo|sentido (figurado|denotativo|conotativo|proprio)|\bsignificado\b|\bsemantic|pode ser substituid|substituicao de|polissemia|homonim|paronim"),
         ("Figuras de linguagem", r"figura de linguagem|\bmetafora|\bmetonimia|\bironia\b|\bhiperbole|\beufemismo|\bantitese|\bprosopopeia|personificacao"),
         ("Redação oficial", r"redacao oficial|manual de redacao|\boficio\b|pronome de tratamento|vossa (excelencia|senhoria)|\bmemorando\b"),
-        ("Interpretação de texto", r"\btexto\b|\btrecho\b|\bautor\b|\bnarrador\b|\bparagrafo\b|\binfere-se\b|depreende|de acordo com o|segundo o texto|ideia central|tipologia|genero textual|coesao|coerencia"),
+        ("Interpretação de texto", r"\btextos?\b|\binterpretacao\b|\bcompreensao\b|\btrecho\b|\bautor\b|\bnarrador\b|\bparagrafo\b|\binfere-se\b|depreende|de acordo com o|segundo o texto|ideia central|tipologia|genero textual|coesao|coerencia"),
     ],
     "matematica": [
         ("Juros e matemática financeira", r"\bjuros?\b|\bmontante\b|capitaliza|taxa de .{0,15}(ao mes|ao ano|a\.m|a\.a)|desconto (simples|composto|comercial|racional)"),
@@ -52,8 +52,8 @@ _R = {
     ],
     "logica": [
         ("Verdades e mentiras", r"\bmente(m)?\b|\bmentiroso|sempre dizem? a verdade|\bverdade e quem\b"),
-        ("Quantificadores e silogismos", r"\btodo[s]?\b.{1,40}\b(e|sao)\b|\bnenhum\b|\balgum\b.{1,40}\b(e|sao)\b|\bsilogismo|\bargumento\b|\bconclusao valida|\bpremissa"),
-        ("Proposições e conectivos", r"\bproposic|\bconectivo|tabela[- ]verdade|\bse\b.{1,60}\bentao\b|\bcondicional|\bbicondicional|\bnegacao\b|\bequivalen|\btautologia|\bcontradicao|\bconjuncao\b|\bdisjuncao\b|logicamente equivalente"),
+        ("Quantificadores e silogismos", r"\btodo[s]?\b.{1,40}\b(e|sao)\b|\bnenhum\b|\balgum\b.{1,40}\b(e|sao)\b|\bsilogismo|\bargument(o|os|acao)\b|\bconclusao valida|\bpremissa"),
+        ("Proposições e conectivos", r"\bproposic|\bconectivo|tabelas?[- ]verdade|\blogica (sentencial|proposicional)|\bse\b.{1,60}\bentao\b|\bcondicional|\bbicondicional|\bnegacao\b|\bequivalen|\btautologia|\bcontradicao|\bconjuncao\b|\bdisjuncao\b|logicamente equivalente"),
         ("Conjuntos", r"\bconjunto|\bdiagrama|\buniao\b|\bintersec|\bvenn\b|apenas um dos|ambos os"),
         ("Análise combinatória", r"de quantas (maneiras|formas)|\bpermuta|\barranjo|\bcombinac|anagrama"),
         ("Probabilidade", r"probabilidade|ao acaso|aleatoriamente"),

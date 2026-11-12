@@ -106,6 +106,48 @@ def frase_contagem(dias: int, nome: str) -> str:
 # ---------------------------------------------------------------- Início
 
 
+def _linha_edital(app) -> ft.Control:
+    """'Edital: 35% estudado' (abre Painel → Edital) ou o convite para montar o edital."""
+    from .edital import calcular_vinculo, resumo, vinculo_velho
+
+    c = app.c
+    r = resumo(app)
+    if r is None:
+        return comp.botao_texto("Montar o edital verticalizado", lambda e: app.ir("painel", aba="edital"), ft.Icons.CHECKLIST_RTL)
+
+    def linha(r: dict) -> ft.Control:
+        return ft.Row(
+            [
+                ft.Icon(ft.Icons.CHECKLIST_RTL, size=16, color=c["tinta"]),
+                ft.Text(f"Edital: {r['fracao'] * 100:.0f}% estudado", size=13, color=c["tinta"], weight=ft.FontWeight.W_600),
+                comp.barra(r["fracao"], c, altura=5, largura=90),
+            ],
+            spacing=8,
+            tight=True,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
+    caixa = ft.Container(linha(r), on_click=lambda e: app.ir("painel", aba="edital"), tooltip="Abrir o edital verticalizado",
+                         padding=ft.Padding.only(top=4))
+    if vinculo_velho(app, 300) and not getattr(app, "_edital_calculando", False):
+        # as marcas automáticas de questões dependem do que a pessoa resolveu: calcula sem travar o Início
+        async def atualizar():
+            app._edital_calculando = True
+            try:
+                await calcular_vinculo(app)
+            finally:
+                app._edital_calculando = False
+            if (novo := resumo(app)) is not None:
+                caixa.content = linha(novo)
+                try:
+                    caixa.update()
+                except Exception:  # noqa: BLE001 - saiu da tela
+                    pass
+
+        app.page.run_task(atualizar)
+    return caixa
+
+
 def cartao(app) -> ft.Control | None:
     """Contagem regressiva (ou o convite para escolher o concurso). None se a pessoa dispensou o convite."""
     c = app.c
@@ -155,6 +197,7 @@ def cartao(app) -> ft.Control | None:
                 comp.apagado("Meu concurso", c, 12.5),
                 ft.Text(nome, size=20, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["texto"]),
                 comp.apagado("Sem data da prova ainda. Quando sair, coloque aqui para ver a contagem.", c, 13),
+                _linha_edital(app),
             ],
             spacing=2,
             expand=True,
@@ -201,6 +244,7 @@ def cartao(app) -> ft.Control | None:
             comp.apagado("Meu concurso", c, 12.5),
             ft.Text(frase_contagem(dias, nome), size=19, font_family=FONTE_TITULO, weight=ft.FontWeight.W_600, color=c["texto"]),
             comp.apagado(detalhe, c, 13),
+            _linha_edital(app),
         ],
         spacing=2,
         expand=True,

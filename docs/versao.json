@@ -1,11 +1,10 @@
 {
-  "versao": "1.29.0",
+  "versao": "1.30.0",
   "data": "12/11/2026",
   "notas": [
-    "Animações em todo o app: a tela nova chega deslizando, os cartões entram um depois do outro, os números contam e as barras enchem",
-    "Na prova: a questão seguinte desliza, a alternativa certa dá um pulinho e a errada balança; confete no resultado quando você vai bem",
-    "Mais rápido: responder e trocar de questão mudam só o que precisa; o menu do computador não redesenha a página; a lista de concursos é desenhada aos poucos",
-    "Ajustes → Leitura confortável: dá para desligar as animações"
+    "Edital verticalizado (Painel → Edital): cole o conteúdo programático do edital e marque teoria, questões e revisão de cada tópico. O app mostra seu acerto em cada assunto e marca as questões sozinho.",
+    "Ranking do mês e de sempre: além da semana, veja Este mês e Desde o começo (na sequência vale a maior).",
+    "No Início, o cartão do Meu concurso mostra quanto do edital você já estudou."
   ],
-  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.29.0.zip"
+  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.30.0.zip"
 }

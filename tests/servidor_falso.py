@@ -30,6 +30,7 @@ class Dados:
         self.sem_anexos = False  # finge um servidor sem o SQL da 1.10
         self.sem_entrar_no_grupo = False  # finge um servidor sem o SQL da 1.12 (grupos visíveis para todos)
         self.sem_avatar = False  # finge um servidor sem o SQL da 1.14 (sem personagem nem foto de perfil)
+        self.sem_periodo = False  # finge um servidor sem o SQL da 1.30 (ranking do mês e de sempre)
         self.fotos: dict[str, bytes] = {}  # Storage: pasta "avatares" (<id>.webp)
         self._seq = 0
         self.anonimo_ligado = True
@@ -46,6 +47,28 @@ class Dados:
             taxa = round(e["acertos"] / e["questoes"], 4) if e["questoes"] else None
             saida.append({**e, "apelido": p["apelido"], "concurso": p.get("concurso", ""), "taxa": taxa, "avatar": p.get("avatar")})
         return saida
+
+    def ranking_periodo(self, uid: str, desde: str | None, cod: str | None) -> list[dict]:
+        """O mesmo que a função ranking_periodo do ranking.sql: soma as semanas; sequência = a maior."""
+        if cod is not None:
+            cod = cod.strip().upper()
+            if not (self.eh_membro(uid, cod) or self.eh_admin(uid)):
+                return []
+            membros = {m["usuario_id"] for m in self.tabelas["membros"] if m["codigo"] == cod}
+        soma: dict[str, dict] = {}
+        for r in self.ranking_semana():
+            if (desde and str(r["semana"]) < desde) or (cod is not None and r["usuario_id"] not in membros):
+                continue
+            s = soma.setdefault(r["usuario_id"], {"usuario_id": r["usuario_id"], "apelido": r["apelido"], "concurso": r["concurso"],
+                                                  "avatar": r["avatar"], "segundos": 0, "questoes": 0, "acertos": 0, "dias": 0,
+                                                  "sequencia": 0, "semanas": 0})
+            for k in ("segundos", "questoes", "acertos", "dias"):
+                s[k] += r.get(k) or 0
+            s["sequencia"] = max(s["sequencia"], r.get("sequencia") or 0)
+            s["semanas"] += 1
+        for s in soma.values():
+            s["taxa"] = round(s["acertos"] / s["questoes"], 4) if s["questoes"] else None
+        return list(soma.values())
 
     def eh_admin(self, uid: str) -> bool:
         return any(p["id"] == uid and p.get("papel") == "admin" for p in self.tabelas["perfis"])
@@ -151,6 +174,15 @@ def _filtrar(linhas: list[dict], filtros: list[tuple[str, str]]) -> list[dict]:
             alvo = _comparavel(val)
             out = [l for l in out if l.get(col) is not None and (_comparavel(l[col]) >= alvo if op == "gte" else _comparavel(l[col]) > alvo)]
     return out
+
+
+def _ordenar_limitar(linhas: list[dict], query) -> list[dict]:
+    ordem = dict(query).get("order", "")
+    for parte in reversed(ordem.split(",") if ordem else []):
+        col, *mods = parte.split(".")
+        com = sorted((l for l in linhas if l.get(col) is not None), key=lambda l: l[col], reverse="desc" in mods)
+        linhas = com + [l for l in linhas if l.get(col) is None]
+    return linhas[: int(dict(query).get("limit", 1000))]
 
 
 class Manipulador(BaseHTTPRequestHandler):
@@ -368,6 +400,15 @@ class Manipulador(BaseHTTPRequestHandler):
                 for t in d.tabelas:
                     d.tabelas[t] = [l for l in d.tabelas[t] if l.get("id") != uid and l.get("usuario_id") != uid and l.get("autor") != uid]
                 return self._json(204)
+            if caminho == "/rest/v1/rpc/ranking_periodo":
+                if d.sem_periodo:
+                    return self._json(404, {"code": "PGRST202", "message": "Could not find the function public.ranking_periodo in the schema cache"})
+                args = dict(query)
+                if d.sem_avatar and "avatar" in args.get("select", ""):
+                    return self._json(400, {"code": "42703", "message": "column ranking_periodo.avatar does not exist"})
+                linhas = d.ranking_periodo(uid, args.get("desde"), args.get("cod"))
+                filtros = [(k, unquote(v)) for k, v in query if k not in ("select", "order", "limit", "desde", "cod")]
+                return self._json(200, _ordenar_limitar(_filtrar(linhas, filtros), query))
             m = re.match(r"/rest/v1/(\w+)$", caminho)
             if not m:
                 return self._json(404, {"message": "not found"})
@@ -403,14 +444,7 @@ class Manipulador(BaseHTTPRequestHandler):
                     linhas = [m for m in d.tabelas["membros"] if m["usuario_id"] == uid or d.eh_membro(uid, m["codigo"]) or d.eh_admin(uid)]
                 else:
                     linhas = d.tabelas[tabela]
-                linhas = _filtrar(linhas, filtros)
-                ordem = dict(query).get("order", "")
-                for parte in reversed(ordem.split(",") if ordem else []):
-                    col, *mods = parte.split(".")
-                    com = sorted((l for l in linhas if l.get(col) is not None), key=lambda l: l[col], reverse="desc" in mods)
-                    linhas = com + [l for l in linhas if l.get(col) is None]
-                limite = int(dict(query).get("limit", 1000))
-                return self._json(200, linhas[:limite])
+                return self._json(200, _ordenar_limitar(_filtrar(linhas, filtros), query))
             if metodo == "POST":
                 corpo = self._corpo()
                 novas = corpo if isinstance(corpo, list) else [corpo]

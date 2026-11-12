@@ -32,7 +32,10 @@ METRICAS = {
     "acerto": ("taxa", "Acerto"),
     "sequencia": ("sequencia", "Sequência"),
 }
-MIN_QUESTOES_ACERTO = 30  # para entrar no ranking de acerto
+MIN_QUESTOES_ACERTO = 30  # para entrar no ranking de acerto da semana
+# 1.30: além da semana, o mês e desde o começo (somando as semanas)
+PERIODOS = {"semana": "Esta semana", "passada": "Semana passada", "mes": "Este mês", "sempre": "Desde o começo"}
+MIN_ACERTO = {"semana": MIN_QUESTOES_ACERTO, "passada": MIN_QUESTOES_ACERTO, "mes": 100, "sempre": 200}
 
 
 # plano grátis do Supabase: banco de 500 MB e 1 GB de arquivos
@@ -197,6 +200,19 @@ def inicio_semana(d: date | None = None) -> date:
     return d - timedelta(days=d.weekday())
 
 
+def inicio_periodo(periodo: str, hoje: date | None = None) -> date | None:
+    """Primeira semana que conta no período. "mes": as semanas que passam por este mês
+    (a do dia 1 também, para o mês nunca começar vazio); "sempre": None (todas)."""
+    hoje = hoje or date.today()
+    if periodo == "mes":
+        return inicio_semana(hoje.replace(day=1))
+    if periodo == "passada":
+        return inicio_semana(hoje) - timedelta(days=7)
+    if periodo == "semana":
+        return inicio_semana(hoje)
+    return None
+
+
 def estatisticas_locais(banco, semana: date) -> dict:
     """Números de uma semana (segunda a domingo) para enviar ao ranking."""
     fim = semana + timedelta(days=7)
@@ -271,6 +287,7 @@ class Ranking:
         self._lock = threading.Lock()
         self.servidor_sem_anexos = False  # servidor ainda sem o SQL da 1.10 (fotos, arquivos, figurinhas)
         self.servidor_sem_avatar = False  # servidor ainda sem o SQL da 1.14 (personagem e foto de perfil)
+        self.servidor_sem_periodo = False  # servidor ainda sem o SQL da 1.30 (ranking do mês e de sempre)
         self._giphy: str | None = None
         self._gifs_buscados: dict[tuple, tuple[float, list]] = {}
 
@@ -609,22 +626,67 @@ class Ranking:
         )
         self.aj.set("ranking_enviado", time.time())
 
-    def ranking(self, metrica: str = "horas", semana: date | None = None, grupo: str | None = None, limite: int = 100) -> list[dict]:
+    def ranking(self, metrica: str = "horas", semana: date | None = None, grupo: str | None = None, limite: int = 100,
+                periodo: str = "semana") -> list[dict]:
+        """Ranking da semana ("semana"/"passada", ou a semana dada), do mês ("mes") ou de sempre ("sempre").
+        No mês e em sempre os números são a soma das semanas e a sequência é a maior do período."""
         coluna = METRICAS.get(metrica, METRICAS["horas"])[0]
-        semana = (semana or inicio_semana()).isoformat()
-        tabela = "ranking_grupo" if grupo else "ranking_semana"
-        filtros = [f"semana=eq.{semana}"]
-        if grupo:
-            filtros.append(f"codigo=eq.{_cod(grupo)}")
-        if metrica == "acerto":
-            filtros.append(f"questoes=gte.{MIN_QUESTOES_ACERTO}")
-        filtros.append(f"order={coluna}.desc.nullslast,questoes.desc")
-        filtros.append(f"limit={limite}")
-        linhas = self._com_avatar(f"/rest/v1/{tabela}?" + "&".join(filtros), "usuario_id,apelido,concurso,segundos,questoes,acertos,dias,sequencia,taxa")
+        colunas = "usuario_id,apelido,concurso,segundos,questoes,acertos,dias,sequencia,taxa"
+        if periodo in ("mes", "sempre"):
+            linhas = self._ranking_periodo(coluna, metrica == "acerto", inicio_periodo(periodo), grupo, limite, MIN_ACERTO[periodo])
+        else:
+            if semana is None:
+                semana = inicio_semana() - (timedelta(days=7) if periodo == "passada" else timedelta(0))
+            tabela = "ranking_grupo" if grupo else "ranking_semana"
+            filtros = [f"semana=eq.{semana.isoformat()}"]
+            if grupo:
+                filtros.append(f"codigo=eq.{_cod(grupo)}")
+            if metrica == "acerto":
+                filtros.append(f"questoes=gte.{MIN_QUESTOES_ACERTO}")
+            filtros.append(f"order={coluna}.desc.nullslast,questoes.desc")
+            filtros.append(f"limit={limite}")
+            linhas = self._com_avatar(f"/rest/v1/{tabela}?" + "&".join(filtros), colunas)
         for i, l in enumerate(linhas, start=1):
             l["posicao"] = i
             l["voce"] = l.get("usuario_id") == self.usuario_id
         return linhas
+
+    def _ranking_periodo(self, coluna: str, so_com_minimo: bool, desde: date | None, grupo: str | None, limite: int, minimo: int) -> list[dict]:
+        colunas = "usuario_id,apelido,concurso,segundos,questoes,acertos,dias,sequencia,semanas,taxa"
+        if not self.servidor_sem_periodo:
+            args = ([f"desde={desde.isoformat()}"] if desde else []) + ([f"cod={_cod(grupo)}"] if grupo else [])
+            filtros = args + ([f"questoes=gte.{minimo}"] if so_com_minimo else [])
+            filtros += [f"order={coluna}.desc.nullslast,questoes.desc", f"limit={limite}"]
+            try:
+                return self._com_avatar("/rest/v1/rpc/ranking_periodo?" + "&".join(filtros), colunas)
+            except ErroRanking as e:
+                if "SQL novo" not in str(e):
+                    raise
+                self.servidor_sem_periodo = True  # servidor sem o SQL da 1.30: soma as semanas aqui mesmo
+        return self._somar_semanas(coluna, so_com_minimo, desde, grupo, limite, minimo)
+
+    def _somar_semanas(self, coluna: str, so_com_minimo: bool, desde: date | None, grupo: str | None, limite: int, minimo: int) -> list[dict]:
+        tabela = "ranking_grupo" if grupo else "ranking_semana"
+        filtros = ([f"semana=gte.{desde.isoformat()}"] if desde else []) + ([f"codigo=eq.{_cod(grupo)}"] if grupo else [])
+        filtros += ["order=semana.desc", "limit=1000"]
+        semanas = self._com_avatar(f"/rest/v1/{tabela}?" + "&".join(filtros), "usuario_id,apelido,concurso,segundos,questoes,acertos,dias,sequencia")
+        por_pessoa: dict[str, dict] = {}
+        for s in semanas:
+            p = por_pessoa.setdefault(s["usuario_id"], {
+                "usuario_id": s["usuario_id"], "apelido": s.get("apelido"), "concurso": s.get("concurso") or "", "avatar": s.get("avatar"),
+                "segundos": 0, "questoes": 0, "acertos": 0, "dias": 0, "sequencia": 0, "semanas": 0,
+            })
+            for k in ("segundos", "questoes", "acertos", "dias"):
+                p[k] += int(s.get(k) or 0)
+            p["sequencia"] = max(p["sequencia"], int(s.get("sequencia") or 0))
+            p["semanas"] += 1
+        linhas = list(por_pessoa.values())
+        for p in linhas:
+            p["taxa"] = round(p["acertos"] / p["questoes"], 4) if p["questoes"] else None
+        if so_com_minimo:
+            linhas = [p for p in linhas if p["questoes"] >= minimo]
+        linhas.sort(key=lambda p: (p[coluna] is not None, p[coluna] or 0, p["questoes"]), reverse=True)
+        return linhas[:limite]
 
     # ---- grupos
 

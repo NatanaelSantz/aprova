@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.29.0" src="https://img.shields.io/badge/vers%C3%A3o-1.29.0-2340A8">
+  <img alt="Versão 1.30.0" src="https://img.shields.io/badge/vers%C3%A3o-1.30.0-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -39,8 +39,8 @@
       Digite o concurso (ex.: <i>Dataprev 2026</i>) e o Aprova busca nas bancas, na internet e no PCI Concursos. As provas entram com o <b>gabarito oficial</b> e abrem no próprio app, em modo simulado ou estudo.
     </td>
     <td width="50%" valign="top">
-      <h3>🎯 Onde focar</h3>
-      Cruza quanto cada disciplina cai nas suas provas com quanto você ainda erra. O <b>Painel</b> mostra onde você está forte e onde precisa melhorar, com a evolução das últimas semanas.
+      <h3>🎯 Onde focar e edital verticalizado</h3>
+      Cruza quanto cada disciplina cai nas suas provas com quanto você ainda erra. Cole o <b>conteúdo programático do edital</b> e marque teoria, questões e revisão de cada tópico: o app mostra o seu acerto em cada assunto e quanto do edital já foi.
     </td>
   </tr>
   <tr>
@@ -65,8 +65,8 @@
   </tr>
   <tr>
     <td valign="top">
-      <h3>🏆 Ranking da semana</h3>
-      Compare horas, questões, acerto e sequência com outras pessoas, no geral ou só com o seu grupo. No ranking aparecem só o apelido e os números.
+      <h3>🏆 Ranking</h3>
+      Compare horas, questões, acerto e sequência com outras pessoas: <b>na semana, no mês ou desde o começo</b>, no geral ou só com o seu grupo. No ranking aparecem só o apelido e os números.
     </td>
     <td valign="top">
       <h3>👁️ Conforto para os olhos</h3>
@@ -248,6 +248,7 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
+| **1.30.0** | **Edital verticalizado** (Painel → Edital): cole o conteúdo programático e marque teoria, questões e revisão de cada tópico, com o seu acerto por assunto e a marca de questões automática; **ranking do mês e de sempre** (Este mês e Desde o começo, além da semana) |
 | **1.29.0** | **Animações**: telas que deslizam, cartões em cascata, números que contam, barras que enchem, alternativa certa/errada animada e confete no resultado (dá para desligar em Ajustes); **mais rápido**: a prova atualiza só o que muda, o menu do computador não redesenha a página e a lista de concursos é desenhada aos poucos |
 | **1.28.0** | **Celular**: aviso de versão nova ao abrir, com **Baixar e instalar** (e versão obrigatória, se preciso); APK sempre com a mesma assinatura, para as próximas versões instalarem por cima; restaurar a cópia aceita o arquivo .aprova |
 | **1.27.0** | **Celular**: o seu boneco dá oi no alto de todas as telas e um toque nele abre o menu (Personagem, **Ajustes**, Conta); atalho dos Ajustes sempre à mão; o Voltar do Android volta uma tela; abas todas à vista; cartão-resposta, Meu concurso e figurinhas dos grupos corrigidos |
