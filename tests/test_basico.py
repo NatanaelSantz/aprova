@@ -3174,13 +3174,18 @@ def test_vozes_de_verdade_no_windows(tmp_path):
     """No Windows de verdade (CI): lista as vozes e grava um WAV com uma voz clássica e com uma nova, se houver."""
     from aprova import voz as vz
 
+    import warnings
+
     lista = vz.vozes(recarregar=True)
     assert lista, "o Windows deveria ter pelo menos uma voz"
     leitor = vz.Leitor()
+    gravadas = []
     for motor in ("sapi", "winrt"):
         v = next((x for x in lista if x["id"].startswith(motor + "|")), None)
         if v:
             assert leitor.gravar("Questão um. Alternativa A.", str(tmp_path / f"{motor}.wav"), voz=v["id"]), v
+            gravadas.append(f"{v['id']} ({(tmp_path / f'{motor}.wav').stat().st_size} bytes)")
+    warnings.warn(f"vozes no Windows: {[v['id'] for v in lista]}; gravadas: {gravadas}")  # aparece no resumo do CI
 
 
 _SMOKE_TELAS = r'''
