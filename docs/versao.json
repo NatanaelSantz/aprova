@@ -1,8 +1,8 @@
 {
-  "versao": "1.31.2",
+  "versao": "1.31.3",
   "data": "15/11/2026",
   "notas": [
-    "O boneco agora te chama pelo apelido: primeiro o “Como ele te chama” (toque no boneco → Falas), depois o nome dos Ajustes, e só então o nome da conta."
+    "Correção: a tela de Ajustes não abria na 1.31.2."
   ],
-  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.31.2.zip"
+  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.31.3.zip"
 }

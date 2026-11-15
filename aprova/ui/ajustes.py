@@ -533,7 +533,7 @@ class TelaAjustes:
     def _geral(self) -> ft.Control:
         app, c = self.app, self.app.c
         nome = ft.TextField(value=app.aj["nome"], label="Como quer ser chamado (saudação e boneco)", border_radius=10, dense=True, width=320,
-                            helper_text="Vale mais que o nome da conta. Para um apelido só do boneco: toque nele → Falas.",
+                            helper="Vale mais que o nome da conta. Para um apelido só do boneco: toque nele → Falas.", helper_max_lines=2,
                             on_blur=lambda e: app.aj.set("nome", (e.control.value or "").strip()))
         filhos: list[ft.Control] = [nome]
         if app.desktop:

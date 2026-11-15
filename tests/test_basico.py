@@ -3129,3 +3129,63 @@ def test_simulado_da_turma_cliente(tmp_path):
         assert aluno.simulados_turma(codigo) == []
     finally:
         srv.parar()
+
+
+_SMOKE_TELAS = r'''
+import asyncio, os, sys, json, traceback
+sys.path.insert(0, sys.argv[1])
+from aprova.ui.app import App
+from aprova.ui import painel
+
+
+class PaginaFalsa:
+    def __init__(self, largura, altura):
+        self.width, self.height, self.web = largura, altura, False
+        self.overlay, self.controls, self.views = [], [], []
+        self.navigation_bar = None
+
+    def run_task(self, func, *a, **k):
+        r = func(*a, **k)
+        if asyncio.iscoroutine(r):
+            r.close()
+
+    def __getattr__(self, nome):
+        if nome.startswith("__"):
+            raise AttributeError(nome)
+        return lambda *a, **k: None
+
+
+falhas, vistas = [], []
+for largura in (1280, 400):
+    app = App(PaginaFalsa(largura, 860))
+    for chave, *_ in app.destinos():
+        tela = app._tela(chave)
+        abas = {"painel": [k for k, _ in painel.ABAS], "estudar": ["biblioteca", "revisao", "duvidas", "discursiva", "pdfs"]}.get(chave, [None])
+        for aba in abas:
+            if aba:
+                tela.aba = aba
+            try:
+                tela.build()
+                vistas.append(f"{chave}/{aba or '-'}@{largura}")
+            except Exception as e:
+                falhas.append(f"{chave}/{aba or '-'} ({largura}px): {type(e).__name__}: {e}")
+print(json.dumps({"falhas": falhas, "vistas": vistas}))
+'''
+
+
+def test_todas_as_telas_montam(tmp_path):
+    """Monta todas as telas (e as abas do Painel e do Estudar) no computador e no celular, com um app de verdade:
+    pega erro que só aparece ao abrir a tela (ex.: um parâmetro que o Flet não aceita), que quebrava o app inteiro."""
+    import json
+    import os
+    import subprocess
+
+    script = tmp_path / "smoke.py"
+    script.write_text(_SMOKE_TELAS, encoding="utf-8")
+    env = {**os.environ, "APROVA_DATA": str(tmp_path / "dados"), "APROVA_TELA_INICIAL": "inicio"}
+    saida = subprocess.run([sys.executable, str(script), str(Path(__file__).resolve().parent.parent)], capture_output=True, text=True,
+                           env=env, timeout=240)
+    assert saida.returncode == 0, saida.stderr[-3000:]
+    resultado = json.loads(saida.stdout.strip().splitlines()[-1])
+    assert resultado["falhas"] == [], resultado["falhas"]
+    assert len(resultado["vistas"]) >= 2 * 15
