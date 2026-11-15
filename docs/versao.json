@@ -1,12 +1,9 @@
 {
-  "versao": "1.31.0",
-  "data": "14/11/2026",
+  "versao": "1.31.1",
+  "data": "15/11/2026",
   "notas": [
-    "Simulado da turma (Grupos → Simulados): quem modera publica uma prova da biblioteca, cada um faz pelo app, o servidor corrige e a turma vê o resultado de todos.",
-    "Conquistas: marcos de estudo destravam roupas e acessórios do personagem (toque no boneco → Conquistas).",
-    "Card da semana: em Sua semana → Compartilhar, uma imagem com horas, questões, acerto e o seu boneco para mandar no WhatsApp ou postar.",
-    "Discursiva corrigida por IA (Estudar → Discursiva): nota, aderência ao tema, estrutura e os erros de português, com a sua chave do Claude ou pelo chat.",
-    "Ranking redesenhado: pódio, o seu cartão com quanto falta para passar quem está na frente e setas de subiu/desceu."
+    "Personagem mais bonito: capa de herói nova (manto nos ombros com broche), cacheado e black power com cachos de verdade, moicano refeito com a lateral na máquina zero.",
+    "Braços mais separados do tronco, sombras mais definidas e contorno mais leve do lado da luz."
   ],
-  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.31.0.zip"
+  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.31.1.zip"
 }
