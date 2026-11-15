@@ -410,13 +410,11 @@ CABELO_FRENTE = {
         17: "..h.........Hh..",
     },
     "moicano": {  # "z" = lateral raspada (pele com sombra do cabelo)
-        4: ".......hh.......",
-        5: "......hhhh......",
-        6: "......hLhh......",
-        7: "......hLhh......",
-        8: "......hLhh......",
-        9: "......hhhh......",
-        10: "......hhhh......",
+        6: "........h.......",
+        7: "......hhh.h.....",
+        8: ".....hhhhhhhh...",
+        9: ".....hhLhhhh....",
+        10: "......hLhhh.....",
         11: "....zzhhhhzz....",
         12: "...zzzhhhhzzz...",
         13: "..zzzzzhhhzzzz..",
@@ -803,7 +801,8 @@ def _base(cfg: dict, respira: int = 0, braco: str = "", aceno: int = 0, vapor: i
     # costas: capa e mochila; cabelo de trás
     if extra in EXTRA_MOLDES and EXTRA_MOLDES[extra][1]:
         _pintar(img, mat, _moldar(EXTRA_MOLDES[extra][1], corpo, juntar=True), _cores_extra(cfg, pal), M_EXTRA, dy=d)
-    pal_cabelo = {**pal, "d": _rgb("#E0507E"), "z": _mistura(pal["s"], pal["h"], 0.32)}  # "d" = elástico, "z" = raspado
+    # "d" = elástico, "z" = raspado (no moicano, máquina zero: mais puxado para a cor do cabelo, com pontinhos)
+    pal_cabelo = {**pal, "d": _rgb("#E0507E"), "z": _mistura(pal["s"], pal["h"], 0.55 if cfg["cabelo"] == "moicano" else 0.32)}
     if cfg["cabelo"] in CABELO_ATRAS:
         atras = CABELO_ATRAS[cfg["cabelo"]]
         molde_atras, x_atras = atras if isinstance(atras, tuple) else (atras, 8)
@@ -1254,6 +1253,20 @@ def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: b
             yy = y + d2
             if 0 <= x < L and 0 <= yy < A_ and orig[yy * L + x][3]:
                 out[yy * L + x] = cores[parte][:4] + (M_OCULOS,)
+
+    # moicano: a parte raspada ganha pontinhos de cabelo (fica com cara de máquina zero, não de careca com faixa)
+    if cfg["cabelo"] == "moicano":
+        raspado = _mistura(pal["s"], pal["h"], 0.55)[:3]
+        for y in range(A_):
+            for x in range(L):
+                i = y * L + x
+                if orig[i][4] != M_CABELO or orig[i][:3] != raspado:
+                    continue
+                if (x and orig[i - 1][4] == M_CABELO and orig[i - 1][:3] != raspado) or \
+                        (x + 1 < L and orig[i + 1][4] == M_CABELO and orig[i + 1][:3] != raspado):
+                    out[i] = _fria(_escura(out[i], 0.18), 0.12)[:4] + (M_CABELO,)  # sombra que a crista faz na lateral
+                elif (x * 3 + y * 5) % 4 == 0:
+                    out[i] = _mistura(out[i], pal["h"], 0.45)[:4] + (M_CABELO,)
 
     # cachos (cacheado e black power): textura de anéis pequenos, com luz em cima e sombra embaixo, e a
     # borda de fora ondulada, para não parecer um capacete liso
