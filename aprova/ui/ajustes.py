@@ -532,7 +532,9 @@ class TelaAjustes:
 
     def _geral(self) -> ft.Control:
         app, c = self.app, self.app.c
-        nome = ft.TextField(value=app.aj["nome"], label="Seu nome (para a saudação)", border_radius=10, dense=True, width=320, on_blur=lambda e: app.aj.set("nome", (e.control.value or "").strip()))
+        nome = ft.TextField(value=app.aj["nome"], label="Como quer ser chamado (saudação e boneco)", border_radius=10, dense=True, width=320,
+                            helper_text="Vale mais que o nome da conta. Para um apelido só do boneco: toque nele → Falas.",
+                            on_blur=lambda e: app.aj.set("nome", (e.control.value or "").strip()))
         filhos: list[ft.Control] = [nome]
         if app.desktop:
             pasta = ft.TextField(value=app.aj["pasta_downloads"], label="Pasta onde o navegador salva os downloads", border_radius=10, dense=True, expand=True, on_blur=lambda e: app.aj.set("pasta_downloads", e.control.value))

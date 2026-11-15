@@ -220,9 +220,15 @@ class App:
 
     @property
     def nome_exibicao(self) -> str:
+        """Nome da conta (menu da conta, ranking): o apelido do ranking, ou o nome dos Ajustes sem conta."""
         if self.ranking.logado and self.ranking.apelido:
             return self.ranking.apelido
         return (self.aj["nome"] or "").strip()
+
+    @property
+    def nome_saudacao(self) -> str:
+        """Como o app chama a pessoa (Bom dia, ...): o "Seu nome" dos Ajustes, se ela preencheu; senão o da conta."""
+        return (self.aj["nome"] or "").strip() or self.nome_exibicao
 
     def mostrar_login(self) -> None:
         from .login import TelaLogin

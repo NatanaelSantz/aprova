@@ -27,7 +27,7 @@ class TelaInicio:
             app.page.run_task(comemorar_conquistas, app)
         agora = datetime.now()
         saudacao = "Bom dia" if agora.hour < 12 else "Boa tarde" if agora.hour < 18 else "Boa noite"
-        nome = app.nome_exibicao
+        nome = app.nome_saudacao
         hoje = date.today()
         cabecalho = ft.Column(
             [

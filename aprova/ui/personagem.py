@@ -353,8 +353,17 @@ def _boneco_barra(dados: bytes) -> tuple[ft.Control, ft.Image]:
     return ft.Stack([img], width=37, height=ALTURA_BONECO, clip_behavior=ft.ClipBehavior.NONE), img
 
 
+def nome_do_boneco(app) -> str:
+    """Como o boneco chama a pessoa: o "Como ele te chama" (Falas do personagem), inteiro; senão o primeiro
+    nome da saudação ("Seu nome" dos Ajustes ou, sem ele, o apelido da conta)."""
+    proprio = minhas_falas(app)["nome"]
+    if proprio:
+        return proprio.strip()
+    return (app.nome_saudacao or "").strip().split(" ")[0]
+
+
 def frase_oi(app, secao: str) -> str:
-    nome = (app.nome_exibicao or "").strip().split(" ")[0]
+    nome = nome_do_boneco(app)
     oi = f"Oi, {nome}!" if nome else "Oi!"
     resto = OI_TELAS.get(secao, "")
     return f"{oi} {resto}".strip()
@@ -518,7 +527,7 @@ def balao_de_fala(app) -> ft.Control | None:
     async def falar(e=None):
         if estado["falando"]:
             return
-        escolha = falas.escolher(cfg, contexto_falas(app), estado["atual"], nome_padrao=app.nome_exibicao or "")
+        escolha = falas.escolher(cfg, contexto_falas(app), estado["atual"], nome_padrao=app.nome_saudacao or "")
         if not escolha:
             return
         frase, gesto = escolha
@@ -887,7 +896,7 @@ def abrir_criador(app, ao_salvar=None, aba: str = "corpo") -> None:
 
         ligado = comp.interruptor("O personagem fala comigo", f["ligado"], lambda e: mudar_falas("ligado", bool(e.control.value)))
         nome = ft.TextField(
-            label="Como ele te chama", value=f["nome"], hint_text=app.nome_exibicao or "Seu nome ou apelido", dense=True, max_length=30,
+            label="Como ele te chama", value=f["nome"], hint_text=app.nome_saudacao or "Seu nome ou apelido", dense=True, max_length=30,
             border_radius=10, width=300, on_change=lambda e: mudar_falas("nome", e.control.value or "", False),
         )
         tipos = ft.Row([chip(rot, t in f["tipos"], lambda e, t=t: alternar_tipo(t)) for t, rot in falas.TIPOS], wrap=True, spacing=6, run_spacing=6)
@@ -901,7 +910,7 @@ def abrir_criador(app, ao_salvar=None, aba: str = "corpo") -> None:
         exemplo_txt = ft.Text(estado["exemplo"] or "Clique em Ouvir uma para ver como fica.", size=13.5, color=c["texto"], weight=ft.FontWeight.W_500)
 
         def ouvir(e=None):
-            escolha = falas.escolher(f, contexto_falas(app), estado["exemplo"], nome_padrao=app.nome_exibicao or "")
+            escolha = falas.escolher(f, contexto_falas(app), estado["exemplo"], nome_padrao=app.nome_saudacao or "")
             if not escolha:
                 exemplo_txt.value = "Escolha um tipo de fala ou escreva uma frase sua."
             else:

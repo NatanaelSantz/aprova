@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.31.1" src="https://img.shields.io/badge/vers%C3%A3o-1.31.1-2340A8">
+  <img alt="Versão 1.31.2" src="https://img.shields.io/badge/vers%C3%A3o-1.31.2-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -248,6 +248,7 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
+| **1.31.2** | O boneco chama você pelo apelido escolhido (Falas do personagem ou Ajustes), não pelo nome da conta |
 | **1.31.1** | **Personagem mais bonito**: capa de herói nova, cacheado e black power com cachos, moicano refeito, braços mais separados e sombras mais definidas |
 | **1.31.0** | **Simulado da turma** (Grupos → Simulados: quem modera publica uma prova, o servidor corrige e a turma vê o resultado), **conquistas** que destravam roupas do personagem, **card da semana** para compartilhar, **discursiva corrigida por IA** (Estudar → Discursiva) e o **Ranking redesenhado** (pódio, seu cartão com quanto falta para subir e setas de variação) |
 | **1.30.0** | **Edital verticalizado** (Painel → Edital): cole o conteúdo programático e marque teoria, questões e revisão de cada tópico, com o seu acerto por assunto e a marca de questões automática; **ranking do mês e de sempre** (Este mês e Desde o começo, além da semana) |

@@ -2741,12 +2741,25 @@ def test_celular_boneco_dando_oi_e_cartao():
     from aprova.ui.personagem import OI_TELAS, frase_oi
     from aprova.ui.prova import altura_cartao
 
-    class AppFalso:
-        nome_exibicao = "Natanael Santos"
+    from types import SimpleNamespace
 
-    assert frase_oi(AppFalso(), "provas") == "Oi, Natanael! " + OI_TELAS["provas"]
-    AppFalso.nome_exibicao = ""
-    assert frase_oi(AppFalso(), "inicio") == "Oi!"
+    from aprova import config
+
+    def app_falso(conta="", nome_ajustes="", apelido_boneco=""):
+        """Os três nomes: o apelido da conta (ranking), o "Seu nome" dos Ajustes e o "Como ele te chama" do boneco."""
+        aj = config.AjustesMemoria()
+        aj.set("nome", nome_ajustes)
+        aj.set("falas", {"nome": apelido_boneco})
+        app = SimpleNamespace(aj=aj, nome_exibicao=conta or nome_ajustes)
+        app.nome_saudacao = nome_ajustes or app.nome_exibicao
+        return app
+
+    assert frase_oi(app_falso(conta="Natanael Santos"), "provas") == "Oi, Natanael! " + OI_TELAS["provas"]
+    assert frase_oi(app_falso(), "inicio") == "Oi!"
+    # logado com o nome de usuário da conta, mas com o nome dos Ajustes: vale o dos Ajustes
+    assert frase_oi(app_falso(conta="natan_ti2026", nome_ajustes="Natan"), "inicio").startswith("Oi, Natan!")
+    # e o apelido escolhido para o boneco vale mais que tudo (inteiro, mesmo com espaço)
+    assert frase_oi(app_falso(conta="natan_ti2026", nome_ajustes="Natan", apelido_boneco="Chefe Natan"), "inicio").startswith("Oi, Chefe Natan!")
     assert all(OI_TELAS[k] for k in ("concursos", "provas", "estudar", "grupos", "painel", "ajustes"))
     # 16 questões cabem num celular de 390 x 844; 120 não (aí a folha rola)
     assert altura_cartao(16, 390) < 844 * 0.85 < altura_cartao(120, 390)

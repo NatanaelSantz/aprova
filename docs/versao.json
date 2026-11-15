@@ -1,9 +1,8 @@
 {
-  "versao": "1.31.1",
+  "versao": "1.31.2",
   "data": "15/11/2026",
   "notas": [
-    "Personagem mais bonito: capa de herói nova (manto nos ombros com broche), cacheado e black power com cachos de verdade, moicano refeito com a lateral na máquina zero.",
-    "Braços mais separados do tronco, sombras mais definidas e contorno mais leve do lado da luz."
+    "O boneco agora te chama pelo apelido: primeiro o “Como ele te chama” (toque no boneco → Falas), depois o nome dos Ajustes, e só então o nome da conta."
   ],
-  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.31.1.zip"
+  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.31.2.zip"
 }
