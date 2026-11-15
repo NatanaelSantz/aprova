@@ -340,22 +340,70 @@ class TelaAjustes:
         )
 
     def _voz(self) -> ft.Control:
+        from .. import voz as vz
+
         app, c = self.app, self.app.c
+        estado = {"outros": False}
 
         def velocidade(e):
             app.aj.set("voz_velocidade", int(e.control.value))
 
-        def testar(e):
-            ok = app.leitor.falar(
-                "Olá! Eu leio as questões em voz alta para você descansar a vista.", int(app.aj["voz_velocidade"] or 0)
-            )
+        def testar(e=None, voz_id=None):
+            voz_id = app.aj["voz"] if voz_id is None else voz_id
+            v = next((x for x in vz.vozes() if x["id"] == voz_id), None) if voz_id else None
+            frase = (f"Olá! Eu sou {v['nome'].split(' ')[0]}. Eu leio as questões em voz alta para você descansar a vista."
+                     if v and vz.em_portugues(v) else "Olá! Eu leio as questões em voz alta para você descansar a vista.")
+            ok = app.leitor.falar(frase, int(app.aj["voz_velocidade"] or 0), voz=voz_id or "")
             if not ok:
                 comp.mensagem(app.page, "Não encontrei uma voz instalada no sistema.")
 
+        def escolher(e):
+            app.aj.set("voz", "" if e.control.value == "auto" else e.control.value)
+            testar()  # ouve na hora como ficou
+
+        escolha = ft.Dropdown(label="Voz", value=app.aj["voz"] or "auto", options=[ft.DropdownOption(key="auto", text="Automática (a primeira em português)")],
+                              on_select=escolher, dense=True, border_radius=10, width=420 if app.largo else None)
+        dica = ft.Container()
+
+        def preencher():
+            lista = vz.vozes()
+            pt = [v for v in lista if vz.em_portugues(v)]
+            outras = [v for v in lista if not vz.em_portugues(v)]
+            mostrar = pt + (outras if estado["outros"] else [])
+            escolha.options = [ft.DropdownOption(key="auto", text="Automática (a primeira em português)")] + [
+                ft.DropdownOption(key=v["id"], text=vz.rotulo(v)) for v in mostrar]
+            if app.aj["voz"] and app.aj["voz"] not in {v["id"] for v in mostrar}:
+                escolha.options.append(ft.DropdownOption(key=app.aj["voz"], text=app.aj["voz"].partition("|")[2] + " (não encontrada)"))
+            n = len(pt)
+            dica.content = comp.apagado(
+                (f"{n} voz{'es' if n != 1 else ''} em português neste computador. " if n else "Nenhuma voz em português neste computador. ")
+                + ("Para ter mais (masculina e feminina), no Windows abra Configurações > Hora e idioma > Fala > Adicionar vozes e escolha "
+                   "Português (Brasil). Depois feche e abra o Aprova." if vz.SISTEMA == "Windows" else
+                   "Para ter mais, instale vozes em português nas configurações de fala do sistema."),
+                c, 12.5,
+            )
+            try:
+                app.page.update(escolha, dica)
+            except Exception:  # noqa: BLE001 - saiu da tela
+                pass
+
+        async def carregar():
+            await app.em_segundo_plano(vz.vozes)
+            preencher()
+
+        def outros(e):
+            estado["outros"] = bool(e.control.value)
+            preencher()
+
+        if app.leitor.disponivel:
+            app.page.run_task(carregar)
         filhos: list[ft.Control] = []
         if not app.leitor.disponivel:
             filhos.append(comp.aviso("Nenhuma voz encontrada neste computador. No Windows, instale a voz em português em Configurações > Hora e idioma > Fala.", c, "alerta"))
         filhos += [
+            escolha,
+            dica,
+            comp.interruptor("Mostrar vozes de outros idiomas (leem o português com sotaque)", False, outros),
             comp.texto("Velocidade da voz", c, 14.5),
             ft.Slider(min=-5, max=5, divisions=10, value=int(app.aj["voz_velocidade"] or 0), label="{value}", on_change_end=velocidade),
             ft.Row([comp.botao_contorno("Testar voz", testar, ft.Icons.VOLUME_UP_OUTLINED), comp.botao_texto("Parar", lambda e: app.leitor.parar())], spacing=10),
