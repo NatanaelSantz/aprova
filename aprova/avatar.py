@@ -33,7 +33,8 @@ W2, H2 = 64, 80  # grade final (com os detalhes)
 CONTORNO = (31, 26, 46, 255)
 
 # materiais (para sombrear e detalhar cada parte do jeito certo)
-M_VAZIO, M_PELE, M_CABELO, M_ROUPA, M_CALCA, M_BOTA, M_METAL, M_ACESS, M_OCULOS, M_ITEM, M_EXTRA, M_ROSTO = range(12)
+M_VAZIO, M_PELE, M_CABELO, M_ROUPA, M_CALCA, M_BOTA, M_METAL, M_ACESS, M_OCULOS, M_ITEM, M_EXTRA, M_ROSTO, M_MANGA = range(13)
+ROUPAS_M = (M_ROUPA, M_MANGA)  # a manga é roupa, mas tem volume próprio (o braço não some no tronco)
 MAT_CORPO = {"s": M_PELE, "S": M_PELE, "r": M_PELE, "c": M_ROUPA, "C": M_ROUPA, "d": M_ROUPA, "w": M_ROUPA, "p": M_CALCA, "P": M_CALCA,
              "b": M_BOTA, "B": M_BOTA, "A": M_METAL, "h": M_CABELO, "H": M_CABELO, "L": M_CABELO, "e": M_ROSTO, "m": M_ROSTO}
 
@@ -395,8 +396,8 @@ CABELO_FRENTE = {
     "cacheado": {
         12: "..hhHhhhHhhhHh..",
         13: "..hHhhHhhhHhhh..",
-        14: "..hhh.hhhh.hhh..",
-        15: "..hH..h..h..Hh..",
+        14: "..hhhH.hhH.hhh..",
+        15: "..hH.h..h..hHh..",
     },
     "lateral": {
         10: ".....hhhhhhh....",
@@ -409,14 +410,15 @@ CABELO_FRENTE = {
         17: "..h.........Hh..",
     },
     "moicano": {  # "z" = lateral raspada (pele com sombra do cabelo)
-        5: "......hh........",
-        6: ".....hhhh.......",
-        7: "......hhhh......",
-        8: ".....hhhhh......",
-        9: "......hhhhh.....",
-        10: ".....hhhhhh.....",
+        4: ".......hh.......",
+        5: "......hhhh......",
+        6: "......hLhh......",
+        7: "......hLhh......",
+        8: "......hLhh......",
+        9: "......hhhh......",
+        10: "......hhhh......",
         11: "....zzhhhhzz....",
-        12: "...zzzhhLhzzz...",
+        12: "...zzzhhhhzzz...",
         13: "..zzzzzhhhzzzz..",
         14: "..zzzzzzzzzzzz..",
         15: "..z..........z..",
@@ -608,9 +610,10 @@ EXTRA_MOLDES = {
                  29: ".......aa......."}, {}),
     "gravata": ({24: ".....aaAAaa.....", 25: "......a..a......"}, {}),
     "colar": ({24: "....a......a....", 25: ".....a....a.....", 26: "......aAAa......"}, {}),
-    "capa": ({24: ".......dd......."},
-             {24: "...aaaaaaaaaa...", 25: "..aaaaaaaaaaaa..", **{y: ".aaaaaaaaaaaaaa." for y in range(26, 34)}, 34: "aaaaaaaaaaaaaaaa",
-              35: "AAAAAAAAAAAAAAAA"}),
+    "capa": ({23: "....aa....aa....", 24: "..aaaaadda.aaa..", 25: ".aaA........Aaa."},  # manto nos ombros e o broche
+             {24: "...aaaaaaaaaa...", 25: "..aaaaaaaaaaaa..", 26: "aaaaaaaaaaaaaaaa", 27: "AaaaaaaaaaaaaaaA",
+              28: "AaaaaaaaaaaaaaaA", 29: "AaaaaaaaaaaaaaaA", 30: "AaaaaaaaaaaaaaaA", 31: "AaAaaaaaaaaaaAaA",
+              32: "AaAaaaaaaaaaaAaA", 33: "AaaAaaaaaaaaAaaA", 34: ".AaAaaaaaaaaAaA.", 35: "..A..A....A..A.."}),
     "mochila": ({**{y: "....a......a...." for y in range(24, 30)}}, {**{y: "a..............a" for y in range(25, 31)}}),
 }
 CORES_EXTRA = {
@@ -832,6 +835,26 @@ def _base(cfg: dict, respira: int = 0, braco: str = "", aceno: int = 0, vapor: i
     _pintar(img, mat, roupa_cima, pal, MAT_CORPO, dy=d)
 
     px, pm = img.load(), mat.load()
+    # mangas: a coluna de fora de cada lado, acima da mão, vira um material à parte (do ombro até o punho),
+    # para o braço ganhar luz e sombra próprias e se separar do tronco
+    for lado in (-1, 1):
+        mao = None
+        for y in range(26 + d, 32 + d):
+            xs = [x for x in range(W) if pm[x, y]]
+            if xs:
+                x = xs[0] if lado < 0 else xs[-1]
+                if pm[x, y] == M_PELE and (mao is None or (x < mao[0] if lado < 0 else x > mao[0])):
+                    mao = (x, y)
+        if mao is None:
+            continue
+        x, y = mao[0], mao[1]
+        while y > 0 and pm[x, y] == M_PELE:
+            y -= 1
+        while y >= 24 + d and pm[x, y] == M_ROUPA:
+            pm[x, y] = M_MANGA
+            if px[x, y] == pal["C"]:
+                px[x, y] = pal["c"]  # a manga na cor da roupa; quem separa o braço é a linha e a sombra
+            y -= 1
     if braco:
         manga = "s" if cfg["roupa"] == "vestido" else "c"
         lados = [BRACO_ACIMA_ESQ] + ([BRACO_ACIMA_DIR] if braco == "dois" else [])
@@ -851,7 +874,7 @@ def _base(cfg: dict, respira: int = 0, braco: str = "", aceno: int = 0, vapor: i
                     px[xx, y + d], pm[xx, y + d] = pal["A"], M_METAL
                 else:
                     letra = manga if ch == "c" else "s"
-                    px[xx, y + d], pm[xx, y + d] = pal[letra], MAT_CORPO[letra]
+                    px[xx, y + d], pm[xx, y + d] = pal[letra], (M_MANGA if MAT_CORPO[letra] == M_ROUPA else MAT_CORPO[letra])
     k_mao = recuo(28, corpo)
     if cfg["roupa"] == "armadura" and not braco:
         for x in (9 + k_mao, 10 + k_mao, 21 - k_mao, 22 - k_mao):
@@ -909,10 +932,10 @@ def _epx(cores: list, w: int, h: int) -> list:
     return out
 
 
-SOMBREIA = {M_PELE, M_CABELO, M_ROUPA, M_CALCA, M_BOTA, M_METAL, M_ACESS, M_ITEM, M_EXTRA}
-BRILHA = {M_CABELO, M_ROUPA, M_METAL, M_ACESS, M_ITEM, M_EXTRA}
+SOMBREIA = {M_PELE, M_CABELO, M_ROUPA, M_MANGA, M_CALCA, M_BOTA, M_METAL, M_ACESS, M_ITEM, M_EXTRA}
+BRILHA = {M_CABELO, M_ROUPA, M_MANGA, M_METAL, M_ACESS, M_ITEM, M_EXTRA}
 CONTORNO_INTERNO = {M_ITEM, M_ACESS, M_EXTRA}
-LUZ_DO_LADO = {M_ROUPA, M_CALCA, M_BOTA, M_CABELO, M_EXTRA}
+LUZ_DO_LADO = {M_ROUPA, M_MANGA, M_CALCA, M_BOTA, M_CABELO, M_EXTRA}
 
 
 def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: bool) -> list:
@@ -958,29 +981,34 @@ def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: b
                 larg, alt = dl[i] + dr[i] + 1, du[i] + dd[i] + 1
                 luz = 0.0
                 if dl[i] == 0 and larg >= 4:
-                    luz += 0.22
+                    luz += 0.24
                 elif dl[i] == 1 and larg >= 6:
-                    luz += 0.11
+                    luz += 0.14
                 elif dl[i] == 2 and larg >= 12:
-                    luz += 0.05
+                    luz += 0.07
                 if du[i] == 0 and mc == 0:
                     luz += 0.16
                 elif du[i] == 1 and mc == m and y >= 2 and orig[i - 2 * L][3] == 0 and alt >= 8:
                     luz += 0.07
+                # sombra própria: uma faixa do lado direito (como sombreado em camadas, mais legível em tamanho pequeno)
                 if dr[i] == 0:
-                    luz -= 0.3
+                    luz -= 0.32
                 elif dr[i] == 1 and larg >= 5:
-                    luz -= 0.17
-                elif dr[i] == 2 and larg >= 10:
-                    luz -= 0.07
+                    luz -= 0.22
+                elif dr[i] <= 3 and larg >= 10:
+                    luz -= 0.13
+                elif dr[i] <= 5 and larg >= 18 and m not in (M_PELE,):
+                    luz -= 0.06
                 if dd[i] == 0 and alt >= 3:
-                    luz -= 0.2
+                    luz -= 0.22
                 elif dd[i] == 1 and alt >= 7:
-                    luz -= 0.08
+                    luz -= 0.1
                 if du[i] == 0 and mc not in (0, m, M_ROSTO, M_OCULOS):
                     luz -= 0.2  # sombra de contato (embaixo do cabelo, da cabeça, da blusa)
                 elif du[i] == 1 and y >= 2 and orig[i - 2 * L][4] not in (0, m, M_ROSTO, M_OCULOS):
                     luz -= 0.08
+                if m == M_MANGA and ((me == 0 and x < 32) or (md == 0 and x >= 32)):
+                    luz += 0.08  # o lado de fora do braço pega um pouco mais de luz
                 if m == M_METAL and du[i] == 1 and dl[i] in (1, 2):
                     luz += 0.45  # reflexo do metal
                 if m == M_PELE and y < 48 + d2:
@@ -990,17 +1018,19 @@ def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: b
                     novo = _quente(c, luz)
                 elif luz < 0:
                     novo = _fria(c, -luz)
-                if dr[i] == 0 and md == 0 and alt >= 6 and m in (M_ROUPA, M_CABELO, M_PELE, M_EXTRA):
+                if dr[i] == 0 and md == 0 and alt >= 6 and m in (M_ROUPA, M_MANGA, M_CABELO, M_PELE, M_EXTRA):
                     novo = _mistura(novo, (150, 185, 255, 255), 0.13)  # luz de recorte (contraluz) na borda escura
+            if m == M_ROUPA and (me == M_MANGA or md == M_MANGA) and mc not in (0, M_PELE) and orig[i - L][4] != M_MANGA:
+                novo = _mistura(novo, CONTORNO, 0.42)  # linha entre o braço e o tronco (abaixo do ombro)
             if m == M_PELE and mc == M_CABELO:
                 novo = _fria(c, 0.22)  # sombra do cabelo na testa
             if m == M_CABELO and mc == M_CABELO and mb == M_CABELO and (x + 2 * y) % 9 == 0:
                 novo = _escura(novo, 0.12)  # fios
-            if m == M_ROUPA and mb == M_PELE and y > 50 + d2:
+            if m in ROUPAS_M and mb == M_PELE and y > 50 + d2:
                 novo = _fria(c, 0.24)  # punho da manga e barra da roupa
             if m == M_BOTA and mc != M_BOTA and me != M_BOTA:
                 novo = _quente(c, 0.34)  # brilho na ponta do sapato
-            if m in (M_ROUPA, M_EXTRA) and 48 + d2 <= y <= 49 + d2 and 24 <= x <= 39:
+            if m in (M_ROUPA, M_MANGA, M_EXTRA) and 48 + d2 <= y <= 49 + d2 and 24 <= x <= 39:
                 novo = _fria(novo, 0.1)  # sombra que a cabeça faz nos ombros
             if m == M_PELE and y == 46 + d2 and 26 <= x <= 37:
                 novo = _fria(c, 0.16)  # sombra embaixo do queixo
@@ -1225,6 +1255,37 @@ def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: b
             if 0 <= x < L and 0 <= yy < A_ and orig[yy * L + x][3]:
                 out[yy * L + x] = cores[parte][:4] + (M_OCULOS,)
 
+    # cachos (cacheado e black power): textura de anéis pequenos, com luz em cima e sombra embaixo, e a
+    # borda de fora ondulada, para não parecer um capacete liso
+    if cfg["cabelo"] in ("cacheado", "afro"):
+        base_cab = pal["h"]
+        luz_cacho, sombra_cacho = _quente(_clara(base_cab, 0.16), 0.08), _fria(base_cab, 0.3)
+        anel = (".LL.", "L..D", ".DD.", "....")
+        def cabelo(j):
+            return 0 <= j < L * A_ and orig[j][4] == M_CABELO
+        for y in range(A_):
+            desloca = 2 if (y // 4) % 2 else 0
+            for x in range(1, L - 1):
+                i = y * L + x
+                if out[i][4] != M_CABELO or not (cabelo(i - 1) and cabelo(i + 1) and cabelo(i - L) and cabelo(i + L)):
+                    continue
+                ch = anel[y % 4][(x + desloca) % 4]
+                if ch == "L":
+                    out[i] = luz_cacho[:4] + (M_CABELO,)
+                elif ch == "D":
+                    out[i] = sombra_cacho[:4] + (M_CABELO,)
+        recorte = []
+        for y in range(A_):
+            for x in range(L):
+                i = y * L + x
+                if out[i][4] != M_CABELO or (x + 2 * y) % 5:
+                    continue
+                vazio_fora = (y and not out[i - L][3]) or (x and not out[i - 1][3]) or (x + 1 < L and not out[i + 1][3])
+                if vazio_fora:
+                    recorte.append(i)
+        for i in recorte:
+            out[i] = VAZIO5
+
     # contorno colorido de 1 pixel: escuro embaixo e à direita, tom da peça em cima e à esquerda
     final = list(out)
     for y in range(A_):
@@ -1244,7 +1305,9 @@ def _detalhar(px: list, cfg: dict, pal: dict, d2: int, piscando: bool, alegre: b
                 vizinho = out[i + 1]
             if vizinho is None:
                 continue
-            cor = _mistura(vizinho, CONTORNO, 0.86 if escuro else 0.64)
+            # contorno seletivo: embaixo e à direita, quase o contorno escuro; em cima e à esquerda (do lado da luz),
+            # um tom bem mais escuro da própria peça, que deixa o desenho mais leve
+            cor = _mistura(vizinho, CONTORNO, 0.84) if escuro else _fria(_mistura(vizinho, CONTORNO, 0.42), 0.25)
             final[i] = cor[:4] + (M_VAZIO,)
     return final
 
