@@ -33,6 +33,7 @@ PADROES = {
     "fonte_escala": 1.0,  # multiplica o tamanho do texto das questões
     "entrelinha": 1.55,
     "voz_velocidade": 0,  # -5 (lenta) a +5 (rápida)
+    "voz": "",  # id da voz ("motor|nome", ver voz.vozes); "" = a primeira em português
     "pausa_olhos": True,
     "animacoes": True,  # telas e números com movimento (Ajustes → Leitura confortável)
     "pausa_minutos": 20,

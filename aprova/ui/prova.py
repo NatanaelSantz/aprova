@@ -564,7 +564,8 @@ class TelaProva:
         partes.append(q.get("enunciado") or "")
         for letra, txt in (q.get("alternativas") or {}).items():
             partes.append(f"Alternativa {letra}: {txt}.")
-        ok = app.leitor.falar("\n".join(partes), int(app.aj["voz_velocidade"] or 0), ao_terminar=lambda: app.page.run_task(self._voz_terminou))
+        ok = app.leitor.falar("\n".join(partes), int(app.aj["voz_velocidade"] or 0), ao_terminar=lambda: app.page.run_task(self._voz_terminou),
+                              voz=app.aj["voz"] or "")
         if not ok:
             comp.mensagem(app.page, "Não encontrei uma voz no sistema para ler em voz alta.")
             return
