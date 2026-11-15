@@ -1140,6 +1140,17 @@ class TelaProva:
                 )
             )
             return
+        from .simulado_turma import entregar, id_da_turma
+
+        if id_da_turma(self.prova) is not None and not self.finalizada:
+            # simulado da turma: o servidor corrige e só então manda o gabarito
+            r = await entregar(self.app, self.prova, self.respostas, self.inicio)
+            if r is None:
+                self._confirmou = False
+                return
+            gab = {q["numero"]: g for q in self.app.db.questoes(self.prova["id"]) if (g := q.get("gabarito"))}
+            for q in self.questoes:
+                q["gabarito"] = gab.get(q["numero"])
         self._calcular_resultado()
         self.app.page.run_task(self.app.sincronizar_ranking)
         self.finalizada = True
@@ -1150,6 +1161,9 @@ class TelaProva:
         self._festa = True  # o resultado chega com a nota contando (e confete, se foi bem)
         movimento.abrir_janela(self.app)
         self._atualizar()
+        from .personagem import comemorar_conquistas
+
+        self.app.page.run_task(comemorar_conquistas, self.app)
 
     def _calcular_resultado(self):
         db = self.app.db
@@ -1388,6 +1402,11 @@ class TelaProva:
         )
         if self.cartao:
             botoes.controls[0] = comp.botao("Ver o cartão corrigido", lambda e: self._revisar(False), ft.Icons.FACT_CHECK_OUTLINED)
+        from .simulado_turma import dialogo_resultado, id_da_turma
+
+        if (sid := id_da_turma(self.prova)) is not None:  # simulado da turma: compara com os colegas
+            botoes.controls.insert(0, comp.botao("Resultado da turma", lambda e: dialogo_resultado(app, {"id": sid, "titulo": self.prova.get("titulo") or "Simulado da turma"}),
+                                                 ft.Icons.LEADERBOARD_OUTLINED))
         # em tela larga: o resumo de um lado e "Por matéria" do outro (sem sobrar espaço dos lados)
         resumo = ft.Column([numero, dados, cartao_coach, analise, botoes], spacing=14)
         lado_a_lado: list[ft.Control] = [ft.Container(resumo, col={"um": 12, "dois": 7 if disc_linhas else 12})]

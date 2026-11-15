@@ -739,6 +739,86 @@ class Ranking:
     def sair_grupo(self, codigo: str) -> None:
         self._pedir("DELETE", f"/rest/v1/membros?codigo=eq.{_cod(codigo)}&usuario_id=eq.{self.usuario_id}")
 
+    # ---- simulado da turma (1.31)
+
+    def simulados_turma(self, codigo: str) -> list[dict]:
+        """Simulados do grupo, do mais novo ao mais velho, com "feito" (eu já entreguei) e "entregas"."""
+        cod = _cod(codigo)
+        sims = self._pedir("GET", f"/rest/v1/simulados_turma?codigo=eq.{cod}&select=id,codigo,autor,titulo,total,duracao_min,fecha_em,criado_em&order=criado_em.desc&limit=50").json()
+        if not sims:
+            return []
+        ids = ",".join(str(x["id"]) for x in sims)
+        resultados = self._pedir("GET", f"/rest/v1/resultados_turma?simulado_id=in.({ids})&select=simulado_id,usuario_id,acertos,total,segundos").json()
+        for x in sims:
+            meus = [r for r in resultados if r["simulado_id"] == x["id"] and r["usuario_id"] == self.usuario_id]
+            x["meu"] = meus[0] if meus else None
+            x["entregas"] = sum(1 for r in resultados if r["simulado_id"] == x["id"])
+            x["sou_autor"] = x.get("autor") == self.usuario_id
+            x["aberto"] = not x.get("fecha_em") or x["fecha_em"] > datetime.now(timezone.utc).isoformat()
+        return sims
+
+    def publicar_simulado(self, codigo: str, titulo: str, questoes: list[dict], duracao_min: int = 0, prazo_dias: int | None = 7) -> int:
+        """Publica uma prova da biblioteca como simulado da turma. O gabarito vai numa tabela à parte
+        (ninguém lê antes de entregar). Devolve o id do simulado."""
+        cod = _cod(codigo)
+        titulo = " ".join((titulo or "").split())[:80]
+        if len(titulo) < 3:
+            raise ErroRanking("Dê um nome ao simulado (pelo menos 3 letras).")
+        limpas, gabarito = [], {}
+        for q in questoes[:200]:
+            n = int(q["numero"])
+            gab = str(q.get("gabarito") or "").strip().upper()
+            if not gab:
+                continue  # sem gabarito não dá para corrigir
+            gabarito[str(n)] = gab
+            limpas.append({
+                "numero": n,
+                "enunciado": str(q.get("enunciado") or "")[:6000],
+                "texto_base": str(q.get("texto_base") or "")[:8000] or None,
+                "alternativas": {str(k)[:2]: str(v)[:2000] for k, v in (q.get("alternativas") or {}).items()},
+                "disciplina": str(q.get("disciplina") or "")[:80],
+                "tipo": q.get("tipo") or ("CE" if gab in ("C", "E") else "ME"),
+            })
+        if not limpas:
+            raise ErroRanking("Essa prova não tem gabarito: escolha uma prova com gabarito.")
+        fecha = (datetime.now(timezone.utc) + timedelta(days=prazo_dias)).isoformat() if prazo_dias else None
+        corpo = {"codigo": cod, "titulo": titulo, "questoes": limpas, "total": len(limpas), "duracao_min": int(duracao_min or 0), "fecha_em": fecha}
+        self._pedir("POST", "/rest/v1/simulados_turma", json=corpo, cabecalhos={"Prefer": "return=minimal"})
+        sid = self._pedir("GET", f"/rest/v1/simulados_turma?codigo=eq.{cod}&autor=eq.{_uid(self.usuario_id)}&select=id&order=id.desc&limit=1").json()[0]["id"]
+        self._pedir("POST", "/rest/v1/simulados_gabarito", json={"simulado_id": sid, "gabarito": gabarito}, cabecalhos={"Prefer": "return=minimal"})
+        return int(sid)
+
+    def questoes_simulado(self, sid: int) -> dict:
+        """O simulado inteiro (sem gabarito) para montar a prova local."""
+        linhas = self._pedir("GET", f"/rest/v1/simulados_turma?id=eq.{int(sid)}&select=id,codigo,titulo,questoes,total,duracao_min,fecha_em").json()
+        if not linhas:
+            raise ErroRanking("Esse simulado não existe mais.")
+        return linhas[0]
+
+    def entregar_simulado(self, sid: int, respostas: dict[int, str], segundos: int) -> dict:
+        """Manda as respostas; o servidor corrige. Devolve {"acertos", "total", "gabarito": {numero: letra}}."""
+        corpo = {"simulado_id": int(sid), "respostas": {str(k): str(v).upper() for k, v in respostas.items() if v}, "segundos": max(0, min(int(segundos), 86400))}
+        self._pedir("POST", "/rest/v1/resultados_turma", json=corpo, cabecalhos={"Prefer": "return=minimal"})
+        meu = self._pedir("GET", f"/rest/v1/resultados_turma?simulado_id=eq.{int(sid)}&usuario_id=eq.{_uid(self.usuario_id)}&select=acertos,total,segundos").json()
+        gab = self.gabarito_simulado(sid)
+        return {**(meu[0] if meu else {"acertos": 0, "total": 0}), "gabarito": gab}
+
+    def gabarito_simulado(self, sid: int) -> dict[int, str]:
+        linhas = self._pedir("GET", f"/rest/v1/simulados_gabarito?simulado_id=eq.{int(sid)}&select=gabarito").json()
+        if not linhas:
+            return {}
+        return {int(k): str(v) for k, v in (linhas[0].get("gabarito") or {}).items() if str(k).isdigit()}
+
+    def ranking_simulado(self, sid: int) -> list[dict]:
+        linhas = self._com_avatar(f"/rest/v1/rpc/ranking_simulado?sid={int(sid)}", "usuario_id,apelido,acertos,total,segundos,enviado_em")
+        for i, l in enumerate(linhas, start=1):
+            l["posicao"] = i
+            l["voce"] = l.get("usuario_id") == self.usuario_id
+        return linhas
+
+    def apagar_simulado(self, sid: int) -> None:
+        self._pedir("DELETE", f"/rest/v1/simulados_turma?id=eq.{int(sid)}", cabecalhos={"Prefer": "return=minimal"})
+
     def membros_grupo(self, codigo: str) -> list[dict]:
         """Quem está no grupo (apelido e concurso), com quem criou o grupo marcado."""
         codigo = _cod(codigo)

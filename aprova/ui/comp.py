@@ -129,8 +129,8 @@ def bolha(
 def bloco(content: ft.Control, c: dict, padding: int = 20, **kw) -> ft.Container:
     return ft.Container(
         content=content,
-        bgcolor=c["sup"],
-        border=ft.Border.all(1, c["borda"]),
+        bgcolor=kw.pop("bgcolor", c["sup"]),
+        border=kw.pop("border", ft.Border.all(1, c["borda"])),
         border_radius=16,
         padding=padding,
         **kw,

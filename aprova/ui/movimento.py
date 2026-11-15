@@ -24,6 +24,7 @@ import math
 import random
 import threading
 import time
+import weakref
 from typing import Callable
 
 import flet as ft
@@ -37,13 +38,11 @@ TENTATIVAS = 14  # quantas vezes espera um controle entrar na tela antes de desi
 
 # ---------------------------------------------------------------------- estado (um por janela do app)
 
-_APPS: dict[int, "weakref.ref"] = {}
+_APPS: dict[int, weakref.ref] = {}
 
 
 def registrar_app(app) -> None:
     """Cada janela (sessão) do app se registra pela página: assim os componentes acham o app sem recebê-lo."""
-    import weakref
-
     _APPS[id(app.page)] = weakref.ref(app)
 
 

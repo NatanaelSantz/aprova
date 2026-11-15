@@ -20,6 +20,11 @@ class TelaInicio:
 
     def build(self) -> ft.Control:
         app, c = self.app, self.app.c
+        if not getattr(app, "_conquistas_conferidas", False):  # uma vez por sessão: conquistas que saíram desde a última vez
+            app._conquistas_conferidas = True
+            from .personagem import comemorar_conquistas
+
+            app.page.run_task(comemorar_conquistas, app)
         agora = datetime.now()
         saudacao = "Bom dia" if agora.hour < 12 else "Boa tarde" if agora.hour < 18 else "Boa noite"
         nome = app.nome_exibicao

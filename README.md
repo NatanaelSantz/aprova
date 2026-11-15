@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.30.0" src="https://img.shields.io/badge/vers%C3%A3o-1.30.0-2340A8">
+  <img alt="Versão 1.31.0" src="https://img.shields.io/badge/vers%C3%A3o-1.31.0-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -49,14 +49,14 @@
       Meta de horas por semana, cronômetro de estudo, horas por dia e o cartão <b>“Seu próximo estudo”</b>. A primeira semana conta só a partir do dia em que você começou.
     </td>
     <td valign="top">
-      <h3>🔁 Revisão no dia certo</h3>
-      O que você erra volta em 1, 3, 7, 15 e 30 dias até ficar dominado. Os simulados trazem primeiro as questões que você nunca fez e, no fim, comentam o resultado: o que você errou em cada matéria e o próximo passo.
+      <h3>🔁 Revisão no dia certo e discursiva</h3>
+      O que você erra volta em 1, 3, 7, 15 e 30 dias até ficar dominado. Os simulados comentam o resultado no fim, e a <b>discursiva é corrigida por IA</b> como a banca faria: nota, aderência ao tema, estrutura e os erros de português com a regra.
     </td>
   </tr>
   <tr>
     <td valign="top">
       <h3>👥 Grupos de estudo</h3>
-      Cada turma tem a sua conversa, com dúvidas, <b>fotos e arquivos do computador</b>, <b>GIFs e figurinhas</b> (até as suas do WhatsApp) e <b>planos de estudo</b> que dá para usar como meta com um clique. Quem cria o grupo modera.
+      Cada turma tem a sua conversa, com dúvidas, <b>fotos e arquivos do computador</b>, <b>GIFs e figurinhas</b> (até as suas do WhatsApp), <b>planos de estudo</b> e <b>simulados da turma</b>. Quem cria o grupo modera.
     </td>
     <td valign="top">
       <h3>🔗 Convite por link</h3>
@@ -65,8 +65,8 @@
   </tr>
   <tr>
     <td valign="top">
-      <h3>🏆 Ranking</h3>
-      Compare horas, questões, acerto e sequência com outras pessoas: <b>na semana, no mês ou desde o começo</b>, no geral ou só com o seu grupo. No ranking aparecem só o apelido e os números.
+      <h3>🏆 Ranking e simulado da turma</h3>
+      Pódio, sua posição e quanto falta para subir: horas, questões, acerto e sequência <b>na semana, no mês ou desde o começo</b>, no geral ou só com o seu grupo. O grupo também marca <b>simulados</b> que o servidor corrige. Aparecem só o apelido e os números.
     </td>
     <td valign="top">
       <h3>👁️ Conforto para os olhos</h3>
@@ -248,6 +248,7 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
+| **1.31.0** | **Simulado da turma** (Grupos → Simulados: quem modera publica uma prova, o servidor corrige e a turma vê o resultado), **conquistas** que destravam roupas do personagem, **card da semana** para compartilhar, **discursiva corrigida por IA** (Estudar → Discursiva) e o **Ranking redesenhado** (pódio, seu cartão com quanto falta para subir e setas de variação) |
 | **1.30.0** | **Edital verticalizado** (Painel → Edital): cole o conteúdo programático e marque teoria, questões e revisão de cada tópico, com o seu acerto por assunto e a marca de questões automática; **ranking do mês e de sempre** (Este mês e Desde o começo, além da semana) |
 | **1.29.0** | **Animações**: telas que deslizam, cartões em cascata, números que contam, barras que enchem, alternativa certa/errada animada e confete no resultado (dá para desligar em Ajustes); **mais rápido**: a prova atualiza só o que muda, o menu do computador não redesenha a página e a lista de concursos é desenhada aos poucos |
 | **1.28.0** | **Celular**: aviso de versão nova ao abrir, com **Baixar e instalar** (e versão obrigatória, se preciso); APK sempre com a mesma assinatura, para as próximas versões instalarem por cima; restaurar a cópia aceita o arquivo .aprova |

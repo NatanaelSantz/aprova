@@ -18,7 +18,7 @@ from . import comp, metas
 from .personagem import busto, sala_da_turma
 from .tema import FONTE_TITULO
 
-ABAS = [("conversa", "Conversa"), ("planos", "Planos de estudo"), ("ranking", "Ranking"), ("membros", "Membros")]
+ABAS = [("conversa", "Conversa"), ("planos", "Planos de estudo"), ("simulados", "Simulados"), ("ranking", "Ranking"), ("membros", "Membros")]
 LARGURA_DUAS_COLUNAS = 1180  # janela a partir disso: lista de grupos e membros ao lado
 CORES_AVATAR = ["#2340A8", "#1D7F53", "#A0612D", "#7A3E9D", "#B83A33", "#0F7C8C", "#5B6B1F"]
 ICONES_TIPO = {
@@ -98,6 +98,7 @@ class TelaGrupos:
         self.posts: dict[tuple[str, str], list[dict]] = {}
         self.membros: dict[str, list[dict]] = {}
         self.linhas_ranking: dict[str, list[dict]] = {}
+        self.simulados: dict[str, list[dict]] = {}  # 1.31: simulados da turma por grupo
         self.respostas: dict[int, list[dict]] = {}
         self.abertos: set[int] = set()
         self.erro: str | None = None
@@ -485,6 +486,7 @@ class TelaGrupos:
             self.posts = {k: v for k, v in self.posts.items() if k[0] != self.codigo}
             self.membros.pop(self.codigo, None)
             self.linhas_ranking.pop(self.codigo, None)
+            self.simulados.pop(self.codigo, None)
             self.respostas = {k: v for k, v in self.respostas.items() if k not in self.abertos}
         self._redesenhar()
         self.app.page.run_task(self.carregar_grupo)
@@ -492,7 +494,7 @@ class TelaGrupos:
     def _conteudo_aba(self, g: dict | None) -> ft.Control:
         if g is None:
             return ft.Container()
-        return {"conversa": self._conversa, "planos": self._planos, "ranking": self._ranking, "membros": self._aba_membros}[self.aba](g)
+        return {"conversa": self._conversa, "planos": self._planos, "simulados": self._simulados, "ranking": self._ranking, "membros": self._aba_membros}[self.aba](g)
 
     # ------------------------------------------------------------------ carregamento
 
@@ -536,6 +538,13 @@ class TelaGrupos:
                     self.posts[(cod, chave)] = await app.em_segundo_plano(self.r.forum, cod, tipo)
             if self.aba == "ranking" and cod not in self.linhas_ranking:
                 self.linhas_ranking[cod] = await app.em_segundo_plano(self.r.ranking, "horas", None, cod)
+            if self.aba == "simulados" and cod not in self.simulados:
+                try:
+                    self.simulados[cod] = await app.em_segundo_plano(self.r.simulados_turma, cod)
+                except rk.ErroRanking as ex:
+                    if "SQL novo" not in str(ex):
+                        raise
+                    self.simulados[cod] = []  # servidor sem o SQL da 1.31: a aba fica vazia
             self.erro = None
         except rk.ErroRanking as ex:
             self.erro = str(ex)
@@ -1457,6 +1466,15 @@ class TelaGrupos:
 
     # ------------------------------------------------------------------ ranking e membros
 
+    def _simulados(self, g: dict) -> ft.Control:
+        from .simulado_turma import aba_simulados
+
+        return aba_simulados(self, g)
+
+    def recarregar_simulados(self, cod: str) -> None:
+        self.simulados.pop(cod, None)
+        self._redesenhar()
+
     def _ranking(self, g: dict) -> ft.Control:
         from .ranking import SecaoRanking
 
@@ -1480,6 +1498,7 @@ class TelaGrupos:
             return ft.Column([comp.vazio(ft.Icons.LEADERBOARD_OUTLINED, "Ninguém estudou ainda nesta semana", "Os números aparecem assim que alguém do grupo estuda pelo app.", c), rodape])
         secao = SecaoRanking(app, lambda: None)
         secao.metrica = "horas"
+        secao.linhas = linhas  # as barras de cada linha são proporcionais ao líder
         return ft.Column([comp.bloco(ft.Column([secao._linha(c, l) for l in linhas[:30]], spacing=0), c, padding=6), rodape], spacing=10)
 
     def _lista_membros(self, g: dict) -> list[ft.Control]:

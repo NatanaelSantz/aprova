@@ -23,6 +23,7 @@ class Dados:
         self.usuarios: dict[str, dict] = {}  # id -> {email, senha}
         self.tabelas: dict[str, list[dict]] = {
             "perfis": [], "estatisticas": [], "grupos": [], "membros": [], "comunicados": [],
+            "simulados_turma": [], "simulados_gabarito": [], "resultados_turma": [],
             "forum_posts": [], "forum_respostas": [], "forum_uteis": [], "config": [], "erros": [],
         }
         self.sem_sql_124 = False  # finge um servidor sem o SQL da 1.24/1.26 (espaço usado e relatórios de erro)
@@ -31,6 +32,7 @@ class Dados:
         self.sem_entrar_no_grupo = False  # finge um servidor sem o SQL da 1.12 (grupos visíveis para todos)
         self.sem_avatar = False  # finge um servidor sem o SQL da 1.14 (sem personagem nem foto de perfil)
         self.sem_periodo = False  # finge um servidor sem o SQL da 1.30 (ranking do mês e de sempre)
+        self.sem_simulado = False  # finge um servidor sem o SQL da 1.31 (simulado da turma)
         self.fotos: dict[str, bytes] = {}  # Storage: pasta "avatares" (<id>.webp)
         self._seq = 0
         self.anonimo_ligado = True
@@ -409,9 +411,24 @@ class Manipulador(BaseHTTPRequestHandler):
                 linhas = d.ranking_periodo(uid, args.get("desde"), args.get("cod"))
                 filtros = [(k, unquote(v)) for k, v in query if k not in ("select", "order", "limit", "desde", "cod")]
                 return self._json(200, _ordenar_limitar(_filtrar(linhas, filtros), query))
+            if caminho == "/rest/v1/rpc/ranking_simulado":
+                if d.sem_simulado:
+                    return self._json(404, {"code": "PGRST202", "message": "Could not find the function public.ranking_simulado in the schema cache"})
+                sid = int(dict(query).get("sid") or 0)
+                sim = next((x for x in d.tabelas["simulados_turma"] if x["id"] == sid), None)
+                if not sim or not d.eh_membro(uid, sim["codigo"]):
+                    return self._json(200, [])
+                perfis = {p["id"]: p for p in d.tabelas["perfis"]}
+                linhas = [{"usuario_id": r["usuario_id"], "apelido": perfis[r["usuario_id"]]["apelido"], "acertos": r["acertos"], "total": r["total"],
+                           "segundos": r["segundos"], "enviado_em": r["enviado_em"], "avatar": perfis[r["usuario_id"]].get("avatar")}
+                          for r in d.tabelas["resultados_turma"] if r["simulado_id"] == sid]
+                linhas.sort(key=lambda r: (-r["acertos"], r["segundos"], r["enviado_em"]))
+                return self._json(200, linhas)
             m = re.match(r"/rest/v1/(\w+)$", caminho)
             if not m:
                 return self._json(404, {"message": "not found"})
+            if m.group(1) in ("simulados_turma", "simulados_gabarito", "resultados_turma") and d.sem_simulado:
+                return self._json(404, {"code": "PGRST205", "message": f"Could not find the table 'public.{m.group(1)}' in the schema cache"})
             tabela = m.group(1)
             if tabela == "erros" and d.sem_sql_124:
                 return self._json(404, {"code": "PGRST205", "message": "Could not find the table 'public.erros' in the schema cache"})
@@ -431,6 +448,16 @@ class Manipulador(BaseHTTPRequestHandler):
                     linhas = d.tabelas["erros"] if d.eh_admin(uid) else []
                 elif tabela == "comunicados" and not d.eh_admin(uid):
                     linhas = [c for c in d.tabelas[tabela] if c["ativo"]]
+                elif tabela == "simulados_turma":
+                    linhas = [x for x in d.tabelas[tabela] if d.eh_membro(uid, x["codigo"])]
+                elif tabela == "resultados_turma":
+                    sims = {x["id"]: x for x in d.tabelas["simulados_turma"]}
+                    linhas = [r for r in d.tabelas[tabela] if r["simulado_id"] in sims and d.eh_membro(uid, sims[r["simulado_id"]]["codigo"])]
+                elif tabela == "simulados_gabarito":
+                    sims = {x["id"]: x for x in d.tabelas["simulados_turma"]}
+                    linhas = [g for g in d.tabelas[tabela] if g["simulado_id"] in sims and (
+                        d.modera(uid, sims[g["simulado_id"]]["codigo"])
+                        or any(r["simulado_id"] == g["simulado_id"] and r["usuario_id"] == uid for r in d.tabelas["resultados_turma"]))]
                 elif tabela == "forum_feed":
                     linhas = d.forum_feed(uid)
                 elif tabela == "forum_respostas_v":
@@ -452,6 +479,11 @@ class Manipulador(BaseHTTPRequestHandler):
                 for n in novas:
                     if tabela.startswith("forum_"):
                         erro = self._forum_inserir(tabela, dict(n), uid)
+                        if erro:
+                            return self._json(*erro)
+                        continue
+                    if tabela in ("simulados_turma", "simulados_gabarito", "resultados_turma"):
+                        erro = self._simulado_inserir(tabela, dict(n), uid)
                         if erro:
                             return self._json(*erro)
                         continue
@@ -531,6 +563,13 @@ class Manipulador(BaseHTTPRequestHandler):
             if metodo == "DELETE":
                 alvo = _filtrar(d.tabelas[tabela], filtros)
                 admin = d.eh_admin(uid)
+                if tabela == "simulados_turma":
+                    apagar = [x for x in alvo if d.modera(uid, x["codigo"])]
+                    ids = {x["id"] for x in apagar}
+                    d.tabelas[tabela] = [x for x in d.tabelas[tabela] if x["id"] not in ids]
+                    for t in ("simulados_gabarito", "resultados_turma"):
+                        d.tabelas[t] = [x for x in d.tabelas[t] if x["simulado_id"] not in ids]
+                    return self._json(204)
                 if tabela == "grupos":
                     apagar = [g for g in alvo if admin or g.get("criado_por") == uid]
                     cods = {g["codigo"] for g in apagar}
@@ -591,6 +630,38 @@ class Manipulador(BaseHTTPRequestHandler):
 
     def do_GET(self):
         self._rota("GET")
+
+    def _simulado_inserir(self, tabela: str, n: dict, uid: str):
+        """As regras do SQL da 1.31: moderador publica, membro entrega uma vez, o servidor corrige."""
+        d = self.dados
+        rls = (403, {"code": "42501", "message": "new row violates row-level security policy"})
+        if tabela == "simulados_turma":
+            if not d.modera(uid, n.get("codigo", "")) or not d.pode_escrever(uid, n["codigo"]):
+                return rls
+            d._seq += 1
+            d.tabelas[tabela].append({"id": d._seq, "autor": uid, "duracao_min": 0, "fecha_em": None, "criado_em": agora_iso(), **n})
+            self._ultimo_id = d._seq
+            return None
+        if tabela == "simulados_gabarito":
+            sim = next((x for x in d.tabelas["simulados_turma"] if x["id"] == n.get("simulado_id")), None)
+            if not sim or sim["autor"] != uid:
+                return rls
+            d.tabelas[tabela].append(dict(n))
+            return None
+        sim = next((x for x in d.tabelas["simulados_turma"] if x["id"] == n.get("simulado_id")), None)
+        if not sim or not d.pode_escrever(uid, sim["codigo"]) or (sim.get("fecha_em") and sim["fecha_em"] < agora_iso()):
+            return rls
+        if any(r["simulado_id"] == sim["id"] and r["usuario_id"] == uid for r in d.tabelas["resultados_turma"]):
+            return (409, {"code": "23505", "message": 'duplicate key value violates unique constraint "resultados_turma_pkey"'})
+        gab = next((g["gabarito"] for g in d.tabelas["simulados_gabarito"] if g["simulado_id"] == sim["id"]), None)
+        if gab is None:
+            return (400, {"code": "P0001", "message": "simulado sem gabarito"})
+        resp = n.get("respostas") or {}
+        validas = {k: v for k, v in gab.items() if v}
+        acertos = sum(1 for k, v in validas.items() if v == "*" or str(resp.get(k, "")).upper() == str(v).upper())
+        d.tabelas[tabela].append({"simulado_id": sim["id"], "usuario_id": uid, "respostas": resp, "acertos": acertos, "total": len(validas),
+                                  "segundos": int(n.get("segundos") or 0), "enviado_em": agora_iso()})
+        return None
 
     def do_POST(self):
         self._rota("POST")

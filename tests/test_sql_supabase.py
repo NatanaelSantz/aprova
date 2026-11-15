@@ -391,3 +391,39 @@ def test_relatorios_de_erro(db):
     assert db.como(A).q("select count(*) from erros where assinatura = %s", (chave,)) == [(20,)]
     db.como(A).q("delete from erros where assinatura = %s", (chave,))
     assert db.como(A).q("select count(*) from erros") == [(0,)]
+
+
+def test_simulado_da_turma(db):
+    import json
+
+    db.como(B).q("insert into grupos (codigo, nome, criado_por) values ('TURMA-SIM', 'Turma', %s)", (B,))
+    db.como(B).q("insert into membros (codigo, usuario_id) values ('TURMA-SIM', %s)", (B,))
+    db.como(C).q("select * from entrar_no_grupo('TURMA-SIM')")
+    questoes = json.dumps([{"numero": 1, "enunciado": "Q1", "alternativas": {"A": "a", "B": "b"}}, {"numero": 2, "enunciado": "Q2", "alternativas": {"A": "a", "B": "b"}},
+                           {"numero": 3, "enunciado": "Q3", "alternativas": {"C": "certo", "E": "errado"}}])
+    # só quem modera publica
+    assert "policy" in db.como(C).falha("insert into simulados_turma (codigo, titulo, questoes, total) values ('TURMA-SIM', 'Teste', %s, 3)", (questoes,))
+    sid = db.como(B).q("insert into simulados_turma (codigo, titulo, questoes, total, duracao_min) values ('TURMA-SIM', 'Simulado 1', %s, 3, 30) returning id", (questoes,))[0][0]
+    db.como(B).q("insert into simulados_gabarito (simulado_id, gabarito) values (%s, %s)", (sid, json.dumps({"1": "A", "2": "B", "3": "*"})))
+    # membro vê o simulado, mas não o gabarito antes de entregar; quem não é do grupo não vê nada
+    assert db.como(C).q("select titulo, total from simulados_turma") == [("Simulado 1", 3)]
+    assert db.como(C).q("select * from simulados_gabarito") == []
+    assert db.como(D).q("select * from simulados_turma") == []
+    # o servidor corrige: o app não manda acertos
+    db.como(C).q("insert into resultados_turma (simulado_id, respostas, acertos, segundos) values (%s, %s, 99, 600)", (sid, json.dumps({"1": "a", "2": "A"})))
+    assert db.como(C).q("select acertos, total from resultados_turma where usuario_id = %s", (C,)) == [(2, 3)]  # 1 certa (A), 2 errada, 3 anulada conta
+    assert db.como(C).q("select gabarito ->> '2' from simulados_gabarito") == [("B",)]  # agora lê o gabarito
+    # só uma entrega por pessoa; quem não é do grupo não entrega
+    assert "duplicate" in db.como(C).falha("insert into resultados_turma (simulado_id, respostas) values (%s, '{}')", (sid,))
+    assert "policy" in db.como(D).falha("insert into resultados_turma (simulado_id, respostas) values (%s, '{}')", (sid,))
+    db.como(B).q("insert into resultados_turma (simulado_id, respostas, segundos) values (%s, %s, 400)", (sid, json.dumps({"1": "A", "2": "B"})))
+    assert db.como(C).q("select apelido, acertos, segundos from ranking_simulado(%s)", (sid,)) == [("Beto", 3, 400), ("Caio", 2, 600)]
+    assert db.como(D).q("select apelido from ranking_simulado(%s)", (sid,)) == []
+    # prazo vencido: ninguém mais entrega
+    sid2 = db.como(B).q("insert into simulados_turma (codigo, titulo, questoes, total, fecha_em) values ('TURMA-SIM', 'Velho', %s, 3, now() - interval '1 hour') returning id", (questoes,))[0][0]
+    db.como(B).q("insert into simulados_gabarito (simulado_id, gabarito) values (%s, '{\"1\": \"A\"}')", (sid2,))
+    assert "policy" in db.como(C).falha("insert into resultados_turma (simulado_id, respostas) values (%s, '{}')", (sid2,))
+    # apagar o simulado leva gabarito e resultados junto; só quem modera
+    assert db.como(C).q("delete from simulados_turma where id = %s returning id", (sid,)) == []
+    db.como(B).q("delete from simulados_turma where id = %s", (sid,))
+    assert db.como(None).q("select count(*) from resultados_turma where simulado_id = %s", (sid,)) == [(0,)]

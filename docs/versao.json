@@ -1,10 +1,12 @@
 {
-  "versao": "1.30.0",
-  "data": "12/11/2026",
+  "versao": "1.31.0",
+  "data": "14/11/2026",
   "notas": [
-    "Edital verticalizado (Painel → Edital): cole o conteúdo programático do edital e marque teoria, questões e revisão de cada tópico. O app mostra seu acerto em cada assunto e marca as questões sozinho.",
-    "Ranking do mês e de sempre: além da semana, veja Este mês e Desde o começo (na sequência vale a maior).",
-    "No Início, o cartão do Meu concurso mostra quanto do edital você já estudou."
+    "Simulado da turma (Grupos → Simulados): quem modera publica uma prova da biblioteca, cada um faz pelo app, o servidor corrige e a turma vê o resultado de todos.",
+    "Conquistas: marcos de estudo destravam roupas e acessórios do personagem (toque no boneco → Conquistas).",
+    "Card da semana: em Sua semana → Compartilhar, uma imagem com horas, questões, acerto e o seu boneco para mandar no WhatsApp ou postar.",
+    "Discursiva corrigida por IA (Estudar → Discursiva): nota, aderência ao tema, estrutura e os erros de português, com a sua chave do Claude ou pelo chat.",
+    "Ranking redesenhado: pódio, o seu cartão com quanto falta para passar quem está na frente e setas de subiu/desceu."
   ],
-  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.30.0.zip"
+  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.31.0.zip"
 }

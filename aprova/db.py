@@ -127,6 +127,18 @@ CREATE TABLE IF NOT EXISTS duvidas (
     via TEXT DEFAULT 'busca',
     criada_em TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS discursivas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tema TEXT NOT NULL,
+    tipo TEXT DEFAULT 'dissertativa',  -- dissertativa | questao | peca
+    texto TEXT NOT NULL,
+    correcao TEXT DEFAULT '',          -- Markdown devolvido pela IA
+    nota REAL,                         -- 0 a 10, quando a correção trouxe
+    via TEXT DEFAULT '',               -- chave | chat
+    segundos INTEGER DEFAULT 0,        -- tempo escrevendo
+    criada_em TEXT NOT NULL,
+    corrigida_em TEXT
+);
 CREATE TABLE IF NOT EXISTS lembretes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     titulo TEXT NOT NULL,
@@ -725,6 +737,35 @@ class Banco:
     def apagar_duvida(self, duvida_id: int) -> None:
         with self._tx() as c:
             c.execute("DELETE FROM duvidas WHERE id=?", (duvida_id,))
+
+    # ---- discursivas (1.31)
+
+    def salvar_discursiva(self, tema: str, tipo: str, texto: str, segundos: int = 0, discursiva_id: int | None = None) -> int:
+        with self._tx() as c:
+            if discursiva_id:
+                c.execute("UPDATE discursivas SET tema=?, tipo=?, texto=?, segundos=? WHERE id=?", (tema[:300], tipo, texto, segundos, discursiva_id))
+                return discursiva_id
+            cur = c.execute(
+                "INSERT INTO discursivas (tema, tipo, texto, segundos, criada_em) VALUES (?,?,?,?,?)",
+                (tema[:300], tipo, texto, segundos, datetime.now().isoformat(timespec="seconds")),
+            )
+            return int(cur.lastrowid)
+
+    def corrigir_discursiva(self, discursiva_id: int, correcao: str, nota: float | None, via: str) -> None:
+        with self._tx() as c:
+            c.execute("UPDATE discursivas SET correcao=?, nota=?, via=?, corrigida_em=? WHERE id=?",
+                      (correcao, nota, via, datetime.now().isoformat(timespec="seconds"), discursiva_id))
+
+    def discursivas(self, limite: int = 100) -> list[dict]:
+        return [dict(r) for r in self._q("SELECT * FROM discursivas ORDER BY id DESC LIMIT ?", (limite,))]
+
+    def discursiva(self, discursiva_id: int) -> dict | None:
+        r = self._q("SELECT * FROM discursivas WHERE id=?", (discursiva_id,))
+        return dict(r[0]) if r else None
+
+    def apagar_discursiva(self, discursiva_id: int) -> None:
+        with self._tx() as c:
+            c.execute("DELETE FROM discursivas WHERE id=?", (discursiva_id,))
 
     # ---- lembretes
 

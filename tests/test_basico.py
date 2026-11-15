@@ -2992,3 +2992,127 @@ def test_edital_na_tela(tmp_path):
     assert resumo(app)["feitas"] == 1
     s._trocar(0, 0, "teoria")
     assert app.aj.get("edital")["disciplinas"][0]["topicos"][0]["teoria"] is False
+
+
+def test_conquistas_destravam_itens(tmp_path):
+    """1.31: as conquistas saem dos números do aparelho e destravam itens do personagem."""
+    from aprova import config, conquistas
+    from aprova.db import Banco
+
+    b = Banco(tmp_path / "c.db")
+    aj = config.AjustesMemoria()
+    assert conquistas.feitas(b, aj) == set()
+    assert conquistas.trancado("acessorio", "coroa", set()) is conquistas.POR_CHAVE["sequencia_30"]
+    assert conquistas.trancado("acessorio", "bone", set()) is None  # item comum: sempre livre
+    assert conquistas.trancado("acessorio", "coroa", set(), {"acessorio": "coroa"}) is None  # já usava: continua
+    assert conquistas.novas(b, aj) == [] and aj.get("conquistas_vistas") == []  # primeira vez: nada a comemorar
+    p = b.criar_prova(titulo="S", origem_url="u")
+    b.salvar_questoes(p, [{"numero": i + 1, "enunciado": "x", "disciplina": "D", "alternativas": {"A": "a"}, "gabarito": "A"} for i in range(25)])
+    t = b.iniciar_tentativa(p, "simulado")
+    for n in range(1, 26):
+        b.registrar_resposta(t, n, "D", "A" if n <= 24 else "B", n <= 24)
+    b.finalizar_tentativa(t, 600, 24, 25)
+    feitas = conquistas.feitas(b, aj)
+    assert {"primeiro_simulado", "nota_alta"} <= feitas and "questoes_100" not in feitas
+    assert ("acessorio", "capelo") in conquistas.destravados(b, aj)
+    novas = conquistas.novas(b, aj)
+    assert {c.chave for c in novas} == {"primeiro_simulado", "nota_alta"} and conquistas.novas(b, aj) == []
+    aval = {a["conquista"].chave: a for a in conquistas.avaliar(b, aj)}
+    assert aval["questoes_100"]["valor"] == 25 and not aval["questoes_100"]["feita"]
+    # a maior sequência fica guardada
+    aj.set("sequencia_max", 31)
+    assert "sequencia_30" in conquistas.feitas(b, aj)
+
+
+def test_cartao_da_semana(tmp_path):
+    """1.31: o card da semana junta horas, questões, acerto e dias, e vira uma imagem."""
+    from datetime import date, timedelta
+
+    from PIL import Image
+
+    from aprova import avatar, cartao
+    from aprova.db import Banco
+
+    b = Banco(tmp_path / "s.db")
+    seg = date.today() - timedelta(days=date.today().weekday())
+    b.somar_tempo(3600, dia=seg.isoformat())
+    b.somar_tempo(1800, dia=(seg + timedelta(days=1)).isoformat())
+    p = b.criar_prova(titulo="P", origem_url="u")
+    b.salvar_questoes(p, [{"numero": i + 1, "enunciado": "x", "disciplina": "D", "alternativas": {"A": "a"}, "gabarito": "A"} for i in range(10)])
+    t = b.iniciar_tentativa(p, "estudo")
+    for n in range(1, 11):
+        b.registrar_resposta(t, n, "D", "A" if n <= 8 else "B", n <= 8)
+    d = cartao.dados_semana(b, nome="Ana", concurso="INSS")
+    assert d["segundos"] == 5400 and d["questoes"] == 10 and d["taxa"] == 0.8 and d["dias_estudados"] >= 2
+    assert d["dias"][0]["segundos"] == 3600 and d["inicio"] == seg
+    assert "1h30" in cartao.legenda(d) and "80%" in cartao.legenda(d) and "aprova" in cartao.legenda(d)
+    caminho = cartao.imagem_semana(d, avatar.sortear("ana"), tmp_path / "card.png")
+    assert Image.open(caminho).size == (1080, 1350)
+    cartao.imagem_semana(cartao.dados_semana(b, seg - timedelta(days=7)), None, tmp_path / "vazio.png")  # semana vazia, sem boneco
+
+
+def test_discursiva_pedido_nota_e_banco(tmp_path):
+    """1.31: contagem de linhas, pedido de correção para o chat, leitura da nota e guarda no banco."""
+    from aprova import discursiva
+    from aprova.db import Banco
+
+    texto = "Primeira frase do texto. " * 12 + "\n\nSegundo parágrafo curto."
+    n = discursiva.contar(texto)
+    assert n["palavras"] == 51 and n["linhas"] == 5  # 300 caracteres = 4 linhas de 75 + 1 do segundo parágrafo
+    pedido = discursiva.pedido_correcao("Tema X", texto, "questao", 20)
+    assert "questão discursiva" in pedido and "20 linhas" in pedido and "Nota: X/10" in pedido and "Tema X" in pedido
+    assert discursiva.extrair_nota("**Nota: 7,5/10** — bom texto") == 7.5
+    assert discursiva.extrair_nota("Nota 8 / 10. Texto...") == 8.0
+    assert discursiva.extrair_nota("NOTA FINAL: 6.0 de 10") == 6.0
+    assert discursiva.extrair_nota("Atribuo nota 9 ao texto") == 9.0
+    assert discursiva.extrair_nota("sem nenhuma avaliação numérica") is None
+    assert discursiva.extrair_nota("Nota: 15/10") is None
+    b = Banco(tmp_path / "d.db")
+    i = b.salvar_discursiva("Tema", "dissertativa", texto, 600)
+    b.salvar_discursiva("Tema 2", "dissertativa", texto + " mais", 900, i)  # mesma, atualizada
+    assert len(b.discursivas()) == 1 and b.discursiva(i)["segundos"] == 900
+    b.corrigir_discursiva(i, "Nota: 7/10", 7.0, "chat")
+    assert b.discursiva(i)["nota"] == 7.0 and b.discursiva(i)["corrigida_em"]
+    b.apagar_discursiva(i)
+    assert b.discursivas() == []
+
+
+def test_simulado_da_turma_cliente(tmp_path):
+    """1.31: quem modera publica a prova (gabarito separado), o membro entrega e o servidor corrige."""
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from servidor_falso import CHAVE, ServidorFalso
+
+    from aprova import config, ranking
+
+    srv = ServidorFalso().iniciar()
+    try:
+        dona = ranking.Ranking(config.Ajustes(tmp_path / "a.json"), {"url": srv.url, "chave": CHAVE})
+        dona.criar_conta("dona@exemplo.com", "segredo1", "Dona")
+        codigo = dona.criar_grupo("Turma")
+        questoes = [{"numero": i + 1, "enunciado": f"Q{i + 1}", "alternativas": {"A": "a", "B": "b"}, "gabarito": "A" if i % 2 == 0 else "B", "disciplina": "D"} for i in range(4)]
+        questoes.append({"numero": 5, "enunciado": "Sem gabarito", "alternativas": {"A": "a"}, "gabarito": ""})
+        sid = dona.publicar_simulado(codigo, "Simulado da turma", questoes, duracao_min=30, prazo_dias=7)
+        aluno = ranking.Ranking(config.Ajustes(tmp_path / "b.json"), {"url": srv.url, "chave": CHAVE})
+        aluno.criar_conta("aluno@exemplo.com", "segredo1", "Aluno")
+        assert aluno.simulados_turma(codigo) == []  # ainda não entrou no grupo
+        aluno.entrar_grupo(codigo)
+        sims = aluno.simulados_turma(codigo)
+        assert len(sims) == 1 and sims[0]["total"] == 4 and sims[0]["meu"] is None and sims[0]["aberto"] and not sims[0]["sou_autor"]
+        s = aluno.questoes_simulado(sid)
+        assert len(s["questoes"]) == 4 and "gabarito" not in s["questoes"][0] and aluno.gabarito_simulado(sid) == {}  # gabarito escondido
+        r = aluno.entregar_simulado(sid, {1: "A", 2: "A", 3: "A", 4: "b"}, 900)
+        assert (r["acertos"], r["total"]) == (3, 4) and r["gabarito"] == {1: "A", 2: "B", 3: "A", 4: "B"}
+        assert aluno.simulados_turma(codigo)[0]["meu"]["acertos"] == 3
+        with pytest.raises(ranking.ErroRanking):
+            aluno.entregar_simulado(sid, {1: "A"}, 10)  # só uma vez
+        with pytest.raises(ranking.ErroRanking):
+            aluno.publicar_simulado(codigo, "Não posso", questoes)  # só quem modera
+        dona.entregar_simulado(sid, {1: "A", 2: "B", 3: "A", 4: "B"}, 500)
+        rk_ = aluno.ranking_simulado(sid)
+        assert [(l["apelido"], l["acertos"], l["posicao"], l["voce"]) for l in rk_] == [("Dona", 4, 1, False), ("Aluno", 3, 2, True)]
+        dona.apagar_simulado(sid)
+        assert aluno.simulados_turma(codigo) == []
+    finally:
+        srv.parar()

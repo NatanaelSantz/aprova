@@ -14,7 +14,7 @@ from pathlib import Path
 import flet as ft
 
 from .. import avatar as av
-from .. import config
+from .. import config, conquistas
 from .. import falas
 from ..ranking import ErroRanking
 from . import comp
@@ -293,6 +293,18 @@ def contexto_falas(app) -> dict:
     if dias is not None:
         ctx.update(dias_prova=dias, concurso=meu_concurso.dados(app)["nome"])
     return ctx
+
+
+async def comemorar_conquistas(app) -> None:
+    """Avisa as conquistas que acabaram de sair (uma de cada vez) e o boneco do Início pula."""
+    try:
+        recentes = await app.em_segundo_plano(conquistas.novas, app.db, app.aj)
+    except Exception:  # noqa: BLE001
+        return
+    for cq in recentes:
+        app.msg(f"Conquista: {cq.nome}! Você destravou {cq.premio} para o personagem (toque no boneco → Conquistas).")
+        gesto_no_inicio(app, "pulo")
+        await asyncio.sleep(3.8)
 
 
 def gesto_no_inicio(app, nome: str) -> None:
@@ -670,7 +682,7 @@ def sala_da_turma(app, membros: list[dict], cenario: str = "biblioteca", largura
 # ---------------------------------------------------------------------- criador de personagem
 
 ABAS_CRIADOR = [("corpo", "Corpo"), ("rosto", "Rosto"), ("cabelo", "Cabelo"), ("oculos", "Óculos"), ("roupa", "Roupa"), ("acessorios", "Acessórios"),
-                ("cenario", "Cenário"), ("falas", "Falas"), ("foto", "Foto")]
+                ("cenario", "Cenário"), ("conquistas", "Conquistas"), ("falas", "Falas"), ("foto", "Foto")]
 
 
 def abrir_criador(app, ao_salvar=None, aba: str = "corpo") -> None:
@@ -684,6 +696,11 @@ def abrir_criador(app, ao_salvar=None, aba: str = "corpo") -> None:
         "falas": minhas_falas(app),  # o que o boneco fala no Início (fica só neste computador)
         "exemplo": None,
     }
+    try:  # itens que as conquistas já destravaram (1.31); quem já usava um item trancado continua com ele
+        abertos = conquistas.destravados(app.db, app.aj)
+    except Exception:  # noqa: BLE001 - sem banco (testes) ou erro: nada fica trancado
+        abertos = set(conquistas.TRANCADOS)
+    cfg_inicial = dict(estado["cfg"])
     foto_atual = minha_foto(app)
     largura_tela = app.largura or 900
     estreito = largura_tela < 820
@@ -726,13 +743,18 @@ def abrir_criador(app, ao_salvar=None, aba: str = "corpo") -> None:
             atualizar_previa("lobby")
 
     def mudar(chave, valor):
+        if (falta := conquistas.trancado(chave, valor, abertos, cfg_inicial)) is not None:
+            app.msg(f"{falta.premio}: destrava com a conquista “{falta.nome}” ({falta.descricao.lower()}). Veja em Conquistas.")
+            return
         estado["cfg"][chave] = valor
         atualizar_previa(estado["gesto"] if estado["gesto"] == "lobby" else "lobby")
         montar_opcoes()
 
-    def chip(rotulo, marcado, ao_clicar):
+    def chip(rotulo, marcado, ao_clicar, trancado=None):
+        texto = ft.Text(rotulo, size=13, weight=ft.FontWeight.W_600, color=c["sobre_tinta"] if marcado else c["texto2"] if trancado else c["texto"])
         return ft.Container(
-            ft.Text(rotulo, size=13, weight=ft.FontWeight.W_600, color=c["sobre_tinta"] if marcado else c["texto"]),
+            ft.Row([ft.Icon(ft.Icons.LOCK_OUTLINE, size=13, color=c["texto2"]), texto], spacing=4, tight=True) if trancado else texto,
+            tooltip=f"Conquista “{trancado.nome}”: {trancado.descricao.lower()}" if trancado else None,
             bgcolor=c["tinta"] if marcado else c["sup2"],
             border_radius=999,
             padding=ft.Padding.symmetric(horizontal=12, vertical=7),
@@ -754,7 +776,8 @@ def abrir_criador(app, ao_salvar=None, aba: str = "corpo") -> None:
     def linha_estilos(titulo, chave, lista):
         return ft.Column(
             [comp.apagado(titulo, c, 12.5),
-             ft.Row([chip(r, estado["cfg"][chave] == v, lambda e, v=v: mudar(chave, v)) for v, r in lista], wrap=True, spacing=6, run_spacing=6)],
+             ft.Row([chip(r, estado["cfg"][chave] == v, lambda e, v=v: mudar(chave, v), conquistas.trancado(chave, v, abertos, cfg_inicial))
+                     for v, r in lista], wrap=True, spacing=6, run_spacing=6)],
             spacing=6,
         )
 
@@ -789,6 +812,8 @@ def abrir_criador(app, ao_salvar=None, aba: str = "corpo") -> None:
         elif aba == "cenario":
             filhos = [linha_estilos("Onde o seu personagem fica", "cenario", av.CENARIOS),
                       comp.apagado("O cenário aparece no Início e quando você abre o personagem.", c, 12)]
+        elif aba == "conquistas":
+            filhos = parte_conquistas()
         elif aba == "falas":
             filhos = parte_falas()
         else:
@@ -798,6 +823,55 @@ def abrir_criador(app, ao_salvar=None, aba: str = "corpo") -> None:
             opcoes.update()
         except Exception:  # noqa: BLE001
             pass
+
+    def parte_conquistas() -> list[ft.Control]:
+        try:
+            lista = conquistas.avaliar(app.db, app.aj)
+        except Exception:  # noqa: BLE001
+            return [comp.apagado("Não consegui medir as conquistas agora.", c, 13)]
+        feitas = sum(1 for a in lista if a["feita"])
+        linhas: list[ft.Control] = [
+            comp.apagado(f"{feitas} de {len(lista)} conquistas. Cada uma destrava uma roupa ou um acessório do personagem.", c, 12.5)
+        ]
+        for a in lista:
+            cq, v = a["conquista"], a["valor"]
+            cat, val = cq.destrava
+            ok = a["feita"]
+            progresso = f"{v}{cq.unidade} de {cq.meta}{cq.unidade}" if cq.meta > 1 else ("feita" if ok else "ainda não")
+            linhas.append(ft.Container(
+                ft.Row(
+                    [
+                        ft.Icon(ft.Icons.EMOJI_EVENTS if ok else ft.Icons.LOCK_OUTLINE, size=22, color=c["marca"] if ok else c["texto2"]),
+                        ft.Column(
+                            [
+                                ft.Text(cq.nome, size=14, weight=ft.FontWeight.W_700, color=c["texto"]),
+                                comp.apagado(f"{cq.descricao} · {progresso}", c, 12.5),
+                                comp.barra(v / cq.meta if cq.meta else 0, c, c["ok"] if ok else None, altura=5, animar=False),
+                            ],
+                            spacing=3,
+                            expand=True,
+                        ),
+                        ft.Column(
+                            [
+                                _pixel(img_sozinho({**estado["cfg"], cat: val}, "parado", 1), 64, 80, ft.BoxFit.CONTAIN),
+                                ft.Text(cq.premio, size=11, color=c["tinta"] if ok else c["texto2"], text_align=ft.TextAlign.CENTER, width=86, max_lines=2),
+                            ],
+                            spacing=2,
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
+                    ],
+                    spacing=10,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                padding=ft.Padding.symmetric(vertical=6),
+                border=ft.Border.only(top=ft.BorderSide(1, c["borda"])),
+                on_click=(lambda e, cat=cat, val=val: (mudar(cat, val), trocar_aba("roupa" if cat == "roupa" else "acessorios"))) if ok else None,
+                tooltip="Usar no personagem" if ok else None,
+                ink=ok,
+            ))
+        # a lista rola dentro da janela: assim a prévia do boneco continua à vista
+        altura = max(260, min(420, (app.page.height or 700) - 330))
+        return [linhas[0], ft.Column(linhas[1:], spacing=0, scroll=ft.ScrollMode.AUTO, height=altura)]
 
     def parte_falas() -> list[ft.Control]:
         f = estado["falas"]

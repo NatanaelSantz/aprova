@@ -107,12 +107,27 @@ def painel_semana(app, r: dict, com_nota: bool = True) -> ft.Control:
         nota = "Meta da semana cumprida!" if cumpriu else f"{int(round(r['progresso'] * 100))}% da meta"
     else:
         nota = _quando_comeca(app)
-    linhas.append(ft.Row([comp.apagado(nota, c, 13), ft.Container(expand=True), ajustar], vertical_alignment=ft.CrossAxisAlignment.CENTER))
+    def abrir_cartao(e):
+        from .cartao_semana import abrir
+
+        abrir(app)
+
+    compartilhar = ft.Container(
+        ft.Row([ft.Icon(ft.Icons.SHARE_OUTLINED, size=14, color=c["tinta"]), ft.Text("Compartilhar", size=13, color=c["tinta"], weight=ft.FontWeight.W_600)], spacing=4, tight=True),
+        on_click=abrir_cartao,
+        tooltip="Card da semana para mandar no WhatsApp ou postar",
+        padding=ft.Padding.symmetric(vertical=2),
+    )
+    linhas.append(ft.Row([comp.apagado(nota, c, 13), ft.Container(expand=True), compartilhar, ajustar], spacing=14, vertical_alignment=ft.CrossAxisAlignment.CENTER))
     principal = ft.Column(linhas, spacing=6)
 
     rot_r, val_r, exp_r = _ritmo(r)
     seq = r["sequencia"]
-    dias_txt = f"{r['dias_semana']} de {r['meta_dias']} dias nesta semana" if r["meta_dias"] else f"{r['dias_semana']} dia{'s' if r['dias_semana'] != 1 else ''} nesta semana"
+    ds, md = r["dias_semana"], r["meta_dias"]
+    if md and ds <= md:
+        dias_txt = f"{ds} de {md} dias nesta semana"
+    else:  # estudou mais dias que o planejado (ou não há plano): nada de "3 de 2"
+        dias_txt = f"{ds} dia{'s' if ds != 1 else ''} nesta semana" + (f" (plano: {md})" if md else "")
 
     def dado(rotulo: str, valor: str, detalhe: str, cor: str | None = None) -> ft.Control:
         return ft.Column(

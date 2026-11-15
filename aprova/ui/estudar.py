@@ -27,7 +27,7 @@ def abrir_prova(app, prova_id: int, modo: str, numero: int | None = None) -> Non
     app.abrir_foco(tela)
 
 
-INTERNAS = ("aprova://revisao", "aprova://simulado/treino")
+INTERNAS = ("aprova://revisao", "aprova://simulado/treino", "aprova://turma/")
 
 
 async def escolher_pdfs(app, titulo: str = "Escolha a prova e o gabarito (PDF)", varios: bool = True) -> list[Path]:
@@ -213,7 +213,7 @@ class TelaEstudar:
         self.aba = "biblioteca"
 
     def preparar(self, aba: str | None = None, **_):
-        if aba in ("biblioteca", "revisao", "duvidas", "pdfs"):
+        if aba in ("biblioteca", "revisao", "duvidas", "discursiva", "pdfs"):
             self.aba = aba
 
     def _abas(self) -> ft.Control:
@@ -224,6 +224,7 @@ class TelaEstudar:
                 ft.Segment(value="biblioteca", label=ft.Text("Biblioteca"), icon=ft.Icon(ft.Icons.LIBRARY_BOOKS_OUTLINED)),
                 ft.Segment(value="revisao", label=ft.Text(f"Revisão ({rev})" if rev else "Revisão"), icon=ft.Icon(ft.Icons.REPLAY)),
                 ft.Segment(value="duvidas", label=ft.Text("Dúvidas"), icon=ft.Icon(ft.Icons.QUESTION_ANSWER_OUTLINED)),
+                ft.Segment(value="discursiva", label=ft.Text("Discursiva"), icon=ft.Icon(ft.Icons.HISTORY_EDU)),
                 ft.Segment(value="pdfs", label=ft.Text("Marcar PDF"), icon=ft.Icon(ft.Icons.BORDER_COLOR_OUTLINED)),
             ],
             show_selected_icon=False,
@@ -325,6 +326,8 @@ class TelaEstudar:
             corpo = [self._revisao()]
         elif self.aba == "duvidas":
             corpo = [self._duvidas()]
+        elif self.aba == "discursiva":
+            corpo = [self._discursiva()]
         elif self.aba == "pdfs":
             corpo = [self._pdfs()]
         else:
@@ -335,7 +338,7 @@ class TelaEstudar:
             # no celular, as abas quebram a linha: todas à vista (na faixa que rolava de lado, "Marcar PDF" ficava escondida)
             rev = app.db.revisao_resumo()["pendentes"]
             abas = comp.abas_chips([("biblioteca", "Biblioteca"), ("revisao", f"Revisão ({rev})" if rev else "Revisão"), ("duvidas", "Dúvidas"),
-                                    ("pdfs", "Marcar PDF")], self.aba, self._ir_aba, c)
+                                    ("discursiva", "Discursiva"), ("pdfs", "Marcar PDF")], self.aba, self._ir_aba, c)
         return ft.Column(
             [topo, abas, *corpo, ft.Container(height=30)],
             spacing=18,
@@ -514,6 +517,13 @@ class TelaEstudar:
              comp.bloco(ft.Column(cartoes, spacing=0), c, padding=4)],
             spacing=12,
         )
+
+    def _discursiva(self) -> ft.Control:
+        from .discursiva import SecaoDiscursiva
+
+        if getattr(self, "_secao_discursiva", None) is None:
+            self._secao_discursiva = SecaoDiscursiva(self.app, self._recarregar)
+        return self._secao_discursiva.build()
 
     def _grupo(self, nome: str, provas: list[dict], ultima: bool) -> ft.Control:
         app, c = self.app, self.app.c

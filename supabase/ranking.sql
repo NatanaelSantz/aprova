@@ -1,5 +1,5 @@
 -- Aprova: contas, papéis (admin/aluno), ranking, grupos e fórum dos grupos (Supabase)
--- SQL da versão 1.30 do app. Use sempre o mais novo, direto do GitHub:
+-- SQL da versão 1.31 do app. Use sempre o mais novo, direto do GitHub:
 --   https://github.com/NatanaelSantz/aprova/blob/main/supabase/ranking.sql
 -- (uma cópia antiga dá erro "cannot drop columns from view": ela não tem as colunas novas, como o avatar)
 -- Como usar: no painel do Supabase, abra "SQL Editor", cole este arquivo inteiro e clique em "Run".
@@ -585,3 +585,118 @@ begin
 end $$;
 revoke all on function public.reportar_erro(text, text, text, text, text, text) from public;
 grant execute on function public.reportar_erro(text, text, text, text, text, text) to anon, authenticated;
+
+-- ---------------------------------------------------------------- 1.31: simulado da turma
+-- Quem modera o grupo publica um simulado (as questões de uma prova da biblioteca, sem o gabarito) com
+-- prazo e tempo. Os membros fazem pelo app; as respostas vão para o servidor, que corrige com o gabarito
+-- guardado numa tabela à parte: ninguém lê o gabarito antes de entregar. Depois todo mundo vê o ranking.
+create table if not exists public.simulados_turma (
+    id bigint generated always as identity primary key,
+    codigo text not null references public.grupos (codigo) on delete cascade,
+    autor uuid not null default auth.uid() references public.perfis (id) on delete cascade,
+    titulo text not null check (char_length(titulo) between 3 and 80),
+    questoes jsonb not null check (jsonb_typeof(questoes) = 'array' and jsonb_array_length(questoes) between 1 and 200
+                                   and octet_length(questoes::text) <= 400000),
+    total integer not null check (total between 1 and 200),
+    duracao_min integer not null default 0 check (duracao_min between 0 and 600),
+    fecha_em timestamptz,
+    criado_em timestamptz not null default now()
+);
+create index if not exists simulados_turma_grupo on public.simulados_turma (codigo, criado_em desc);
+alter table public.simulados_turma enable row level security;
+drop policy if exists "simulados: membros leem" on public.simulados_turma;
+create policy "simulados: membros leem" on public.simulados_turma for select to authenticated using (public.eh_membro(codigo));
+drop policy if exists "simulados: moderador cria" on public.simulados_turma;
+create policy "simulados: moderador cria" on public.simulados_turma for insert to authenticated
+    with check (autor = auth.uid() and public.modera_grupo(codigo) and public.pode_escrever(codigo));
+drop policy if exists "simulados: moderador apaga" on public.simulados_turma;
+create policy "simulados: moderador apaga" on public.simulados_turma for delete to authenticated using (public.modera_grupo(codigo));
+grant select, insert, delete on public.simulados_turma to authenticated;
+
+-- o gabarito fica separado: só lê quem já entregou (ou quem modera)
+create table if not exists public.simulados_gabarito (
+    simulado_id bigint primary key references public.simulados_turma (id) on delete cascade,
+    gabarito jsonb not null check (jsonb_typeof(gabarito) = 'object' and octet_length(gabarito::text) <= 8000)
+);
+alter table public.simulados_gabarito enable row level security;
+drop policy if exists "gabarito: autor grava" on public.simulados_gabarito;
+create policy "gabarito: autor grava" on public.simulados_gabarito for insert to authenticated
+    with check (exists (select 1 from public.simulados_turma s where s.id = simulado_id and s.autor = auth.uid()));
+grant select, insert on public.simulados_gabarito to authenticated;
+
+create table if not exists public.resultados_turma (
+    simulado_id bigint not null references public.simulados_turma (id) on delete cascade,
+    usuario_id uuid not null default auth.uid() references public.perfis (id) on delete cascade,
+    respostas jsonb not null check (jsonb_typeof(respostas) = 'object' and octet_length(respostas::text) <= 8000),
+    acertos integer not null default 0,
+    total integer not null default 0,
+    segundos integer not null default 0 check (segundos between 0 and 86400),
+    enviado_em timestamptz not null default now(),
+    primary key (simulado_id, usuario_id)
+);
+alter table public.resultados_turma enable row level security;
+drop policy if exists "resultados: membros leem" on public.resultados_turma;
+create policy "resultados: membros leem" on public.resultados_turma for select to authenticated using (
+    exists (select 1 from public.simulados_turma s where s.id = simulado_id and public.eh_membro(s.codigo))
+);
+drop policy if exists "resultados: membro entrega uma vez" on public.resultados_turma;
+create policy "resultados: membro entrega uma vez" on public.resultados_turma for insert to authenticated with check (
+    usuario_id = auth.uid()
+    and exists (select 1 from public.simulados_turma s where s.id = simulado_id and public.pode_escrever(s.codigo)
+                and (s.fecha_em is null or s.fecha_em > now()))
+);
+grant select, insert on public.resultados_turma to authenticated;
+
+-- (a regra de leitura do gabarito precisa da tabela de resultados, por isso vem depois dela)
+drop policy if exists "gabarito: quem entregou le" on public.simulados_gabarito;
+create policy "gabarito: quem entregou le" on public.simulados_gabarito for select to authenticated using (
+    exists (select 1 from public.resultados_turma r where r.simulado_id = simulados_gabarito.simulado_id and r.usuario_id = auth.uid())
+    or exists (select 1 from public.simulados_turma s where s.id = simulado_id and public.modera_grupo(s.codigo))
+);
+
+-- o servidor corrige: acertos e total vêm do gabarito, não do app
+create or replace function public.corrigir_resultado_turma() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+    gab jsonb;
+    n_total integer := 0;
+    n_certas integer := 0;
+    chave text;
+    certa text;
+begin
+    select g.gabarito into gab from public.simulados_gabarito g where g.simulado_id = new.simulado_id;
+    if gab is null then
+        raise exception 'simulado sem gabarito';
+    end if;
+    for chave, certa in select key, value #>> '{}' from jsonb_each(gab) loop
+        if certa is null or certa = '' then
+            continue;
+        end if;
+        n_total := n_total + 1;
+        if certa = '*' or upper(coalesce(new.respostas ->> chave, '')) = upper(certa) then
+            n_certas := n_certas + 1;
+        end if;
+    end loop;
+    new.acertos := n_certas;
+    new.total := n_total;
+    new.usuario_id := auth.uid();
+    new.enviado_em := now();
+    return new;
+end;
+$$;
+drop trigger if exists corrigir_resultado_turma on public.resultados_turma;
+create trigger corrigir_resultado_turma before insert on public.resultados_turma
+    for each row execute function public.corrigir_resultado_turma();
+
+-- ranking do simulado: apelido e personagem de quem entregou (só para quem é do grupo)
+create or replace function public.ranking_simulado(sid bigint)
+returns table (usuario_id uuid, apelido text, acertos integer, total integer, segundos integer, enviado_em timestamptz, avatar jsonb)
+language sql stable set search_path = public as $$
+    select r.usuario_id, p.apelido, r.acertos, r.total, r.segundos, r.enviado_em, p.avatar
+    from public.resultados_turma r
+    join public.perfis p on p.id = r.usuario_id
+    where r.simulado_id = sid
+    order by r.acertos desc, r.segundos asc, r.enviado_em asc;
+$$;
+revoke all on function public.ranking_simulado(bigint) from public, anon;
+grant execute on function public.ranking_simulado(bigint) to authenticated;
