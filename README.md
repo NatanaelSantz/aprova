@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.31.3" src="https://img.shields.io/badge/vers%C3%A3o-1.31.3-2340A8">
+  <img alt="Versão 1.32.0" src="https://img.shields.io/badge/vers%C3%A3o-1.32.0-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -248,6 +248,7 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
+| **1.32.0** | **Escolha da voz** da leitura em voz alta (Ajustes → Ouvir as questões), com as vozes novas do Windows 10 e 11 |
 | **1.31.3** | Correção: a tela de Ajustes não abria na 1.31.2 |
 | **1.31.2** | O boneco chama você pelo apelido escolhido (Falas do personagem ou Ajustes), não pelo nome da conta |
 | **1.31.1** | **Personagem mais bonito**: capa de herói nova, cacheado e black power com cachos, moicano refeito, braços mais separados e sombras mais definidas |

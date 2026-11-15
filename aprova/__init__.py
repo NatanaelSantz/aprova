@@ -1,3 +1,3 @@
 """Aprova — estudo para concursos públicos."""
 
-__version__ = "1.31.3"
+__version__ = "1.32.0"

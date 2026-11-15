@@ -66,7 +66,7 @@ App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolv
   - **Tela larga sem espaço sobrando**: em monitores e notebooks largos, os Ajustes ficam em duas colunas, o resultado do simulado põe o resumo e **Por matéria** lado a lado (e os erros dois por linha), a questão fica centralizada numa coluna boa de ler e a sala da turma ocupa o cartão inteiro.
   - Temas claro, sépia (leitura) e escuro.
   - Fonte Atkinson Hyperlegible, com tamanho e espaçamento ajustáveis.
-  - Leitura em voz alta da questão.
+  - Leitura em voz alta da questão, com a voz que você escolher em **Ajustes → Ouvir as questões** (desde a 1.32: todas as vozes do computador, inclusive as vozes novas do Windows 10 e 11).
   - Lembrete de pausa 20-20-20.
 - **Animações** (desde a 1.29): a tela nova chega deslizando de leve, os cartões do Início e do Painel entram um depois do outro, os números contam até o valor e as barras enchem. Na prova, a questão seguinte desliza de lado, a alternativa certa dá um pulinho e a errada balança; no resultado, a nota conta como um placar e cai confete quando você faz 70% ou mais. No computador, as linhas das listas acendem quando o mouse passa. São animações do próprio Flutter (o Python só dá a ordem), então não pesam. Para desligar: **Ajustes → Leitura confortável → Animações**.
 - **Celular**: o mesmo app abre no navegador do celular, na mesma rede Wi-Fi.
@@ -331,7 +331,7 @@ Na primeira vez, o Aprova baixa do GitHub a janela do app (uns 30 MB). Se aparec
 - A leitura automática das questões depende do layout do PDF. Quando falha, a prova abre no modo cartão-resposta com as páginas originais. Figuras e tabelas aparecem pelo botão “Ver na prova original”.
 - Provas com vários tipos de caderno podem ter gabaritos diferentes. Confira em **⋮ → Gabarito**.
 - Se o PCI Concursos mudar o layout do site, a leitura das listas pode precisar de ajuste no arquivo `aprova/pci.py`. Um robô do GitHub confere isso todo dia e avisa quem mantém o app.
-- A leitura em voz alta funciona no computador (vozes do Windows). No celular, use o recurso de leitura do próprio aparelho.
+- A leitura em voz alta funciona no computador, com as vozes instaladas nele. Para ter mais vozes em português no Windows: Configurações > Hora e idioma > Fala > Adicionar vozes > Português (Brasil); depois feche e abra o Aprova. No celular, use o recurso de leitura do próprio aparelho.
 - Os alarmes tocam com o Aprova aberto no computador (pode ficar minimizado).
 
 ## Para desenvolver

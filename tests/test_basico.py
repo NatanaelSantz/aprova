@@ -3189,3 +3189,60 @@ def test_todas_as_telas_montam(tmp_path):
     resultado = json.loads(saida.stdout.strip().splitlines()[-1])
     assert resultado["falhas"] == [], resultado["falhas"]
     assert len(resultado["vistas"]) >= 2 * 15
+
+
+def test_vozes_escolha_e_comandos(monkeypatch):
+    """1.32: dá para escolher a voz; no Windows entram as vozes novas (que o System.Speech não vê), sem repetir a mesma voz."""
+    import subprocess as sp
+
+    from aprova import voz as vz
+
+    saida = "\n".join([
+        "sapi|Microsoft Maria Desktop|pt-BR|Female",
+        "sapi|Microsoft Zira Desktop|en-US|Female",
+        "winrt|Microsoft Maria|pt-BR|Female",  # a mesma Maria: não repete
+        "winrt|Microsoft Daniel|pt-BR|Male",
+        "winrt|Microsoft Helia|pt-PT|Female",
+        "linha sem formato",
+    ]).encode("utf-8")
+    monkeypatch.setattr(vz.subprocess, "run", lambda *a, **k: sp.CompletedProcess(a, 0, stdout=saida, stderr=b""))
+    lista = vz._vozes_windows()
+    assert [v["id"] for v in lista] == ["sapi|Microsoft Maria Desktop", "sapi|Microsoft Zira Desktop", "winrt|Microsoft Daniel", "winrt|Microsoft Helia"]
+    monkeypatch.setattr(vz, "SISTEMA", "Windows")
+    vz._cache_vozes.clear()
+    ordenadas = vz.vozes(recarregar=True)
+    assert [v["nome"] for v in ordenadas] == ["Daniel", "Maria Desktop", "Helia", "Zira Desktop"]  # pt-BR, pt-PT, outros
+    assert vz.rotulo(ordenadas[0]) == "Daniel · Português (Brasil) · masculina"
+    assert [vz.em_portugues(v) for v in ordenadas] == [True, True, True, False]
+    vz._cache_vozes.clear()
+
+    leitor = vz.Leitor()
+    cmd = leitor.comando("C:/t/a.txt", 2, "winrt|Microsoft Daniel")
+    assert cmd[0] == "powershell" and "Microsoft Daniel" in cmd[-1] and "SoundPlayer" in cmd[-1] and "SpeakingRate = 1.24" in cmd[-1]
+    cmd = leitor.comando("C:/t/a.txt", -5, "sapi|Microsoft Maria Desktop")
+    assert "SelectVoice('Microsoft Maria Desktop')" in cmd[-1] and "$s.Rate = -10" in cmd[-1]
+    assert "Culture.Name -like 'pt*'" in leitor.comando("C:/t/a.txt", 0, "")[-1]  # automática
+    assert "O''Brien" in leitor.comando("C:/t/a.txt", 0, "sapi|O'Brien")[-1]  # aspas não quebram o comando
+    monkeypatch.setattr(vz, "SISTEMA", "Darwin")
+    assert vz.Leitor().comando("/t/a.txt", 0, "say|Luciana")[:3] == ["say", "-v", "Luciana"]
+    monkeypatch.setattr(vz, "SISTEMA", "Linux")
+    assert "pt-br+f3" in vz.Leitor().comando("/t/a.txt", 0, "espeak|pt-br+f3")
+
+
+@pytest.mark.skipif(__import__("platform").system() != "Windows", reason="só no Windows")
+def test_vozes_de_verdade_no_windows(tmp_path):
+    """No Windows de verdade (CI): lista as vozes e grava um WAV com uma voz clássica e com uma nova, se houver."""
+    from aprova import voz as vz
+
+    import warnings
+
+    lista = vz.vozes(recarregar=True)
+    assert lista, "o Windows deveria ter pelo menos uma voz"
+    leitor = vz.Leitor()
+    gravadas = []
+    for motor in ("sapi", "winrt"):
+        v = next((x for x in lista if x["id"].startswith(motor + "|")), None)
+        if v:
+            assert leitor.gravar("Questão um. Alternativa A.", str(tmp_path / f"{motor}.wav"), voz=v["id"]), v
+            gravadas.append(f"{v['id']} ({(tmp_path / f'{motor}.wav').stat().st_size} bytes)")
+    warnings.warn(f"vozes no Windows: {[v['id'] for v in lista]}; gravadas: {gravadas}")  # aparece no resumo do CI

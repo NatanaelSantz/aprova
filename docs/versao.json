@@ -1,8 +1,8 @@
 {
-  "versao": "1.31.3",
+  "versao": "1.32.0",
   "data": "15/11/2026",
   "notas": [
-    "Correção: a tela de Ajustes não abria na 1.31.2."
+    "Escolha a voz da leitura em voz alta (Ajustes → Ouvir as questões): todas as vozes do computador, inclusive as vozes novas do Windows 10 e 11 que o app não enxergava. Ao escolher, ela já fala para você ouvir."
   ],
-  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.31.3.zip"
+  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.32.0.zip"
 }
