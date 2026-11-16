@@ -116,6 +116,8 @@ class Edital:
     paragrafos: list[str] = field(default_factory=list)
     pdfs: list[Arquivo] = field(default_factory=list)
     provas_url: str | None = None
+    taxa: str = ""  # a frase da notícia com o valor da inscrição ("As taxas são de R$ 60,93 para nível fundamental...")
+    taxa_resumo: str = ""  # "R$ 85,00", "R$ 32,00 a R$ 80,00" ou "Grátis"
 
 
 # --------------------------------------------------------------------------
@@ -250,6 +252,52 @@ def parse_concursos(html: str) -> list[Concurso]:
     return itens
 
 
+_VALOR = re.compile(r"R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2}|\d+(?:,\d{2})?)")
+_FALA_DE_TAXA = re.compile(r"\btaxas?\b|valor d[ao]s? inscri|pagamento d[ae] inscri|custo d[ao]s? inscri", re.I)
+_SALARIO = re.compile(r"sal[áa]ri|remunera|vencimento|subs[íi]dio|bolsa", re.I)
+_GRATIS = re.compile(r"inscri[çc][õo]es\s+(?:s[ãa]o|ser[ãa]o|est[ãa]o|ficam)?\s*gratuitas|inscri[çc][ãa]o\s+(?:[ée]|ser[áa])?\s*gratuita|sem\s+(?:cobran[çc]a\s+de\s+)?taxa\s+de\s+inscri|n[ãa]o\s+h[áa]\s+taxa", re.I)
+
+
+def _real(valor: str) -> float:
+    return float(valor.replace(".", "").replace(",", "."))
+
+
+def _brl(v: float) -> str:
+    inteiro, centavos = f"{v:,.2f}".split(".")
+    return f"R$ {inteiro.replace(',', '.')},{centavos}"
+
+
+def taxa_inscricao(paragrafos: list[str]) -> tuple[str, str]:
+    """Acha na notícia o valor da inscrição (a taxa para fazer a prova).
+
+    Devolve (frase, resumo): a frase como está no texto e um resumo curto ("R$ 85,00", "R$ 32,00 a R$ 80,00" ou "Grátis").
+    Sem menção ao valor, devolve ("", "")."""
+    frases: list[str] = []
+    valores: list[float] = []
+    gratis = ""
+    for par in paragrafos:
+        for frase in re.split(r"(?<=[.!?;])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ(])", par):
+            frase = frase.strip()
+            if _GRATIS.search(frase) and not gratis:
+                gratis = frase
+            if not _FALA_DE_TAXA.search(frase) or "R$" not in frase:
+                continue
+            trecho = frase
+            if _SALARIO.search(frase):
+                trecho = frase[_FALA_DE_TAXA.search(frase).start():]  # a frase fala do salário também: vale só o que vem depois de "taxa"
+            achados = [_real(v) for v in _VALOR.findall(trecho)]
+            achados = [v for v in achados if 0 < v < 1000]  # taxa de concurso fica na casa das dezenas ou centenas
+            if not achados or frase in frases:
+                continue
+            frases.append(frase)
+            valores += achados
+    if not valores:
+        return (gratis, "Grátis") if gratis else ("", "")
+    menor, maior = min(valores), max(valores)
+    resumo = _brl(menor) if menor == maior else f"{_brl(menor)} a {_brl(maior)}"
+    return " ".join(frases[:2]), resumo
+
+
 def parse_edital(html: str, url: str) -> Edital:
     soup = BeautifulSoup(html, "html.parser")
     art = soup.select_one("article#noticia") or soup.find("article") or soup
@@ -278,14 +326,18 @@ def parse_edital(html: str, url: str) -> Edital:
     if not provas_url:
         cand = soup.find("a", href=re.compile(r"/provas/[a-z0-9-]+/?$"), string=re.compile("prova", re.I))
         provas_url = urljoin(BASE, cand["href"]) if cand else None
+    descricao = _limpo(desc.get_text(" ")) if desc else ""
+    taxa, taxa_resumo = taxa_inscricao([descricao, *paragrafos])
     return Edital(
         titulo=titulo,
         url=url,
-        descricao=_limpo(desc.get_text(" ")) if desc else "",
+        descricao=descricao,
         data=data,
         paragrafos=paragrafos[:60],
         pdfs=pdfs,
         provas_url=provas_url,
+        taxa=taxa,
+        taxa_resumo=taxa_resumo,
     )
 
 

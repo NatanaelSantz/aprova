@@ -456,6 +456,24 @@ class TelaConcursos:
         self.app.atualizar()
 
 
+def _bloco_taxa(app, ed) -> ft.Control:
+    """O valor da inscrição (a taxa para fazer a prova), como está na notícia; sem ele, onde procurar."""
+    c = app.c
+    if ed.taxa:
+        titulo = "Inscrição grátis" if ed.taxa_resumo == "Grátis" else f"Valor da inscrição: {ed.taxa_resumo}"
+        corpo = [ft.Text(titulo, size=15.5, weight=ft.FontWeight.W_700, color=c["texto"]), ft.Text(ed.taxa, size=14, color=c["texto2"], selectable=True)]
+    else:
+        corpo = [ft.Text("Valor da inscrição", size=15.5, weight=ft.FontWeight.W_700, color=c["texto"]),
+                 comp.apagado("A notícia não diz o valor. Ele fica no edital: veja os arquivos abaixo ou abra a notícia no site.", c, 14)]
+    return ft.Container(
+        ft.Row([ft.Icon(ft.Icons.PAYMENTS_OUTLINED, color=c["tinta"], size=24), ft.Column(corpo, spacing=2, expand=True)], spacing=12,
+               vertical_alignment=ft.CrossAxisAlignment.START),
+        bgcolor=c["tinta_suave"],
+        border_radius=12,
+        padding=ft.Padding.only(left=14, right=14, top=12, bottom=12),
+    )
+
+
 async def abrir_edital(app, concurso: Concurso) -> None:
     """Janela com o resumo do edital, PDFs e link para as provas anteriores."""
     c = app.c
@@ -483,6 +501,7 @@ async def abrir_edital(app, concurso: Concurso) -> None:
     if concurso.prazo:
         linha_dados.append(comp.pilula("Inscrições: " + concurso.prazo, c["marca_suave"], c["texto"]))
     resumo.append(ft.Row(linha_dados, wrap=True, spacing=8, run_spacing=8))
+    resumo.append(_bloco_taxa(app, ed))
     if ed.titulo:
         resumo.append(comp.texto(ed.titulo, c, 16, peso=ft.FontWeight.W_600))
     if ed.data:

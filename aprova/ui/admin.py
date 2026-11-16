@@ -41,6 +41,7 @@ class TelaAdmin:
         self.uso: dict | None | str = "carregando"  # espaço usado no servidor ("erro" se não deu para ver)
         self.erros: list[dict] | None | str = "carregando"  # relatórios de erro (None: servidor sem o SQL novo)
         self.erro_aberto: str | None = None
+        self.pedido_personagem: dict | None = None  # o último "Pedir para criarem o personagem"
         self.filtro = ""
         self.erro: str | None = None
         self.carregando = False
@@ -121,6 +122,9 @@ class TelaAdmin:
         self.carregando = False
         if self.usuarios:
             app.page.run_task(self._desenhar_retratos)  # a aba Personagens abre na hora
+            from .pedido_personagem import carregar_admin
+
+            app.page.run_task(carregar_admin, self)
         if not self.r.eh_admin:
             app.montar()  # perdeu o acesso de admin
             return
@@ -406,8 +410,12 @@ class TelaAdmin:
             resumo += f" · {sem} pessoa{'s' if sem != 1 else ''} sem personagem (nos grupos aparece{'m' if sem != 1 else ''} com um sorteado)"
         self._grade_personagens = ft.Row(wrap=True, spacing=ESPACO_GRADE, run_spacing=ESPACO_GRADE, vertical_alignment=ft.CrossAxisAlignment.START)
         self._preencher_personagens()
+        from .pedido_personagem import linha_admin
+
+        pedir = linha_admin(self, sem)
         return ft.Column(
-            [busca, comp.apagado(resumo + ". Clique num personagem para ver de perto, acenar, pular e dançar.", c, 12.5), self._grade_personagens],
+            [*([pedir] if pedir else []), busca, comp.apagado(resumo + ". Clique num personagem para ver de perto, acenar, pular e dançar.", c, 12.5),
+             self._grade_personagens],
             spacing=12,
         )
 

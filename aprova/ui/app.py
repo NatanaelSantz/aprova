@@ -556,6 +556,9 @@ class App:
 
             p.run_task(sincronizar, self)
             p.run_task(self._buscar_modelos_ia)
+            from . import pedido_personagem
+
+            p.run_task(pedido_personagem.vigiar, self)  # o admin pediu para quem está sem personagem criar o seu
         if os.environ.get("APROVA_DEMO"):
             p.run_task(self._roteiro_demo, os.environ["APROVA_DEMO"])
 
@@ -970,6 +973,11 @@ class App:
                 for m, n, i, g in [("winrt", "Microsoft Francisca (natural)", "pt-BR", "feminina"), ("winrt", "Microsoft Antonio (natural)", "pt-BR", "masculina"),
                                    ("sapi", "Microsoft Maria", "pt-BR", "feminina"), ("winrt", "Microsoft Daniel", "pt-BR", "masculina"),
                                    ("winrt", "Microsoft Thalita (natural)", "pt-BR", "feminina"), ("sapi", "Microsoft Zira", "en-US", "feminina")]]]
+        elif nome == "pedido_personagem":
+            # mostra o convite para criar o personagem (capturas de tela)
+            from . import pedido_personagem
+
+            pedido_personagem.mostrar(self, pedido_personagem.ler(pedido_personagem.novo("")))
         elif nome in ("destaque", "destaque_cartao"):
             # finge que o site mandou uma novidade (capturas de tela): "destaque" abre a janela; "destaque_cartao", só o cartão
             from . import destaque

@@ -43,10 +43,26 @@ def test_edital_e_provas(tmp_path):
     tj = c.concursos_abertos("sudeste")[0]
     ed = c.edital(tj.url)
     assert ed.provas_url.endswith("/provas/tj-sp") and ed.pdfs
+    assert ed.taxa_resumo == "R$ 85,00 a R$ 110,00" and ed.taxa.startswith("As taxas de inscrição são de R$ 85,00")
     itens, paginas = c.provas(ed.provas_url)
     assert len(itens) == 5 and paginas == 1 and itens[0].banca == "VUNESP"
     arquivos, navegador = c.arquivos_prova(itens[0].url)
     assert navegador and [a.tipo for a in arquivos] == ["prova", "gabarito"]
+
+
+def test_taxa_de_inscricao():
+    """1.34: o valor para fazer a prova (taxa de inscrição) sai da notícia do concurso, sem confundir com o salário."""
+    from aprova.pci import taxa_inscricao as taxa
+
+    assert taxa(["As inscrições ficam abertas até 10/12. As taxas variam de R$ 32,00 a R$ 80,00. O pedido de isenção vai até 20/11."]) == \
+        ("As taxas variam de R$ 32,00 a R$ 80,00.", "R$ 32,00 a R$ 80,00")
+    assert taxa(["As taxas são de R$ 60,93 para nível fundamental, R$ 79,42 para nível médio e R$ 106,62 para nível superior."])[1] == "R$ 60,93 a R$ 106,62"
+    assert taxa(["As taxas de inscrição variam conforme o cargo ( R$ 48,00 para fundamental, R$ 55,00 para médio/técnico, R$ 78,00 para superior)."])[1] == \
+        "R$ 48,00 a R$ 78,00"
+    assert taxa(["Os salários variam de R$ 1.512,00 a R$ 13.359,00. A taxa de inscrição é de R$ 85,00."]) == ("A taxa de inscrição é de R$ 85,00.", "R$ 85,00")
+    assert taxa(["O salário é de R$ 4.000,00 e a taxa custa R$ 120,00."])[1] == "R$ 120,00"
+    assert taxa(["As inscrições são gratuitas e vão até 5 de dezembro."])[1] == "Grátis"
+    assert taxa(["Os salários chegam a R$ 9.717,00.", "A isenção da taxa vale para doadores de sangue."]) == ("", "")
 
 
 def test_prazos():
@@ -3168,6 +3184,15 @@ for largura in (1280, 400):
         vistas.append(f"destaque@{largura}")
     except Exception as e:
         falhas.append(f"destaque ({largura}px): {type(e).__name__}: {e}")
+    try:
+        from types import SimpleNamespace
+        from aprova.ui import pedido_personagem as pp
+        pp.mostrar(app, pp.ler(pp.novo("")))
+        assert pp.linha_admin(SimpleNamespace(app=app, pedido_personagem=pp.ler(pp.novo("x"))), 3) is not None
+        pp.dialogo_admin(SimpleNamespace(app=app))
+        vistas.append(f"pedido_personagem@{largura}")
+    except Exception as e:
+        falhas.append(f"pedido de personagem ({largura}px): {type(e).__name__}: {e}")
     for chave, *_ in app.destinos():
         tela = app._tela(chave)
         abas = {"painel": [k for k, _ in painel.ABAS], "estudar": ["biblioteca", "revisao", "duvidas", "discursiva", "pdfs"]}.get(chave, [None])
@@ -3229,6 +3254,55 @@ def test_destaque_do_site(monkeypatch):
     site = json.loads((Path(__file__).resolve().parent.parent / "docs" / "versao.json").read_text(encoding="utf-8"))
     if "destaque" in site:
         assert dq.ler(site["destaque"], hoje=date(2000, 1, 1)), site["destaque"]
+
+
+def test_pedido_de_personagem(monkeypatch):
+    """1.34: o admin pede para quem está sem personagem criar o seu; a janela aparece uma vez por pedido, só para quem precisa."""
+    import asyncio
+    import json
+    from types import SimpleNamespace
+
+    from aprova import config
+    from aprova.ui import pedido_personagem as pp
+
+    p = pp.ler(pp.novo("  Bora,   turma!  "))
+    assert p["texto"] == "Bora, turma!" and p["id"].startswith("p") and len(p["quando"]) == 10
+    assert pp.ler(pp.novo(""))["texto"] == pp.TEXTO_PADRAO
+    assert pp.ler("") is None and pp.ler("não é json") is None and pp.ler(json.dumps({"id": "Com Espaço", "texto": "x"})) is None
+    assert pp.ler(json.dumps({"id": "p1", "texto": "x" * 500}))["texto"] == "x" * 200
+
+    mostradas = []
+
+    def mostrar(app, pedido):  # o de verdade abre a janela e anota que viu
+        mostradas.append(pedido["id"])
+        app.aj.set("pedidos_personagem_vistos", [pedido["id"]])
+
+    monkeypatch.setattr(pp, "mostrar", mostrar)
+
+    async def sem_espera(*a, **k):
+        return None
+
+    monkeypatch.setattr(pp.asyncio, "sleep", sem_espera)
+
+    async def em_segundo_plano(f, *a):
+        return f(*a)
+
+    def app_com(valor, logado=True, avatar=None):
+        aj = config.AjustesMemoria()
+        if avatar:
+            aj.set("avatar", avatar)
+        return SimpleNamespace(aj=aj, foco=None, em_login=False, page=SimpleNamespace(), em_segundo_plano=em_segundo_plano,
+                               ranking=SimpleNamespace(logado=logado, config_valor=lambda chave: valor if chave == pp.CHAVE else ""))
+
+    valor = pp.novo("Cria o seu!")
+    app = app_com(valor)
+    asyncio.run(pp.vigiar(app))
+    asyncio.run(pp.vigiar(app))  # o mesmo pedido não aparece de novo
+    assert mostradas == [json.loads(valor)["id"]]
+    asyncio.run(pp.vigiar(app_com(valor, avatar={"v": 1, "corpo": "medio", "t": 1})))  # já tem personagem
+    asyncio.run(pp.vigiar(app_com(valor, logado=False)))  # sem conta: o pedido é para quem está nos grupos
+    asyncio.run(pp.vigiar(app_com("")))  # sem pedido
+    assert len(mostradas) == 1
 
 
 def test_vozes_escolha_e_comandos(monkeypatch):

@@ -13,304 +13,385 @@
 <link rel="icon" href="favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..700,0..100;1,9..144,400..700,0..100&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600&display=swap">
 <style>
 :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 body { margin: 0; }
 [hidden] { display: none !important; }
-/* Layout: uma folha de prova em movimento. Herói com o cartão-resposta se preenchendo,
-   seções alternadas texto/tela, a faixa escura da turma e, no fim, a lista de aprovados com o seu nome marcado. */
+/* Layout: do caderno à lista de aprovados. O herói é uma folha pautada: o título aparece palavra por palavra,
+   o marca-texto passa e o cartão-resposta se preenche. Depois, as telas do app em páginas abertas, a linha do tempo
+   das versões, a turma à noite com os bonecos em pixel art e, no fim, a lista com o seu nome marcado e carimbado.
+   O marca-texto aparece só no começo e no fim: é a história da página. */
 :root {
-  --papel: #F5F6FA;        /* fundo da página, um branco puxado para o azul do app */
-  --folha: #FFFFFF;        /* superfícies (janelas, cartões) */
-  --folha2: #ECEFF6;
-  --tinta: #121A33;        /* texto */
-  --tinta2: #525C76;       /* texto secundário */
-  --linha: #D9DEEA;
+  --papel: #F4F6FB;        /* fundo: branco puxado para o azul do app */
+  --folha: #FFFFFF;        /* superfícies (janelas, documentos) */
+  --folha2: #ECEFF7;
+  --tinta: #111A33;        /* texto */
+  --tinta2: #4E5772;       /* texto secundário */
+  --tinta3: #7C849C;
+  --linha: #DCE1EC;
+  --pauta: rgba(35, 64, 168, .075);   /* linhas da folha pautada */
+  --margem: rgba(206, 70, 70, .28);   /* a margem vermelha do caderno */
   --azul: #2340A8;         /* a cor do Aprova */
-  --azul-suave: #E3E8F8;
+  --azul2: #1A3291;
+  --azul-suave: #E4E9F8;
   --sobre-azul: #FFFFFF;
   --marca: #FFD84D;        /* marca-texto */
-  --traco: #FFD84D;        /* traço do marca-texto atrás de texto */
+  --traco: #FFD84D;
   --sobre-marca: #1C1A10;
   --certo: #1D7F53;
-  --faixa: #14213D;        /* faixa da turma */
-  --faixa2: #1C2B4F;
-  --sobre-faixa: #EEF1FA;
-  --sobre-faixa2: #AEB8D4;
-  --sombra: 0 24px 60px -18px rgba(18, 26, 51, .28), 0 2px 6px rgba(18, 26, 51, .06);
+  --noite: #0F1A36;        /* a faixa da turma */
+  --noite2: #1A2850;
+  --sobre-noite: #EEF1FA;
+  --sobre-noite2: #A9B4D2;
+  --sombra: 0 1px 2px rgba(17, 26, 51, .06), 0 14px 34px -14px rgba(17, 26, 51, .2), 0 44px 90px -46px rgba(35, 64, 168, .38);
+  --sombra-leve: 0 1px 2px rgba(17, 26, 51, .05), 0 12px 26px -16px rgba(17, 26, 51, .2);
   --f-titulo: "Fraunces", Georgia, "Times New Roman", serif;
   --f-texto: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
   --f-mono: "Atkinson Hyperlegible Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --suave: cubic-bezier(.2, .7, .2, 1);
+  --mola: cubic-bezier(.3, 1.5, .5, 1);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --papel: #0D1120; --folha: #151B2D; --folha2: #1C2338; --tinta: #E8EBF4; --tinta2: #9AA3BA; --linha: #283049;
-    --azul: #93A8FF; --azul-suave: #1E2848; --sobre-azul: #0D1120; --marca: #F2CB4A; --traco: rgba(242, 203, 74, .36); --sobre-marca: #1C1A10; --certo: #4FC28B;
-    --faixa: #080B16; --faixa2: #121931; --sobre-faixa: #E8EBF4; --sobre-faixa2: #9AA3BA;
-    --sombra: 0 24px 60px -18px rgba(0, 0, 0, .7), 0 2px 6px rgba(0, 0, 0, .3);
+    --papel: #0C1020; --folha: #141A2C; --folha2: #1B2237; --tinta: #E8EBF4; --tinta2: #A0A9BF; --tinta3: #737C95; --linha: #262E46;
+    --pauta: rgba(147, 168, 255, .06); --margem: rgba(240, 110, 110, .22);
+    --azul: #93A8FF; --azul2: #B4C3FF; --azul-suave: #1C2646; --sobre-azul: #0C1020; --marca: #F2CB4A; --traco: rgba(242, 203, 74, .38); --certo: #4FC28B;
+    --noite: #070A15; --noite2: #121A33; --sobre-noite: #E8EBF4; --sobre-noite2: #9AA3BA;
+    --sombra: 0 1px 2px rgba(0, 0, 0, .4), 0 14px 34px -14px rgba(0, 0, 0, .6), 0 44px 90px -46px rgba(0, 0, 0, .8);
+    --sombra-leve: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 26px -16px rgba(0, 0, 0, .6);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --papel: #0D1120; --folha: #151B2D; --folha2: #1C2338; --tinta: #E8EBF4; --tinta2: #9AA3BA; --linha: #283049;
-  --azul: #93A8FF; --azul-suave: #1E2848; --sobre-azul: #0D1120; --marca: #F2CB4A; --traco: rgba(242, 203, 74, .36); --sobre-marca: #1C1A10; --certo: #4FC28B;
-  --faixa: #080B16; --faixa2: #121931; --sobre-faixa: #E8EBF4; --sobre-faixa2: #9AA3BA;
-  --sombra: 0 24px 60px -18px rgba(0, 0, 0, .7), 0 2px 6px rgba(0, 0, 0, .3);
+  --papel: #0C1020; --folha: #141A2C; --folha2: #1B2237; --tinta: #E8EBF4; --tinta2: #A0A9BF; --tinta3: #737C95; --linha: #262E46;
+  --pauta: rgba(147, 168, 255, .06); --margem: rgba(240, 110, 110, .22);
+  --azul: #93A8FF; --azul2: #B4C3FF; --azul-suave: #1C2646; --sobre-azul: #0C1020; --marca: #F2CB4A; --traco: rgba(242, 203, 74, .38); --certo: #4FC28B;
+  --noite: #070A15; --noite2: #121A33; --sobre-noite: #E8EBF4; --sobre-noite2: #9AA3BA;
+  --sombra: 0 1px 2px rgba(0, 0, 0, .4), 0 14px 34px -14px rgba(0, 0, 0, .6), 0 44px 90px -46px rgba(0, 0, 0, .8);
+  --sombra-leve: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 26px -16px rgba(0, 0, 0, .6);
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body { background: var(--papel); color: var(--tinta); font-family: var(--f-texto); font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+html { scroll-behavior: smooth; scroll-padding-top: 84px; }
+body { background: var(--papel); color: var(--tinta); font-family: var(--f-texto); font-size: 17.5px; line-height: 1.62; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--papel); }
 img { max-width: 100%; height: auto; display: block; }
-a { color: var(--azul); }
+a { color: var(--azul); text-underline-offset: 3px; text-decoration-thickness: 1px; }
 :focus-visible { outline: 3px solid var(--azul); outline-offset: 3px; border-radius: 6px; }
+::selection { background: var(--marca); color: var(--sobre-marca); }
 
-.caixa { width: 100%; max-width: 1180px; margin-inline: auto; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
+.caixa { width: 100%; max-width: 1200px; margin-inline: auto; padding-left: max(22px, env(safe-area-inset-left, 0px)); padding-right: max(22px, env(safe-area-inset-right, 0px)); }
 
-h1, h2, h3 { font-family: var(--f-titulo); font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; margin: 0; font-optical-sizing: auto; }
-h1 { font-size: clamp(2.5rem, 5.4vw, 4.4rem); line-height: 1.04; font-weight: 600; }
-h2 { font-size: clamp(2rem, 3.6vw, 3rem); line-height: 1.08; }
-h3 { font-size: 1.3rem; line-height: 1.25; }
-p { margin: 0; }
-.rotulo { font-family: var(--f-mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tinta2); }
-.texto-grande { font-size: 1.16rem; color: var(--tinta2); max-width: 36em; }
-em.it { font-style: italic; font-weight: 500; }
+h1, h2, h3 { font-family: var(--f-titulo); font-weight: 500; font-optical-sizing: auto; font-variation-settings: "SOFT" 30; letter-spacing: -0.022em; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.6rem, 5.3vw, 4.8rem); line-height: 1.02; letter-spacing: -0.026em; font-weight: 450; }
+h2 { font-size: clamp(2.05rem, 3.9vw, 3.4rem); line-height: 1.06; letter-spacing: -0.024em; }
+h3 { font-size: clamp(1.32rem, 1.9vw, 1.62rem); line-height: 1.18; }
+p { margin: 0; text-wrap: pretty; }
+.texto-grande { font-size: clamp(1.1rem, 1.5vw, 1.24rem); line-height: 1.55; color: var(--tinta2); max-width: 34em; }
 
-/* marca-texto: a assinatura da página */
-.marcado { background-image: linear-gradient(100deg, transparent 0 1%, var(--traco) 2% 97%, transparent 99%); background-repeat: no-repeat; background-size: 100% 0.62em; background-position: 0 88%; padding-inline: 0.06em; color: inherit; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
-.marcado.anima { animation: passar 1.1s 0.5s cubic-bezier(.6, .1, .2, 1) both; }
-@keyframes passar { from { background-size: 0% 0.62em; } to { background-size: 100% 0.62em; } }
+/* marca-texto: o começo e o fim da história da página */
+.marcado { background-image: linear-gradient(100deg, transparent 0 .8%, var(--traco) 1.6% 97.6%, transparent 99.4%); background-repeat: no-repeat; background-size: 100% .6em; background-position: 0 90%; padding-inline: .05em; color: inherit; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 
-.bt { display: inline-flex; align-items: center; gap: 10px; font-family: var(--f-texto); font-weight: 700; font-size: 1rem; text-decoration: none; border-radius: 999px; padding: 15px 24px; transition: transform .15s ease, background-color .15s ease, box-shadow .15s ease; }
+/* botões */
+.bt { display: inline-flex; align-items: center; gap: 10px; font-family: var(--f-texto); font-weight: 700; font-size: 1rem; line-height: 1.2; text-decoration: none; border-radius: 999px; padding: 16px 26px; transition: transform .25s var(--suave), box-shadow .25s var(--suave), background-color .2s ease, color .2s ease; }
 .bt svg { width: 20px; height: 20px; flex: none; }
-.bt-azul { background: var(--azul); color: var(--sobre-azul); box-shadow: 0 10px 24px -10px var(--azul); }
-.bt-azul:hover { transform: translateY(-2px); }
+.bt-azul { background: var(--azul); color: var(--sobre-azul); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 14px 28px -14px var(--azul); }
+.bt-azul:hover { background: var(--azul2); transform: translateY(-2px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 20px 34px -14px var(--azul); }
+.bt-azul:active { transform: translateY(0); }
+.bt-texto { color: var(--tinta); padding-inline: 6px; border-radius: 6px; background: linear-gradient(currentColor, currentColor) no-repeat 6px calc(100% - 12px) / calc(100% - 12px) 1.5px; transition: background-size .3s var(--suave), color .2s ease; }
+.bt-texto:hover { color: var(--azul); background-size: 0 1.5px; }
 .bt-linha { color: var(--tinta); border: 1.5px solid var(--linha); background: var(--folha); }
 .bt-linha:hover { border-color: var(--azul); color: var(--azul); }
 
 /* ---------------------------------------------------------------- topo */
-.topo { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 9; background: color-mix(in srgb, var(--papel) 86%, transparent); backdrop-filter: saturate(1.4) blur(12px); -webkit-backdrop-filter: saturate(1.4) blur(12px); border-bottom: 1px solid transparent; }
-.topo .caixa { display: flex; align-items: center; gap: 20px; padding-block: 14px; }
+.topo { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 9; background: color-mix(in srgb, var(--papel) 82%, transparent); backdrop-filter: saturate(1.5) blur(14px); -webkit-backdrop-filter: saturate(1.5) blur(14px); border-bottom: 1px solid transparent; transition: border-color .3s ease, background-color .3s ease; }
+.topo.rolou { border-bottom-color: var(--linha); }
+.topo .caixa { display: flex; align-items: center; gap: 22px; padding-block: 14px; transition: padding .3s var(--suave); }
+.topo.rolou .caixa { padding-block: 10px; }
 .marca-app { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--tinta); }
-.marca-app img { width: 38px; height: 38px; border-radius: 10px; }
-.marca-app span { font-family: var(--f-titulo); font-weight: 700; font-size: 1.5rem; color: var(--azul); }
-.topo nav { display: flex; gap: 22px; margin-left: auto; }
-.topo nav a { color: var(--tinta2); text-decoration: none; font-size: 0.96rem; }
-.topo nav a:hover { color: var(--azul); }
+.marca-app img { width: 36px; height: 36px; border-radius: 10px; }
+.marca-app span { font-family: var(--f-titulo); font-weight: 600; font-size: 1.45rem; letter-spacing: -0.02em; color: var(--azul); }
+.topo nav { position: relative; display: flex; gap: 4px; margin-left: auto; }
+.topo nav a { position: relative; z-index: 1; color: var(--tinta2); text-decoration: none; font-size: 0.95rem; padding: 7px 12px; border-radius: 999px; transition: color .2s ease; }
+.topo nav a:hover, .topo nav a[aria-current="true"] { color: var(--tinta); }
+.nav-marca { position: absolute; left: 0; top: 0; height: 100%; width: 0; border-radius: 999px; background: var(--azul-suave); opacity: 0; transition: transform .45s var(--suave), width .45s var(--suave), opacity .3s ease; pointer-events: none; }
 .topo .bt { padding: 10px 18px; font-size: 0.92rem; }
-@media (max-width: 860px) { .topo nav { display: none; } .topo .bt { margin-left: auto; } }
+@media (max-width: 960px) { .topo nav { display: none; } .topo .bt { margin-left: auto; } }
 
-/* ---------------------------------------------------------------- herói */
-.heroi { padding-block: clamp(36px, 6vw, 72px) clamp(56px, 8vw, 96px); overflow: hidden; }
-.heroi .caixa { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: clamp(32px, 5vw, 64px); align-items: center; }
-.heroi-texto { display: grid; gap: 24px; min-width: 0; }
-.selo { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; width: fit-content; padding: 6px 14px 6px 8px; border-radius: 999px; background: var(--folha); border: 1px solid var(--linha); font-size: 0.9rem; color: var(--tinta2); }
-.selo b { background: var(--azul); color: var(--sobre-azul); font-family: var(--f-mono); font-weight: 600; font-size: 0.72rem; letter-spacing: 0.06em; border-radius: 999px; padding: 3px 9px; }
-.acoes { display: flex; flex-wrap: wrap; gap: 12px; }
-.miudo { font-size: 0.9rem; color: var(--tinta2); }
+/* ---------------------------------------------------------------- herói: a folha pautada */
+.heroi { position: relative; isolation: isolate; padding-block: clamp(40px, 7vw, 100px) clamp(72px, 10vw, 136px); overflow: hidden; }
+.heroi::before { content: ""; position: absolute; inset: 0; z-index: -2; background: repeating-linear-gradient(to bottom, transparent 0 43px, var(--pauta) 43px 44px);
+  -webkit-mask-image: radial-gradient(130% 100% at 22% 10%, #000 35%, transparent 80%); mask-image: radial-gradient(130% 100% at 22% 10%, #000 35%, transparent 80%); }
+.heroi::after { content: ""; position: absolute; top: 0; bottom: 0; left: max(10px, calc(50% - 616px)); width: 1.5px; z-index: -1; background: var(--margem);
+  -webkit-mask-image: linear-gradient(#000 55%, transparent); mask-image: linear-gradient(#000 55%, transparent); transform-origin: top; }
+.heroi .caixa { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: clamp(36px, 5vw, 72px); align-items: center; }
+.heroi-texto { display: grid; gap: 26px; min-width: 0; justify-items: start; }
+.heroi h1 { max-width: 12em; }
+.selo { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 6px 16px 6px 6px; border-radius: 999px; background: var(--folha); border: 1px solid var(--linha); font-size: 0.92rem; color: var(--tinta2); box-shadow: var(--sombra-leve); }
+.selo b { background: var(--azul); color: var(--sobre-azul); font-weight: 700; font-size: 0.78rem; border-radius: 999px; padding: 3px 10px; }
+a.selo { text-decoration: none; transition: border-color .2s ease, transform .25s var(--suave); }
+a.selo:hover { border-color: var(--azul); color: var(--tinta); transform: translateY(-1px); }
+a.selo .play { width: 22px; height: 22px; border-radius: 50%; background: var(--marca); display: grid; place-items: center; }
+a.selo .play::before { content: ""; width: 0; height: 0; border-left: 7px solid var(--sobre-marca); border-block: 4.5px solid transparent; margin-left: 2px; }
+.acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px; }
+.miudo { font-size: 0.9rem; color: var(--tinta3); }
 
-.vitrine { position: relative; min-width: 0; padding: 18px 0 40px 28px; }
-.janela { margin: 0; background: var(--folha); border-radius: 14px; border: 1px solid var(--linha); box-shadow: var(--sombra); overflow: hidden; transform: rotate(0.6deg); }
-.janela-barra { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px 8px 14px; font-size: 0.78rem; color: var(--tinta2); background: var(--folha2); border-bottom: 1px solid var(--linha); }
+/* palavras do título (o script embrulha cada uma para subir da linha) */
+.palavra { display: inline-block; overflow: clip; vertical-align: top; padding-bottom: .14em; margin-bottom: -.14em; }
+.palavra > span { display: inline-block; }
+
+.vitrine { position: relative; min-width: 0; padding: 18px 8px 52px 34px; perspective: 1600px; }
+.janela { position: relative; margin: 0; background: var(--folha); border-radius: 16px; border: 1px solid var(--linha); box-shadow: var(--sombra); overflow: hidden;
+  transform: rotate(.6deg) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .6s var(--suave); }
+.janela-barra { display: flex; align-items: center; justify-content: space-between; padding: 9px 14px; font-size: 0.78rem; color: var(--tinta2); background: var(--folha2); border-bottom: 1px solid var(--linha); }
 .janela-barra i { display: flex; gap: 14px; font-style: normal; letter-spacing: 0.2em; }
-.gabarito { position: absolute; left: -6px; bottom: 0; width: min(232px, 46%); background: var(--folha); border: 1px solid var(--linha); border-radius: 14px; box-shadow: var(--sombra); padding: 14px 16px 12px; transform: rotate(-3deg); }
-.gabarito .rotulo { display: flex; justify-content: space-between; font-size: 0.68rem; margin-bottom: 8px; }
+.gabarito { position: absolute; left: -4px; bottom: 6px; width: min(236px, 46%); background: var(--folha); border: 1px solid var(--linha); border-radius: 14px; box-shadow: var(--sombra); padding: 14px 16px 12px; transform: rotate(-3deg);
+  translate: calc(var(--px, 0px) * -1.4) calc(var(--py, 0px) * -1.4); transition: translate .6s var(--suave); }
+.gab-topo { display: flex; justify-content: space-between; font-family: var(--f-mono); font-size: 0.68rem; color: var(--tinta2); margin-bottom: 8px; }
 .gab-linha { display: grid; grid-template-columns: 22px repeat(5, 1fr); align-items: center; gap: 4px; padding-block: 3px; font-family: var(--f-mono); font-size: 0.72rem; color: var(--tinta2); }
-.bola { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--tinta2); display: grid; place-items: center; font-family: var(--f-mono); font-size: 0.66rem; color: var(--tinta2); justify-self: center; }
-.bola.cheia { background: var(--azul); border-color: var(--azul); color: var(--sobre-azul); animation: preencher .35s ease both; animation-delay: calc(0.9s + var(--i) * 0.28s); }
-@keyframes preencher { from { background: transparent; color: var(--tinta2); transform: scale(.7); } to { transform: scale(1); } }
+.bola { position: relative; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--tinta3); display: grid; place-items: center; font-family: var(--f-mono); font-style: normal; font-size: 0.66rem; color: var(--tinta2); justify-self: center; }
+.bola.cheia { background: var(--azul); border-color: var(--azul); color: var(--sobre-azul); }
 .gab-nota { display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--linha); font-size: 0.8rem; color: var(--tinta2); }
-.gab-nota strong { font-family: var(--f-titulo); font-size: 1.3rem; color: var(--certo); }
+.gab-nota strong { font-family: var(--f-titulo); font-weight: 600; font-size: 1.35rem; color: var(--certo); }
 .adesivo { position: absolute; width: clamp(92px, 12vw, 138px); filter: drop-shadow(0 10px 14px rgba(18, 26, 51, .22)); }
-.vitrine .adesivo { right: -12px; top: -14px; transform: rotate(9deg); animation: colar .6s 2.6s cubic-bezier(.3, 1.6, .5, 1) both; }
-@keyframes colar { from { transform: rotate(24deg) scale(.4); opacity: 0; } to { transform: rotate(9deg) scale(1); opacity: 1; } }
+.vitrine .adesivo { right: -14px; top: -16px; transform: rotate(9deg); translate: calc(var(--px, 0px) * 1.8) calc(var(--py, 0px) * 1.8); transition: translate .6s var(--suave), scale .3s var(--mola); }
+.vitrine .guia { position: absolute; left: 46%; top: -78px; z-index: -1; }
+
+/* bonecos em pixel art: uma tira de quadros 64 x 80 (parado 0-11, aceno 12-19, pulo 20-28) */
+.px { --e: 2; width: calc(64px * var(--e)); height: calc(80px * var(--e)); background-repeat: no-repeat; background-size: calc(64px * 29 * var(--e)) calc(80px * var(--e)); background-position: 0 0; image-rendering: pixelated; }
+
 @media (max-width: 900px) {
   .heroi .caixa { grid-template-columns: minmax(0, 1fr); }
-  .vitrine { padding-left: 12px; }
+  .heroi::after { display: none; }
+  .vitrine { padding-left: 14px; margin-top: 18px; }
 }
 @media (max-width: 560px) {
-  .vitrine { padding-bottom: 64px; }
-  .gabarito { width: 196px; padding: 10px 12px 10px; bottom: 0; }
-  .gabarito .rotulo span:last-child { display: none; }
+  .vitrine { padding-bottom: 70px; }
+  .vitrine .guia { --e: 1.5; top: -50px; left: 58%; }
+  .gabarito { width: 200px; padding: 10px 12px 10px; bottom: 0; }
+  .gab-topo span:last-child { display: none; }
   .gab-linha { grid-template-columns: 18px repeat(5, 1fr); gap: 3px; padding-block: 2px; }
   .bola { width: 19px; height: 19px; font-size: 0.6rem; }
 }
 
 /* ---------------------------------------------------------------- fatos */
-.fatos { border-block: 1px solid var(--linha); background: var(--folha); }
-.fatos ul { list-style: none; margin: 0; padding: 22px 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
-.fatos li { display: grid; gap: 2px; min-width: 0; }
-.fatos strong { font-family: var(--f-titulo); font-weight: 600; font-size: 1.32rem; line-height: 1.2; }
+.fatos { border-block: 1px solid var(--linha); }
+.fatos ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.fatos li { display: grid; gap: 2px; min-width: 0; padding: 26px 24px; border-left: 1px solid var(--linha); }
+.fatos li:first-child { border-left: 0; padding-left: 0; }
+.fatos strong { font-family: var(--f-titulo); font-weight: 500; font-size: 1.42rem; letter-spacing: -0.015em; line-height: 1.2; }
 .fatos span { font-size: 0.92rem; color: var(--tinta2); }
-@media (max-width: 820px) { .fatos ul { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 820px) {
+  .fatos ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fatos li { padding: 20px 16px; }
+  .fatos li:nth-child(odd) { border-left: 0; padding-left: 0; }
+  .fatos li:nth-child(n + 3) { border-top: 1px solid var(--linha); }
+}
 
-/* ---------------------------------------------------------------- recursos */
-.secao { padding-block: clamp(64px, 9vw, 120px) 0; }
-.cabeca { display: grid; gap: 14px; max-width: 760px; margin-bottom: clamp(36px, 5vw, 56px); }
-.recurso { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(28px, 5vw, 72px); align-items: center; padding-block: clamp(28px, 4vw, 48px); }
+/* ---------------------------------------------------------------- seções */
+.secao { padding-block: clamp(84px, 11vw, 148px) 0; }
+.cabeca { display: grid; gap: 18px; max-width: 780px; margin-bottom: clamp(40px, 6vw, 72px); }
+
+/* novidades: o destaque e a linha do tempo das versões */
+.novo-destaque { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: clamp(28px, 5vw, 72px); align-items: center; padding: clamp(26px, 4.4vw, 56px); border-radius: 28px; background: var(--folha); border: 1px solid var(--linha); box-shadow: var(--sombra-leve); overflow: hidden; position: relative; }
+.novo-texto { display: grid; gap: 16px; align-content: start; justify-items: start; }
+.novo-texto h3 { font-size: clamp(1.7rem, 3vw, 2.4rem); line-height: 1.1; letter-spacing: -0.025em; }
+.novo-texto p { color: var(--tinta2); }
+.selo-novo { display: inline-flex; align-items: center; gap: 8px; font-size: 0.86rem; color: var(--tinta2); padding: 4px 12px 4px 4px; border-radius: 999px; background: var(--azul-suave); }
+.selo-novo b { font-size: 0.76rem; padding: 3px 10px; border-radius: 999px; background: var(--azul); color: var(--sobre-azul); }
+.novo-passos { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; }
+.novo-passos li::marker { color: var(--azul); font-weight: 700; }
+.novo-texto .miudo { color: var(--tinta2); font-size: 0.88rem; }
+.novo-cel { margin: 0; width: clamp(200px, 22vw, 250px); aspect-ratio: 412 / 760; border-radius: 34px; overflow: hidden; border: 9px solid #111A33; box-shadow: var(--sombra); background: var(--folha); rotate: 3deg; }
+.novo-cel img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+@media (max-width: 760px) { .novo-destaque { grid-template-columns: minmax(0, 1fr); } .novo-cel { justify-self: center; rotate: 0deg; } }
+
+.linha-tempo { --trilho: 92px; list-style: none; margin: clamp(36px, 5vw, 56px) 0 0; padding: 0; position: relative; display: grid; }
+.linha-tempo::before { content: ""; position: absolute; left: calc(var(--trilho) - 1px); top: 10px; bottom: 10px; width: 2px; background: var(--linha); }
+.linha-tempo::after { content: ""; position: absolute; left: calc(var(--trilho) - 1px); top: 10px; bottom: 10px; width: 2px; background: linear-gradient(var(--azul), var(--certo)); transform-origin: top; transform: scaleY(var(--cresce, 1)); }
+.linha-tempo li { position: relative; display: grid; grid-template-columns: var(--trilho) minmax(0, 1fr); gap: 0 34px; padding-block: 18px; }
+.linha-tempo li::before { content: ""; position: absolute; left: calc(var(--trilho) - 7px); top: 26px; width: 14px; height: 14px; border-radius: 50%; background: var(--papel); border: 3px solid var(--azul); z-index: 1; }
+.linha-tempo .versao { font-family: var(--f-titulo); font-weight: 500; font-size: 1.5rem; letter-spacing: -0.02em; color: var(--azul); padding-right: 24px; line-height: 1.3; text-align: right; }
+.linha-tempo h3 { font-size: 1.28rem; }
+.linha-tempo li > div { display: grid; gap: 6px; max-width: 46em; padding-left: 4px; }
+.linha-tempo p { color: var(--tinta2); }
+@media (max-width: 560px) {
+  .linha-tempo { --trilho: 64px; }
+  .linha-tempo li { gap: 0 22px; }
+  .linha-tempo .versao { font-size: 1.15rem; padding-right: 18px; }
+}
+
+/* vídeos */
+.cinema-duo { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+.cinema { margin: 0; border-radius: 20px; overflow: hidden; border: 1px solid var(--linha); box-shadow: var(--sombra); background: #0D1428; }
+.cinema video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #0D1428; }
+.cinema figcaption { padding: 14px 20px; background: var(--folha); border-top: 1px solid var(--linha); font-size: 0.92rem; color: var(--tinta2); }
+.cinema figcaption strong { color: var(--tinta); font-weight: 700; }
+.capitulos { display: grid; gap: 12px; min-width: 0; }
+.capitulo { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; width: 100%; text-align: left; padding: 10px 10px 14px; border-radius: 16px; border: 1.5px solid var(--linha); background: var(--folha); color: var(--tinta); font: inherit; cursor: pointer; transition: border-color .2s ease, box-shadow .2s ease, transform .3s var(--suave); }
+.capitulo img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; border: 1px solid var(--linha); }
+.capitulo span { display: grid; gap: 2px; padding-inline: 4px; }
+.capitulo strong { font-size: 1rem; }
+.capitulo small { font-size: 0.86rem; color: var(--tinta2); }
+.capitulo .novo { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--marca); color: var(--sobre-marca); font-size: 0.72rem; font-weight: 700; font-style: normal; vertical-align: 2px; }
+.capitulos.tres .capitulo:not(:first-child) { grid-template-columns: 96px minmax(0, 1fr); align-items: center; padding: 8px; }
+.capitulos.tres .capitulo:not(:first-child) img { border-radius: 8px; }
+.capitulo:hover { border-color: var(--azul); transform: translateY(-2px); }
+.capitulo[aria-pressed="true"] { border-color: var(--azul); box-shadow: 0 0 0 4px var(--azul-suave); }
+@media (max-width: 860px) {
+  .cinema-duo { grid-template-columns: minmax(0, 1fr); }
+  .capitulos.tres .capitulo { grid-template-columns: 112px minmax(0, 1fr); align-items: center; padding: 8px; }
+}
+
+/* recursos: páginas abertas, texto de um lado e a tela do outro */
+.recurso { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(32px, 6vw, 96px); align-items: center; padding-block: clamp(36px, 5vw, 64px); }
+.recurso + .recurso { border-top: 1px solid var(--linha); }
 .recurso.inverte { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
 .recurso.inverte .recurso-texto { order: 2; }
 .recurso-texto { display: grid; gap: 16px; min-width: 0; align-content: center; }
 .recurso-texto p { color: var(--tinta2); max-width: 32em; }
-.tela { margin: 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--linha); box-shadow: var(--sombra); background: var(--folha); min-width: 0; }
-.cinema-duo { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); gap: 20px; align-items: start; }
-.capitulos { display: grid; gap: 14px; min-width: 0; }
-.capitulo { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; width: 100%; text-align: left; padding: 10px 10px 14px; border-radius: 14px; border: 1.5px solid var(--linha); background: var(--folha); color: var(--tinta); font: inherit; cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
-.capitulo img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 9px; border: 1px solid var(--linha); }
-.capitulo span { display: grid; gap: 2px; padding-inline: 4px; }
-.capitulos.tres .capitulo:not(:first-child) { grid-template-columns: 96px minmax(0, 1fr); align-items: center; padding: 8px; }
-.capitulos.tres .capitulo:not(:first-child) img { border-radius: 7px; }
-.capitulo .novo { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--marca, #FFD84D); color: #1F1A2E; font-family: var(--f-mono); font-size: 0.66rem; font-weight: 700; font-style: normal; letter-spacing: 0.06em; vertical-align: 2px; }
-.selo-link { text-decoration: none; transition: border-color .15s ease; }
-.selo-link:hover { border-color: var(--azul); color: var(--tinta); }
-.capitulo strong { font-size: 1rem; }
-.capitulo small { font-size: 0.86rem; color: var(--tinta2); }
-.capitulo:hover { border-color: var(--azul); }
-.capitulo[aria-pressed="true"] { border-color: var(--azul); box-shadow: 0 0 0 3px var(--azul-suave); }
-.capitulo:focus-visible { outline: 3px solid var(--azul); outline-offset: 2px; }
-@media (max-width: 860px) { .cinema-duo { grid-template-columns: minmax(0, 1fr); } .capitulos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .capitulos.tres { grid-template-columns: minmax(0, 1fr); } .capitulos.tres .capitulo { grid-template-columns: 112px minmax(0, 1fr); align-items: center; padding: 8px; } }
-.cinema { margin: 0; border-radius: 16px; overflow: hidden; border: 1px solid var(--linha); box-shadow: var(--sombra); background: #0D1428; }
-.cinema video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #0D1428; }
-.cinema figcaption { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--folha); border-top: 1px solid var(--linha); font-size: 0.92rem; color: var(--tinta2); }
-.cinema figcaption strong { color: var(--tinta); font-weight: 700; }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 0; padding: 0; list-style: none; }
-.chips li { font-size: 0.86rem; padding: 5px 12px; border-radius: 999px; background: var(--azul-suave); color: var(--tinta); }
+.tela { margin: 0; border-radius: 14px; overflow: hidden; border: 1px solid var(--linha); box-shadow: var(--sombra); background: var(--folha); min-width: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 0; padding: 0; list-style: none; }
+.chips li { font-size: 0.86rem; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--linha); color: var(--tinta2); background: var(--folha); }
 @media (max-width: 860px) {
   .recurso, .recurso.inverte { grid-template-columns: minmax(0, 1fr); }
   .recurso.inverte .recurso-texto { order: 0; }
 }
 
 /* revisão em escala (dias depois do erro) */
-.revisao { background: var(--folha); border: 1px solid var(--linha); border-radius: 18px; padding: clamp(22px, 3vw, 34px); display: grid; gap: 18px; min-width: 0; }
+.revisao { background: var(--folha); border: 1px solid var(--linha); border-radius: 20px; padding: clamp(22px, 3vw, 34px); display: grid; gap: 18px; min-width: 0; box-shadow: var(--sombra-leve); }
+.revisao-titulo { font-size: 0.92rem; color: var(--tinta2); }
 .trilha { position: relative; height: 92px; margin-inline: 14px 26px; }
-.trilha::before { content: ""; position: absolute; left: 0; right: 0; top: 46px; height: 4px; border-radius: 4px; background: linear-gradient(90deg, var(--marca), var(--certo)); }
+.trilha::before { content: ""; position: absolute; left: 0; right: 0; top: 46px; height: 4px; border-radius: 4px; background: linear-gradient(90deg, var(--marca), var(--certo)); transform-origin: left center; }
 .parada { position: absolute; top: 0; left: calc(var(--d) / 30 * 100%); transform: translateX(-50%); display: grid; justify-items: center; gap: 6px; }
 .parada b { font-family: var(--f-mono); font-size: 0.86rem; font-weight: 600; color: var(--tinta); height: 22px; line-height: 22px; }
 .parada i { width: 18px; height: 18px; border-radius: 50%; background: var(--folha); border: 4px solid var(--certo); margin-top: 7px; }
-.parada.inicio i { border-color: #C0392B; border-color: color-mix(in srgb, #C0392B 85%, var(--tinta)); }
+.parada.inicio i { border-color: #C0392B; }
 .parada small { position: absolute; top: 66px; white-space: nowrap; font-size: 0.78rem; color: var(--tinta2); }
 .parada.inicio small { left: -4px; }
 .parada.fim small { right: -4px; }
 .legenda-trilha { font-size: 0.86rem; color: var(--tinta2); }
-.duas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.mini { background: var(--folha); border: 1px solid var(--linha); border-radius: 18px; padding: 22px; display: grid; gap: 8px; align-content: start; }
-.mini p { color: var(--tinta2); font-size: 0.98rem; }
-@media (max-width: 620px) { .duas { grid-template-columns: minmax(0, 1fr); } }
+.duas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 28px; }
+.duas > div { display: grid; gap: 6px; padding-top: 18px; border-top: 1px solid var(--linha); }
+.duas h3, .conforto h3 { font-size: 1.16rem; }
+.duas p, .conforto p { color: var(--tinta2); font-size: 0.98rem; }
+@media (max-width: 620px) { .duas { grid-template-columns: minmax(0, 1fr); gap: 18px; } }
 
-.cores { display: flex; gap: 10px; flex-wrap: wrap; }
+.cores { display: flex; gap: 12px; flex-wrap: wrap; }
 .cor { display: inline-flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--tinta2); }
 .cor::before { content: ""; width: 26px; height: 14px; border-radius: 3px; background: var(--c); transform: skewX(-12deg); }
 
-/* ---------------------------------------------------------------- turma (faixa escura) */
-.turma { margin-top: clamp(72px, 10vw, 128px); background: var(--faixa); color: var(--sobre-faixa); padding-block: clamp(64px, 9vw, 112px); overflow: hidden; }
-.turma .rotulo { color: var(--sobre-faixa2); }
-.turma .texto-grande, .turma p { color: var(--sobre-faixa2); }
-.turma-grade { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: clamp(32px, 6vw, 80px); align-items: center; }
-.turma-texto { display: grid; gap: 26px; min-width: 0; }
+/* ---------------------------------------------------------------- turma (a faixa da noite) */
+.turma { position: relative; margin-top: clamp(84px, 11vw, 148px); background: var(--noite); color: var(--sobre-noite); padding-block: clamp(72px, 10vw, 128px) 0; overflow: hidden; isolation: isolate; }
+.turma::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(70% 60% at 85% 0%, rgba(35, 64, 168, .45), transparent 70%), radial-gradient(50% 50% at 0% 100%, rgba(29, 127, 83, .18), transparent 70%); }
+.turma .texto-grande, .turma p { color: var(--sobre-noite2); }
+.turma-grade { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: clamp(36px, 6vw, 88px); align-items: center; }
+.turma-texto { display: grid; gap: 28px; min-width: 0; }
 .itens { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
 .itens li { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 14px; align-items: start; }
 .itens svg { width: 26px; height: 26px; color: var(--marca); margin-top: 2px; }
-.itens strong { display: block; color: var(--sobre-faixa); font-size: 1.05rem; }
-.itens span { color: var(--sobre-faixa2); font-size: 0.97rem; }
-.sala-turma { margin: clamp(44px, 6vw, 76px) auto 0; max-width: 820px; }
-.sala-turma img { display: block; width: 100%; height: auto; image-rendering: pixelated; border-radius: 14px; border: 1px solid var(--faixa2); box-shadow: 0 30px 60px -30px rgba(0, 0, 0, .6); }
-.sala-turma figcaption { margin-top: 14px; text-align: center; color: var(--sobre-faixa2); font-size: 0.97rem; }
-.sala-turma figcaption strong { color: var(--sobre-faixa); }
+.itens strong { display: block; color: var(--sobre-noite); font-size: 1.05rem; }
+.itens span { color: var(--sobre-noite2); font-size: 0.97rem; }
 .turma-vitrine { position: relative; justify-self: center; width: min(430px, 100%); padding: 24px 22px 30px; }
-.turma-vitrine .tela { border-color: var(--faixa2); transform: rotate(-1.2deg); }
+.turma-vitrine .tela { border-color: var(--noite2); transform: rotate(-1.2deg); box-shadow: 0 40px 80px -30px rgba(0, 0, 0, .7); }
 .turma .adesivo.a1 { left: -46px; top: 300px; transform: rotate(-10deg); }
 .turma .adesivo.a2 { right: -42px; top: 210px; transform: rotate(8deg); }
 .turma .adesivo.a3 { left: -30px; bottom: 40px; transform: rotate(6deg); width: clamp(84px, 10vw, 118px); }
 .turma .adesivo.a4 { right: -30px; bottom: -10px; transform: rotate(-7deg); }
 .convite { display: flex; flex-wrap: wrap; gap: 8px; }
-.convite span { font-family: var(--f-mono); font-size: 0.8rem; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--faixa2); background: var(--faixa2); color: var(--sobre-faixa); }
+.convite span { font-size: 0.84rem; padding: 6px 13px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .14); color: var(--sobre-noite); }
 @media (max-width: 900px) {
   .turma-grade { grid-template-columns: minmax(0, 1fr); }
   .turma .adesivo.a1 { left: -8px; } .turma .adesivo.a2 { right: -8px; } .turma .adesivo.a3 { left: -4px; } .turma .adesivo.a4 { right: -4px; }
 }
 
-/* ---------------------------------------------------------------- olhos */
-.temas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
-.temas figure { margin: 0; display: grid; gap: 10px; }
+/* o desfile: a sala da turma de verdade, com os bonecos do app */
+.desfile { margin-top: clamp(56px, 8vw, 96px); }
+.desfile-palco { position: relative; height: 240px; background: url(img/px/noite.png) center bottom / auto 240px repeat-x; image-rendering: pixelated; overflow: hidden; }
+.desfile-palco::after { content: ""; position: absolute; inset: 0; background: linear-gradient(var(--noite), transparent 30%); pointer-events: none; }
+.desfile .px { --e: 2.5; position: absolute; bottom: 6px; left: var(--x); translate: -50% 0; cursor: pointer; }
+.desfile figcaption { padding: 18px 0 30px; text-align: center; color: var(--sobre-noite2); font-size: 0.97rem; }
+.desfile figcaption strong { color: var(--sobre-noite); }
+@media (max-width: 700px) {
+  .desfile-palco { height: 170px; background-size: auto 170px; }
+  .desfile .px { --e: 1.6; }
+  .desfile .px:nth-child(n + 5) { display: none; }
+  .desfile .px:nth-child(1) { left: 14%; } .desfile .px:nth-child(2) { left: 38%; }
+  .desfile .px:nth-child(3) { left: 62%; } .desfile .px:nth-child(4) { left: 86%; }
+}
+
+/* ---------------------------------------------------------------- leitura */
+.temas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+.temas figure { margin: 0; display: grid; gap: 12px; }
 .temas figcaption { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.95rem; }
 .temas figcaption span { color: var(--tinta2); font-size: 0.86rem; }
-.conforto { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 22px; }
-@media (max-width: 760px) { .temas, .conforto { grid-template-columns: minmax(0, 1fr); } }
-.novo-destaque { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: clamp(24px, 4vw, 56px); align-items: center; padding: clamp(24px, 4vw, 44px); border-radius: 24px; background: var(--folha); border: 1px solid var(--linha); box-shadow: var(--sombra); }
-.novo-texto { display: grid; gap: 14px; align-content: start; }
-.novo-texto h3 { font-family: var(--f-titulo); font-size: clamp(1.6rem, 3vw, 2.2rem); line-height: 1.15; }
-.novo-texto p { color: var(--tinta2); }
-.selo-novo { justify-self: start; display: inline-flex; align-items: center; gap: 8px; font-size: 0.86rem; color: var(--tinta2); padding: 4px 12px 4px 4px; border-radius: 999px; background: var(--azul-suave); }
-.selo-novo b { font-family: var(--f-mono); font-size: 0.74rem; letter-spacing: 0.08em; padding: 3px 10px; border-radius: 999px; background: var(--azul); color: var(--sobre-azul); }
-.novo-passos { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; }
-.novo-passos li { color: var(--tinta); }
-.novo-passos li::marker { color: var(--azul); font-weight: 700; }
-.novo-cel { margin: 0; width: clamp(200px, 22vw, 250px); aspect-ratio: 412 / 760; border-radius: 28px; overflow: hidden; border: 8px solid var(--tinta); box-shadow: var(--sombra); background: var(--folha); }
-.novo-cel img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
-.novidades-lista { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
-.mini .versao { font-family: var(--f-mono); font-size: 0.76rem; letter-spacing: 0.06em; color: var(--azul); }
-@media (max-width: 900px) { .novidades-lista { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 760px) { .novo-destaque { grid-template-columns: minmax(0, 1fr); } .novo-cel { justify-self: center; } }
-@media (max-width: 560px) { .novidades-lista { grid-template-columns: minmax(0, 1fr); } }
+.conforto { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 28px; margin-top: clamp(32px, 4vw, 48px); }
+.conforto > div { display: grid; gap: 6px; align-content: start; padding-top: 18px; border-top: 1px solid var(--linha); }
+@media (max-width: 760px) { .temas, .conforto { grid-template-columns: minmax(0, 1fr); } .conforto { gap: 22px; } }
 
-/* ---------------------------------------------------------------- instalar */
-.passos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; counter-reset: passo; }
-.passos li { counter-increment: passo; background: var(--folha); border: 1px solid var(--linha); border-radius: 18px; padding: 24px; display: grid; gap: 10px; align-content: start; }
-.passos li::before { content: counter(passo); width: 38px; height: 38px; border-radius: 50%; background: var(--azul); color: var(--sobre-azul); display: grid; place-items: center; font-family: var(--f-mono); font-weight: 600; }
+/* ---------------------------------------------------------------- instalar (uma sequência de verdade: 1, 2, 3) */
+.passos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 clamp(20px, 3vw, 40px); counter-reset: passo; position: relative; }
+.passos li { counter-increment: passo; display: grid; gap: 10px; align-content: start; padding-top: 28px; position: relative; }
+.passos li::before { content: counter(passo); font-family: var(--f-titulo); font-weight: 400; font-size: 4.2rem; line-height: 1; letter-spacing: -0.04em; color: var(--azul); margin-bottom: 6px; }
+.passos li::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--linha); }
 .passos p { color: var(--tinta2); font-size: 0.98rem; }
 .passos code { font-family: var(--f-mono); font-size: 0.88em; background: var(--folha2); padding: 1px 6px; border-radius: 5px; color: var(--tinta); }
-.aviso-atualiza { margin-top: 18px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: center; padding: 18px 22px; border-radius: 18px; background: var(--azul-suave); }
+.aviso-atualiza { margin-top: clamp(32px, 4vw, 48px); display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: center; padding: 20px 24px; border-radius: 18px; background: var(--azul-suave); }
 .aviso-atualiza svg { width: 28px; height: 28px; color: var(--azul); }
 .aviso-atualiza p { color: var(--tinta); font-size: 0.98rem; }
-@media (max-width: 820px) { .passos { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 820px) { .passos { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
 
 /* ---------------------------------------------------------------- perguntas */
-.perguntas { display: grid; gap: 10px; max-width: 860px; }
-.perguntas details { background: var(--folha); border: 1px solid var(--linha); border-radius: 14px; padding: 4px 20px; }
-.perguntas summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 16px; align-items: center; padding-block: 14px; font-weight: 700; }
+.perguntas { max-width: 860px; border-top: 1px solid var(--linha); }
+.perguntas details { border-bottom: 1px solid var(--linha); }
+.perguntas summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 16px; align-items: center; padding-block: 20px; font-family: var(--f-titulo); font-weight: 500; font-size: 1.22rem; letter-spacing: -0.012em; transition: color .2s ease; }
+.perguntas summary:hover { color: var(--azul); }
 .perguntas summary::-webkit-details-marker { display: none; }
-.perguntas summary::after { content: "+"; font-family: var(--f-mono); font-size: 1.3rem; color: var(--azul); transition: transform .2s ease; }
-.perguntas details[open] summary::after { transform: rotate(45deg); }
-.perguntas details p { color: var(--tinta2); padding-bottom: 16px; max-width: 46em; }
+.perguntas summary::after { content: ""; flex: none; width: 14px; height: 14px; background: linear-gradient(currentColor, currentColor) center / 100% 2px no-repeat, linear-gradient(currentColor, currentColor) center / 2px 100% no-repeat; color: var(--azul); transition: transform .35s var(--suave); }
+.perguntas details[open] summary::after { transform: rotate(135deg); }
+.perguntas details p { color: var(--tinta2); padding-bottom: 22px; max-width: 46em; }
 
 /* ---------------------------------------------------------------- resultado final */
-.final { padding-block: clamp(72px, 10vw, 128px); }
-.final .caixa { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(32px, 6vw, 80px); align-items: center; }
-.final-texto { display: grid; gap: 22px; min-width: 0; }
-.diario { background: var(--folha); border: 1px solid var(--linha); border-radius: 6px; box-shadow: var(--sombra); padding: 26px clamp(18px, 3vw, 30px) 22px; transform: rotate(1deg); min-width: 0; }
+.final { padding-block: clamp(96px, 12vw, 160px); }
+.final .caixa { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(36px, 6vw, 88px); align-items: center; }
+.final-texto { display: grid; gap: 24px; min-width: 0; justify-items: start; }
+.diario { position: relative; background: var(--folha); border: 1px solid var(--linha); border-radius: 6px; box-shadow: var(--sombra); padding: 28px clamp(18px, 3vw, 32px) 22px; transform: rotate(1deg); min-width: 0; }
 .diario-topo { text-align: center; border-bottom: 2px solid var(--tinta); padding-bottom: 10px; margin-bottom: 4px; }
-.diario-topo strong { display: block; font-family: var(--f-titulo); font-size: 1.15rem; letter-spacing: 0.02em; }
-.diario-topo span { font-family: var(--f-mono); font-size: 0.72rem; color: var(--tinta2); letter-spacing: 0.06em; text-transform: uppercase; }
+.diario-topo strong { display: block; font-family: var(--f-titulo); font-weight: 600; font-size: 1.2rem; }
+.diario-topo span { font-family: var(--f-mono); font-size: 0.74rem; color: var(--tinta2); }
 .diario-tabela { overflow-x: auto; }
 .diario table { width: 100%; border-collapse: collapse; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
-.diario th { text-align: left; font-family: var(--f-mono); font-weight: 400; font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta2); padding: 10px 6px 6px; border-bottom: 1px solid var(--linha); }
+.diario th { text-align: left; font-family: var(--f-mono); font-weight: 400; font-size: 0.74rem; color: var(--tinta2); padding: 10px 6px 6px; border-bottom: 1px solid var(--linha); }
 .diario td { padding: 9px 6px; border-bottom: 1px dotted var(--linha); white-space: nowrap; }
 .diario td.num { font-family: var(--f-mono); color: var(--tinta2); }
 .diario tr.voce td { font-weight: 700; }
-.diario tr.voce td.nome .eu { background: var(--marca); color: var(--sobre-marca); padding: 2px 6px; border-radius: 3px; }
-.diario .rodape-diario { margin-top: 12px; font-size: 0.76rem; color: var(--tinta2); font-style: italic; }
+.diario td.nome { position: relative; }
+.diario tr.voce td.nome .eu { background: linear-gradient(var(--marca), var(--marca)) no-repeat 0 0 / 100% 100%; color: var(--sobre-marca); padding: 2px 6px; border-radius: 3px; }
+.diario .rodape-diario { margin-top: 12px; font-size: 0.78rem; color: var(--tinta2); font-style: italic; }
+.carimbo { position: absolute; left: 64px; top: 50%; translate: 0 -50%; transform: rotate(-11deg); z-index: 1; font-family: var(--f-mono); font-weight: 600; font-size: 0.9rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--certo); border: 3px solid currentColor; border-radius: 6px; padding: 3px 10px; opacity: .9; pointer-events: none; }
+.confete { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.confete i { position: absolute; left: var(--x); top: var(--y); width: 8px; height: 8px; background: var(--c); opacity: 0; }
 @media (max-width: 860px) { .final .caixa { grid-template-columns: minmax(0, 1fr); } .diario { transform: none; } }
 
 /* ---------------------------------------------------------------- rodapé */
-footer { border-top: 1px solid var(--linha); padding-block: 28px 36px; }
+footer { border-top: 1px solid var(--linha); padding-block: 30px 40px; }
 footer .caixa { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: center; justify-content: space-between; font-size: 0.92rem; color: var(--tinta2); }
 footer .marca-app span { font-size: 1.2rem; }
 footer .marca-app img { width: 30px; height: 30px; border-radius: 8px; }
 footer nav { display: flex; flex-wrap: wrap; gap: 18px; }
 footer a { color: var(--tinta2); }
+footer a:hover { color: var(--azul); }
 
 /* ---------------------------------------------------------------- celular
-   No celular, as telas do app (feitas no computador, 1440 px) aparecem com zoom na parte que importa,
-   em vez da janela inteira encolhida; e nada passa da largura da tela. */
+   As telas do app (feitas no computador, 1440 px) aparecem com zoom na parte que importa, e nada passa da largura da tela. */
 html, body { overflow-x: clip; }
+main { overflow-x: clip; }
 @media (max-width: 560px) {
-  .selo { font-size: 0.8rem; gap: 6px; padding: 5px 12px 5px 6px; }
-  .selo b { font-size: 0.66rem; padding: 2px 8px; }
+  body { font-size: 17px; }
+  .selo { font-size: 0.82rem; gap: 8px; padding: 5px 12px 5px 5px; }
   .tela.zoom { position: relative; aspect-ratio: var(--zr); }
   .tela.zoom img { position: absolute; left: 0; top: 0; width: var(--zw); max-width: none; height: auto; translate: var(--zx) var(--zy); }
   .temas .tela { aspect-ratio: 1.15; position: relative; }
@@ -323,92 +404,109 @@ html, body { overflow-x: clip; }
   .diario table { font-size: 0.86rem; }
   .turma .adesivo { width: 74px; }
   .novo-cel { width: 200px; }
-}
-
-/* ---------------------------------------------------------------- movimento
-   Tudo começa visível: as animações da rolagem só mexem em posição, escala e no traço do
-   marca-texto, nunca escondem texto. Quem pede menos movimento no sistema não vê nada disso. */
-main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a página no celular */
-.vitrine { perspective: 1400px; }
-.janela { transform: rotate(0.6deg) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .5s cubic-bezier(.2, .7, .2, 1); }
-.gabarito { translate: calc(var(--px, 0px) * -1.4) calc(var(--py, 0px) * -1.4); transition: translate .5s cubic-bezier(.2, .7, .2, 1); }
-.vitrine .adesivo { translate: calc(var(--px, 0px) * 1.8) calc(var(--py, 0px) * 1.8); transition: translate .5s cubic-bezier(.2, .7, .2, 1); }
-.turma { --traco: rgba(255, 216, 77, .34); }
-.diario td.nome { position: relative; }
-.carimbo { position: absolute; left: 64px; top: 50%; translate: 0 -50%; transform: rotate(-11deg); z-index: 1; font-family: var(--f-mono); font-weight: 600; font-size: 0.9rem;
-  letter-spacing: 0.14em; text-transform: uppercase; color: var(--certo); border: 3px solid currentColor; border-radius: 6px; padding: 3px 10px; opacity: .88; pointer-events: none; }
-@media (max-width: 560px) {
-  .carimbo { left: 46px; font-size: 0.7rem; letter-spacing: 0.1em; border-width: 2px; padding: 2px 7px; }
+  .carimbo { left: 46px; font-size: 0.7rem; letter-spacing: 0.08em; border-width: 2px; padding: 2px 7px; }
 }
 @media (max-width: 380px) {
-  .selo { font-size: 0.74rem; }
   .diario { padding-inline: 14px; }
   .diario table { font-size: 0.8rem; }
   .diario th, .diario td { padding-inline: 4px; }
 }
 
+/* ---------------------------------------------------------------- movimento
+   A classe .mov só entra quando o sistema permite movimento (e o script roda). Sem ela, tudo aparece parado e visível.
+   1) O herói conta uma pequena história ao abrir. 2) O resto entra quando chega na tela (o script marca .visto). */
 @media (prefers-reduced-motion: no-preference) {
-  .janela { animation: entrar .9s .1s cubic-bezier(.2, .7, .2, 1) backwards; }
-  .gabarito { animation: entrar-gab .9s .35s cubic-bezier(.2, .7, .2, 1) backwards; }
-  @keyframes entrar { from { translate: 0 34px; } }
-  @keyframes entrar-gab { from { translate: -34px 26px; } }
+  /* 1. herói */
+  .mov .heroi::after { animation: margem 1.2s .1s var(--suave) both; }
+  @keyframes margem { from { transform: scaleY(0); } }
+  .mov .heroi .selo:first-child { animation: aparecer .7s .05s var(--suave) both; }
+  .mov .palavra > span { animation: palavra .9s var(--suave) both; animation-delay: calc(.18s + var(--i) * .055s); }
+  @keyframes palavra { from { transform: translateY(108%) rotate(4deg); } }
+  .mov .heroi .marcado { animation: passar 1.1s 1.05s cubic-bezier(.6, .1, .2, 1) both; }
+  @keyframes passar { from { background-size: 0% .6em; } }
+  .mov .heroi .texto-grande { animation: subir .8s .85s var(--suave) both; }
+  .mov .heroi .acoes { animation: subir .8s 1s var(--suave) both; }
+  .mov .heroi a.selo, .mov .heroi .miudo { animation: subir .8s 1.15s var(--suave) both; }
+  @keyframes subir { from { opacity: 0; transform: translateY(18px); } }
+  @keyframes aparecer { from { opacity: 0; } }
 
-  /* figurinhas flutuando na faixa da turma */
-  .turma .adesivo { animation: boiar 5.5s ease-in-out infinite; }
-  .turma .adesivo.a2 { animation-duration: 6.3s; animation-delay: -1.6s; }
-  .turma .adesivo.a3 { animation-duration: 5s; animation-delay: -2.9s; }
-  .turma .adesivo.a4 { animation-duration: 6.8s; animation-delay: -4.1s; }
-  @keyframes boiar { 0%, 100% { translate: 0 0; } 50% { translate: 0 -11px; } }
-  .adesivo { transition: scale .25s cubic-bezier(.3, 1.6, .5, 1), translate .5s cubic-bezier(.2, .7, .2, 1); }
-  .adesivo:hover { scale: 1.12; }
+  .mov .janela { animation: janela 1.3s .35s var(--suave) both; }
+  @keyframes janela { from { opacity: 0; transform: translateY(60px) rotate(2deg) rotateX(14deg) scale(.96); } }
+  .mov .gabarito { animation: gabarito 1s .8s var(--suave) both; }
+  @keyframes gabarito { from { opacity: 0; transform: translate(-40px, 30px) rotate(-9deg); } }
+  .mov .bola.cheia { animation: bolinha .45s var(--mola) both; animation-delay: calc(1.5s + var(--i) * .26s); }
+  @keyframes bolinha { from { background: transparent; border-color: var(--tinta3); color: var(--tinta2); transform: scale(.6); } 60% { transform: scale(1.18); } }
+  .mov .gab-nota strong { animation: nota .5s 2.85s var(--mola) both; }
+  @keyframes nota { from { opacity: 0; transform: scale(.4) rotate(-12deg); } }
+  .mov .vitrine .adesivo { animation: colar .7s 3.05s var(--mola) both; }
+  @keyframes colar { from { opacity: 0; transform: rotate(28deg) scale(.3); } }
+  .mov .vitrine .guia { animation: espiar .9s 3.4s var(--mola) both, parado 1.44s steps(12) infinite; }
+  .mov .vitrine .guia.pronto { animation: parado 1.44s steps(12) infinite; }
+  .mov .vitrine .guia.acena { animation: aceno 1.2s steps(8) 2; }
+  @keyframes espiar { from { transform: translateY(70px); opacity: 0; } }
+  .vitrine .adesivo:hover { scale: 1.1; }
 
-  /* botões */
-  .bt-azul:hover svg { animation: quicar .7s ease-in-out infinite; }
-  @keyframes quicar { 0%, 100% { translate: 0 0; } 50% { translate: 0 3px; } }
-  .bt-linha svg { transition: translate .2s ease; }
-  .bt-linha:hover svg { translate: 3px 0; }
-  .chips li { transition: translate .2s ease, background-color .2s ease; }
-  .chips li:hover { translate: 0 -2px; }
+  /* sprites */
+  @keyframes parado { from { background-position-x: 0; } to { background-position-x: calc(-12 * 64px * var(--e)); } }
+  @keyframes aceno { from { background-position-x: calc(-12 * 64px * var(--e)); } to { background-position-x: calc(-20 * 64px * var(--e)); } }
+  @keyframes pulo { from { background-position-x: calc(-20 * 64px * var(--e)); } to { background-position-x: calc(-29 * 64px * var(--e)); } }
 
-  @supports (animation-timeline: view()) {
-    /* telas e cartões sobem (e vêm de lado) quando entram na tela */
-    .recurso .tela, .turma-vitrine .tela, .temas figure, .passos li, .revisao, .duas .mini, .conforto .mini, .perguntas details, .aviso-atualiza, .diario, .cinema, .sala-turma {
-      animation: subir linear both;
-      animation-timeline: view();
-      animation-range: entry 0% entry 75%;
-    }
-    .recurso .tela { animation-name: vir-direita; }
-    .recurso.inverte .tela { animation-name: vir-esquerda; }
-    .passos li:nth-child(2), .temas figure:nth-child(2), .conforto .mini:nth-child(2) { animation-range: entry 8% entry 85%; }
-    .passos li:nth-child(3), .temas figure:nth-child(3), .conforto .mini:nth-child(3) { animation-range: entry 16% entry 95%; }
-    @keyframes subir { from { translate: 0 56px; scale: .96; } to { translate: 0 0; scale: 1; } }
-    @keyframes vir-direita { from { translate: 64px 40px; scale: .95; } to { translate: 0 0; scale: 1; } }
-    @keyframes vir-esquerda { from { translate: -64px 40px; scale: .95; } to { translate: 0 0; scale: 1; } }
-
-    /* marca-texto passando nos títulos */
-    .marcado.rolar { animation: passar linear both; animation-timeline: view(); animation-range: entry 60% cover 42%; }
-
-    /* linha da revisão: o traço cresce e as bolinhas estalam em ordem */
-    .trilha { view-timeline-name: --trilha; }
-    .trilha::before { transform-origin: left center; animation: crescer linear both; animation-timeline: --trilha; animation-range: cover 18% cover 48%; }
-    .parada i { animation: estalar linear both; animation-timeline: --trilha;
-      animation-range: cover calc(18% + var(--d) * 1%) cover calc(26% + var(--d) * 1%); }
-    @keyframes crescer { from { scale: 0 1; } to { scale: 1 1; } }
-    @keyframes estalar { from { scale: .35; } 70% { scale: 1.3; } to { scale: 1; } }
-
-    /* lista de aprovados: o seu nome é marcado e o carimbo desce */
-    .diario { view-timeline-name: --diario; }
-    .diario tr.voce td.nome .eu { background: linear-gradient(var(--marca), var(--marca)) no-repeat 0 0 / 100% 100%;
-      animation: marcar-nome linear both; animation-timeline: --diario; animation-range: cover 30% cover 42%; }
-    @keyframes marcar-nome { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
-    .carimbo { animation: carimbar linear both; animation-timeline: --diario; animation-range: cover 40% cover 50%; }
-    @keyframes carimbar { from { scale: 2.4; opacity: 0; } 75% { scale: .92; opacity: .9; } to { scale: 1; opacity: .88; } }
-    @media (max-width: 560px) {
-      /* tela de celular é alta: a linha termina de crescer antes de chegar no meio da tela */
-      .trilha::before { animation-range: cover 10% cover 30%; }
-      .parada i { animation-range: cover calc(10% + var(--d) * .67%) cover calc(16% + var(--d) * .67%); }
-    }
+  /* 2. entrando na tela */
+  .mov :is(.cabeca, .recurso-texto, .novo-destaque, .linha-tempo li, .cinema-duo, .revisao, .duas > div, .turma-texto, .temas figure, .conforto > div,
+           .passos li, .aviso-atualiza, .perguntas, .final-texto, .fatos li) {
+    transition: opacity .9s var(--suave), transform .9s var(--suave); transition-delay: calc(var(--n, 0) * 90ms);
   }
+  .mov :is(.cabeca, .recurso-texto, .novo-destaque, .linha-tempo li, .cinema-duo, .revisao, .duas > div, .turma-texto, .temas figure, .conforto > div,
+           .passos li, .aviso-atualiza, .perguntas, .final-texto, .fatos li):not(.visto) { opacity: 0; transform: translateY(28px); }
+
+  /* as telas do app saem de trás da página, como uma folha puxada */
+  .mov :is(.recurso .tela, .turma-vitrine .tela) { transition: clip-path 1.2s var(--suave), transform 1.2s var(--suave), opacity .6s ease; }
+  .mov :is(.recurso .tela, .turma-vitrine .tela):not(.visto) { clip-path: inset(0 0 100% 0 round 14px); transform: translateY(40px) scale(.97); opacity: .4; }
+  .mov .turma-vitrine .tela.visto { transform: rotate(-1.2deg); }
+
+  /* linha do tempo das versões: o traço desce conforme os itens chegam */
+  .mov .linha-tempo::after { transition: transform 1.6s var(--suave); }
+  .mov .linha-tempo:not(.visto)::after { transform: scaleY(0); }
+  .mov .linha-tempo li::before { transition: transform .5s var(--mola), background-color .4s ease; transition-delay: calc(var(--n, 0) * 90ms + .2s); }
+  .mov .linha-tempo li:not(.visto)::before { transform: scale(0); }
+  .linha-tempo li.visto::before { background: var(--azul); }
+
+  /* revisão: o traço cresce e as bolinhas estalam em ordem (0, 1, 3, 7, 15 e 30 dias) */
+  .mov .trilha::before { transition: transform 1.4s var(--suave) .2s; }
+  .mov .revisao:not(.visto) .trilha::before { transform: scaleX(0); }
+  .mov .parada i { transition: transform .5s var(--mola); transition-delay: calc(.25s + var(--d) * 45ms); }
+  .mov .revisao:not(.visto) .parada i { transform: scale(0); }
+
+  /* instalar: a linha de cada passo enche da esquerda */
+  .mov .passos li::after { background: linear-gradient(90deg, var(--azul) 50%, var(--linha) 50%) 100% 0 / 200% 100%; transition: background-position 1s var(--suave); transition-delay: calc(var(--n, 0) * 160ms + .2s); }
+  .mov .passos li.visto::after { background-position: 0 0; }
+
+  /* turma: figurinhas boiando e o desfile de bonecos */
+  .mov .turma .adesivo { animation: boiar 5.5s ease-in-out infinite; }
+  .mov .turma .adesivo.a2 { animation-duration: 6.3s; animation-delay: -1.6s; }
+  .mov .turma .adesivo.a3 { animation-duration: 5s; animation-delay: -2.9s; }
+  .mov .turma .adesivo.a4 { animation-duration: 6.8s; animation-delay: -4.1s; }
+  @keyframes boiar { 0%, 100% { translate: 0 0; } 50% { translate: 0 -11px; } }
+  .mov .desfile .px { animation: parado 1.44s steps(12) infinite; animation-delay: var(--fase, 0s); transition: transform 1.1s var(--suave), opacity .6s ease; transition-delay: calc(var(--n, 0) * 110ms); }
+  .mov .desfile:not(.visto) .px { transform: translateY(110%); opacity: 0; }
+  .mov .desfile .px.acena { animation: aceno 1.2s steps(8) 1; }
+  .mov .desfile .px.pula { animation: pulo 1.02s steps(9) 1; }
+
+  /* lista de aprovados: o seu nome é marcado, o carimbo desce e cai confete */
+  .mov .diario { transition: transform 1s var(--suave), opacity .8s ease; }
+  .mov .diario:not(.visto) { transform: rotate(4deg) translateY(40px); opacity: 0; }
+  .mov .diario tr.voce td.nome .eu { transition: background-size .9s cubic-bezier(.6, .1, .2, 1) .9s; }
+  .mov .diario:not(.visto) tr.voce td.nome .eu { background-size: 0% 100%; }
+  .mov .diario.visto .carimbo { animation: carimbar .55s 1.7s cubic-bezier(.5, 1.8, .6, 1) both; }
+  .mov .diario:not(.visto) .carimbo { opacity: 0; }
+  @keyframes carimbar { from { scale: 2.6; opacity: 0; } 70% { scale: .92; opacity: .95; } to { scale: 1; opacity: .9; } }
+  .mov .final .marcado { transition: background-size 1s cubic-bezier(.6, .1, .2, 1) .4s; }
+  .mov .final-texto:not(.visto) .marcado { background-size: 0% .6em; }
+  .mov .diario.visto .confete i { animation: confete 1.6s cubic-bezier(.2, .6, .4, 1) both; animation-delay: calc(1.85s + var(--d)); }
+  @keyframes confete { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--r)); } }
+
+  /* respostas de quem mexe: perguntas abrindo, chips */
+  .perguntas details[open] p { animation: subir .45s var(--suave) both; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -417,6 +515,8 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
 </style>
 </head>
 <body>
+<script>(function (d) { if (window.matchMedia && matchMedia('(prefers-reduced-motion: no-preference)').matches) { d.classList.add('mov'); setTimeout(function () { if (!window.aprovaMov) d.classList.remove('mov'); }, 3000); } })(document.documentElement);</script>
+
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="i-baixar" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m0 0 4.5-4.5M12 15l-4.5-4.5M5 19.5h14"/></symbol>
   <symbol id="i-seta" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M5 12h13m0 0-5-5m5 5-5 5"/></symbol>
@@ -434,6 +534,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
   <div class="caixa">
     <a class="marca-app" href="#inicio" aria-label="Aprova, voltar ao topo"><img src="icon.png" alt="" width="38" height="38"><span>Aprova</span></a>
     <nav aria-label="Seções">
+      <span class="nav-marca" aria-hidden="true"></span>
       <a href="#novidades">Novidades</a>
       <a href="#videos">Vídeos</a>
       <a href="#recursos">O que faz</a>
@@ -450,24 +551,32 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
   <section class="heroi">
     <div class="caixa">
       <div class="heroi-texto">
-        <span class="selo"><b>GRÁTIS</b> App de estudo para concursos públicos</span>
-        <h1>Estude com método até ver seu nome na <span class="marcado anima">lista de aprovados</span>.</h1>
+        <span class="selo"><b>Grátis</b> App de estudo para concursos públicos</span>
+        <h1>Estude com método até ver seu nome na <span class="marcado">lista de aprovados</span>.</h1>
+        <script>/* cada palavra do título sobe da linha (feito aqui, antes de desenhar, para não piscar) */
+        (function (h) { if (!document.documentElement.classList.contains('mov')) return; var i = 0;
+          (function embrulha(no) { Array.prototype.slice.call(no.childNodes).forEach(function (f) {
+            if (f.nodeType === 1) return embrulha(f); if (f.nodeType !== 3) return; var frag = document.createDocumentFragment();
+            f.textContent.split(/(\s+)/).forEach(function (p) { if (!p) return; if (/^\s+$/.test(p)) return frag.appendChild(document.createTextNode(p));
+              var w = document.createElement('span'), t = document.createElement('span'); w.className = 'palavra'; t.textContent = p; t.style.setProperty('--i', i++); w.appendChild(t); frag.appendChild(w); });
+            no.replaceChild(frag, f); }); })(h); })(document.currentScript.previousElementSibling);</script>
         <p class="texto-grande">Provas reais com gabarito oficial, revisão no dia certo, meta da semana, PDFs marcados e grupos de estudo. Tudo em português e pensado para quem estuda depois do trabalho.</p>
         <div class="acoes">
           <a class="bt bt-azul" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-baixar"/></svg>Baixar para Windows</a>
-          <a class="bt bt-linha" href="#recursos">Ver o que ele faz<svg aria-hidden="true"><use href="#i-seta"/></svg></a>
+          <a class="bt bt-texto" href="#recursos">Ver o que ele faz</a>
         </div>
-        <a class="selo selo-link" href="#videos"><b>NOVO</b> Assista: o que tem de novo no Aprova (2 min)</a>
-        <p class="miudo">Versão 1.33.0 · se atualiza sozinho toda vez que abre · também roda no macOS e no Linux</p>
+        <a class="selo" href="#videos"><span class="play" aria-hidden="true"></span>Assista: o que tem de novo no Aprova (2 min)</a>
+        <p class="miudo">Versão 1.34.0. Se atualiza sozinho toda vez que abre e também roda no macOS e no Linux.</p>
       </div>
 
       <div class="vitrine">
+        <span class="px guia" style="background-image:url(img/px/guia.png)" aria-hidden="true"></span>
         <figure class="janela">
           <div class="janela-barra"><span>Aprova</span><i aria-hidden="true"><span>–</span><span>▢</span><span>✕</span></i></div>
           <img src="img/inicio.png" width="1440" height="900" alt="Tela inicial do Aprova: horas estudadas na semana, barras por dia e o próximo estudo, Revisão do dia">
         </figure>
         <div class="gabarito" aria-hidden="true">
-          <div class="rotulo"><span>Cartão-resposta</span><span>Simulado</span></div>
+          <div class="gab-topo"><span>Cartão-resposta</span><span>Simulado</span></div>
           <div class="gab-linha"><span>01</span><i class="bola">A</i><i class="bola cheia" style="--i:0">B</i><i class="bola">C</i><i class="bola">D</i><i class="bola">E</i></div>
           <div class="gab-linha"><span>02</span><i class="bola">A</i><i class="bola">B</i><i class="bola">C</i><i class="bola cheia" style="--i:1">D</i><i class="bola">E</i></div>
           <div class="gab-linha"><span>03</span><i class="bola cheia" style="--i:2">A</i><i class="bola">B</i><i class="bola">C</i><i class="bola">D</i><i class="bola">E</i></div>
@@ -483,7 +592,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
   <section class="fatos" aria-label="Em resumo">
     <div class="caixa"><ul>
       <li><strong>Gabarito oficial</strong><span>nas provas que o app encontra para você</span></li>
-      <li><strong>1 · 3 · 7 · 15 · 30</strong><span>dias até a revisão de cada erro</span></li>
+      <li><strong>1, 3, 7, 15, 30</strong><span>dias até a revisão de cada erro</span></li>
       <li><strong>Sem repetir questão</strong><span>as que você nunca fez vêm primeiro</span></li>
       <li><strong>Convite por link</strong><span>a turma entra com um clique</span></li>
     </ul></div>
@@ -492,8 +601,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
   <section class="secao" id="novidades">
     <div class="caixa">
       <div class="cabeca">
-        <span class="rotulo">Novidades</span>
-        <h2>O que chegou <span class="marcado rolar">nas últimas versões</span>.</h2>
+        <h2>O que chegou nas últimas versões.</h2>
       </div>
       <article class="novo-destaque">
         <div class="novo-texto">
@@ -512,22 +620,21 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
         </div>
         <figure class="novo-cel"><img src="img/celular-inicio.png" width="412" height="1000" alt="Tela inicial do Aprova no celular: a meta da semana com as horas de cada dia e o próximo estudo" loading="lazy"></figure>
       </article>
-      <div class="novidades-lista">
-        <div class="mini"><span class="versao">1.33</span><h3>Vídeo das novidades</h3><p>Dois minutos mostrando tudo o que chegou e relembrando o que você já tem. O seu personagem avisa dentro do app e leva direto ao <a href="#videos">vídeo</a>.</p></div>
-        <div class="mini"><span class="versao">1.32</span><h3>Escolha a voz</h3><p>A leitura em voz alta usa a voz que você escolher, até as vozes naturais do Windows 11, e na velocidade que preferir.</p></div>
-        <div class="mini"><span class="versao">1.31</span><h3>Simulado da turma e discursiva</h3><p>O grupo marca um simulado, o servidor corrige e todo mundo vê o resultado. A discursiva é corrigida por IA como a banca faria. E conquistas destravam roupas do boneco.</p></div>
-        <div class="mini"><span class="versao">1.30</span><h3>Edital verticalizado</h3><p>Cole o conteúdo programático e marque teoria, questões e revisão de cada tópico. O app mostra seu acerto em cada assunto e quanto do edital já foi. E o ranking agora tem o mês e desde o começo.</p></div>
-        <div class="mini"><span class="versao">1.29</span><h3>Animações</h3><p>Telas que deslizam, números que contam, barras que enchem e confete quando o simulado vai bem. E a prova ficou mais rápida.</p></div>
-        <div class="mini"><span class="versao">1.28</span><h3>Atualização no celular</h3><p>Ao abrir, o app do Android avisa quando sai versão nova e baixa a atualização, que instala por cima sem perder os estudos.</p></div>
-      </div>
+      <ol class="linha-tempo" aria-label="Versões recentes">
+        <li><span class="versao">1.34</span><div><h3>Quanto custa a inscrição</h3><p>O texto de cada concurso agora mostra o valor da inscrição, a taxa para fazer a prova. E quem ainda está com o boneco sorteado recebe um convite para montar o seu personagem.</p></div></li>
+        <li><span class="versao">1.33</span><div><h3>Vídeo das novidades</h3><p>Dois minutos mostrando tudo o que chegou e relembrando o que você já tem. O seu personagem avisa dentro do app e leva direto ao <a href="#videos">vídeo</a>.</p></div></li>
+        <li><span class="versao">1.32</span><div><h3>Escolha a voz</h3><p>A leitura em voz alta usa a voz que você escolher, até as vozes naturais do Windows 11, e na velocidade que preferir.</p></div></li>
+        <li><span class="versao">1.31</span><div><h3>Simulado da turma e discursiva</h3><p>O grupo marca um simulado, o servidor corrige e todo mundo vê o resultado. A discursiva é corrigida por IA como a banca faria. E conquistas destravam roupas do boneco.</p></div></li>
+        <li><span class="versao">1.30</span><div><h3>Edital verticalizado</h3><p>Cole o conteúdo programático e marque teoria, questões e revisão de cada tópico. O app mostra seu acerto em cada assunto e quanto do edital já foi. E o ranking agora tem o mês e desde o começo.</p></div></li>
+        <li><span class="versao">1.29</span><div><h3>Animações</h3><p>Telas que deslizam, números que contam, barras que enchem e confete quando o simulado vai bem. E a prova ficou mais rápida.</p></div></li>
+      </ol>
     </div>
   </section>
 
   <section class="secao" id="videos">
     <div class="caixa">
       <div class="cabeca">
-        <span class="rotulo">Vídeos</span>
-        <h2>Veja o Aprova <span class="marcado rolar">funcionando</span>.</h2>
+        <h2>Veja o Aprova funcionando.</h2>
         <p class="texto-grande">Veja o que chegou de novo, a apresentação ou o tutorial completo: o seu personagem em pixel art mostra o app, passo a passo.</p>
       </div>
       <div class="cinema-duo">
@@ -558,13 +665,11 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
   <section class="secao" id="recursos">
     <div class="caixa">
       <div class="cabeca">
-        <span class="rotulo">O que o Aprova faz</span>
-        <h2>Menos tempo procurando material, mais tempo <span class="marcado rolar">resolvendo questão</span>.</h2>
+        <h2>Menos tempo procurando material, mais tempo resolvendo questão.</h2>
       </div>
 
       <article class="recurso">
         <div class="recurso-texto">
-          <span class="rotulo">Provas reais</span>
           <h3>Digite o concurso. A prova chega com o gabarito.</h3>
           <p>Escreva, por exemplo, <em>Dataprev 2026</em>. O Aprova procura nas bancas, na internet e no PCI Concursos e traz as provas com o gabarito oficial, prontas para abrir no próprio app.</p>
           <p>Faça em modo simulado, com cartão-resposta, ou em modo estudo, com a correção a cada questão e a explicação logo abaixo.</p>
@@ -576,7 +681,6 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
 
       <article class="recurso inverte">
         <div class="recurso-texto">
-          <span class="rotulo">Resultado comentado</span>
           <h3>No fim do simulado, um professor comenta com você.</h3>
           <p>O Aprova diz o que foi bem, em que matéria dá para ganhar mais pontos e qual o próximo passo, com um botão para treinar essa matéria na hora.</p>
           <p>Embaixo vem o que você errou, matéria por matéria: o que você marcou, a resposta certa e o porquê. Cada erro já entra na sua Revisão.</p>
@@ -587,7 +691,6 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
 
       <article class="recurso">
         <div class="recurso-texto">
-          <span class="rotulo">Dúvida com IA</span>
           <h3>Travou numa questão? Pergunte ao Claude ou ao ChatGPT.</h3>
           <p>Na ajuda de cada questão, um toque abre o chat com a questão já escrita: enunciado, alternativas e o que você marcou. Funciona com a sua conta grátis.</p>
           <p>No resultado, leve todos os seus erros para a IA e receba o que revisar e um plano de 3 dias. Com a chave do Claude, a IA trabalha dentro do app e cria questões novas para os seus simulados.</p>
@@ -598,7 +701,6 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
 
       <article class="recurso inverte">
         <div class="recurso-texto">
-          <span class="rotulo">Onde focar</span>
           <h3>O Painel mostra onde você está bem e onde está mal.</h3>
           <p>O Aprova cruza quanto cada disciplina cai nas suas provas com quanto você ainda erra. Você vê o que precisa melhorar, o que já está forte e a evolução das últimas semanas. Dentro de cada disciplina, o acerto por assunto mostra o que mais derruba você: crase, porcentagem, licitações.</p>
           <p>Diga qual é o seu concurso e a data da prova: o Início conta os dias e o foco passa a olhar as provas dele.</p>
@@ -610,13 +712,12 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
 
       <article class="recurso">
         <div class="recurso-texto">
-          <span class="rotulo">Revisão e metas</span>
           <h3>O que você erra volta no dia certo.</h3>
           <p>Cada questão errada entra na Revisão do dia e reaparece depois de 1, 3, 7, 15 e 30 dias, até ficar dominada. No Início, o cartão <em>Seu próximo estudo</em> diz o que fazer agora.</p>
         </div>
         <div style="display:grid; gap:16px; min-width:0">
           <div class="revisao" role="img" aria-label="Linha do tempo da revisão: a questão errada hoje volta depois de 1, 3, 7, 15 e 30 dias">
-            <span class="rotulo">Quando a questão errada volta</span>
+            <p class="revisao-titulo">Quando a questão errada volta</p>
             <div class="trilha">
               <div class="parada inicio" style="--d:0"><b>0</b><i></i><small>errou hoje</small></div>
               <div class="parada" style="--d:1"><b>1</b><i></i></div>
@@ -628,15 +729,14 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
             <span class="legenda-trilha">Dias depois do erro<span class="so-largo">, em escala</span>.</span>
           </div>
           <div class="duas">
-            <div class="mini"><h3>Meta da semana sem culpa</h3><p>Meta em horas, cronômetro e as horas de cada dia. A primeira semana conta a partir do dia em que você começou.</p></div>
-            <div class="mini"><h3>Simulado por disciplina</h3><p>Monte simulados só com o que você precisa treinar e tire dúvidas em cada questão.</p></div>
+            <div><h3>Meta da semana sem culpa</h3><p>Meta em horas, cronômetro e as horas de cada dia. A primeira semana conta a partir do dia em que você começou.</p></div>
+            <div><h3>Simulado por disciplina</h3><p>Monte simulados só com o que você precisa treinar e tire dúvidas em cada questão.</p></div>
           </div>
         </div>
       </article>
 
       <article class="recurso inverte">
         <div class="recurso-texto">
-          <span class="rotulo">Marcar PDF</span>
           <h3>Lei seca, apostila e edital do jeito que você estuda.</h3>
           <p>Marca-texto, sublinhado e notas em qualquer PDF. Depois, salve um PDF novo com as marcações editáveis ou fixas, que ninguém apaga nem muda. O arquivo original fica intacto.</p>
           <div class="cores" aria-label="Cores do marca-texto">
@@ -651,8 +751,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
   <section class="turma" id="turma">
     <div class="caixa turma-grade">
       <div class="turma-texto">
-        <span class="rotulo">Grupos de estudo</span>
-        <h2>Ninguém passa sozinho. <span class="marcado rolar">Traga a sua turma.</span></h2>
+        <h2>Ninguém passa sozinho. Traga a sua turma.</h2>
         <p class="texto-grande">Cada grupo tem a sua conversa. Combinem simulados, tirem dúvidas, troquem material e usem o plano da semana de quem organiza.</p>
         <ul class="itens">
           <li><svg aria-hidden="true"><use href="#i-conversa"/></svg><div><strong>Dúvidas e materiais</strong><span>Mensagens por tipo (conversa, dúvida, material) e respostas em cada uma. Quem cria o grupo modera.</span></div></li>
@@ -673,19 +772,25 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
         <img class="adesivo a4" src="img/figurinhas/cafe-lei-seca.png" alt="" width="320" height="320" loading="lazy">
       </div>
     </div>
-    <div class="caixa">
-      <figure class="sala-turma">
-        <img src="img/sala-da-turma.webp" width="784" height="160" alt="Sala da turma: oito personagens em pixel art, de corpos diferentes, lado a lado numa cidade à noite: uma menina magra de maria-chiquinha com lápis gigante, um policial forte de moicano, uma médica de black power e jaleco com café, um juiz gordinho de toga e barba com o Vade Mecum, uma estudante de tranças piscando com marca-texto, um formando de capelo com diploma, uma gordinha de fone com troféu e um cavaleiro de capa; de vez em quando um acena ou pula" loading="lazy">
-        <figcaption><strong>Sala da turma.</strong> No topo de cada grupo, o personagem de cada um, juntos, como no lobby de um jogo.</figcaption>
-      </figure>
-    </div>
+    <figure class="desfile">
+      <div class="desfile-palco" role="img" aria-label="Sala da turma: oito personagens em pixel art lado a lado numa cidade à noite, de corpos, cabelos e roupas diferentes; de vez em quando um acena ou pula. Toque num deles para ele pular.">
+          <span class="px" style="--x:8%;--fase:-.2s;background-image:url(img/px/lia.png)"></span>
+          <span class="px" style="--x:20%;--fase:-.9s;background-image:url(img/px/t3.png)"></span>
+          <span class="px" style="--x:44%;--fase:0s;background-image:url(img/px/guia.png)"></span>
+          <span class="px" style="--x:32%;--fase:-.5s;background-image:url(img/px/t4.png)"></span>
+          <span class="px" style="--x:56%;--fase:-1.1s;background-image:url(img/px/formatura.png)"></span>
+          <span class="px" style="--x:68%;--fase:-.7s;background-image:url(img/px/camila.png)"></span>
+          <span class="px" style="--x:80%;--fase:-.3s;background-image:url(img/px/t6.png)"></span>
+          <span class="px" style="--x:92%;--fase:-1.3s;background-image:url(img/px/t7.png)"></span>
+      </div>
+      <figcaption class="caixa"><strong>Sala da turma.</strong> No topo de cada grupo, o personagem de cada um, juntos, como no lobby de um jogo. Toque num deles.</figcaption>
+    </figure>
   </section>
 
   <section class="secao" id="olhos">
     <div class="caixa">
       <div class="cabeca">
-        <span class="rotulo">Conforto para os olhos</span>
-        <h2>Feito para quem estuda à noite, depois de <span class="marcado rolar">um dia inteiro de tela</span>.</h2>
+        <h2>Feito para quem estuda à noite, depois de um dia inteiro de tela.</h2>
       </div>
       <div class="temas">
         <figure><div class="tela"><img src="img/tema-claro.webp" width="960" height="507" alt="Início no tema claro"></div><figcaption><b>Claro</b><span>para o dia</span></figcaption></figure>
@@ -693,9 +798,9 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
         <figure><div class="tela"><img src="img/tema-escuro.webp" width="960" height="507" alt="Início no tema escuro"></div><figcaption><b>Escuro</b><span>para a madrugada</span></figcaption></figure>
       </div>
       <div class="conforto">
-        <div class="mini"><h3>Letra fácil de ler</h3><p>A fonte Atkinson Hyperlegible foi desenhada para baixa visão. O tamanho e o espaço entre linhas são seus.</p></div>
-        <div class="mini"><h3>Leitura em voz alta</h3><p>O app lê a questão para você, com a voz e a velocidade que escolher.</p></div>
-        <div class="mini"><h3>Pausa 20-20-20</h3><p>A cada 20 minutos, um lembrete para olhar 20 segundos para longe.</p></div>
+        <div><h3>Letra fácil de ler</h3><p>A fonte Atkinson Hyperlegible foi desenhada para baixa visão. O tamanho e o espaço entre linhas são seus.</p></div>
+        <div><h3>Leitura em voz alta</h3><p>O app lê a questão para você, com a voz e a velocidade que escolher.</p></div>
+        <div><h3>Pausa 20-20-20</h3><p>A cada 20 minutos, um lembrete para olhar 20 segundos para longe.</p></div>
       </div>
     </div>
   </section>
@@ -703,8 +808,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
   <section class="secao" id="instalar">
     <div class="caixa">
       <div class="cabeca">
-        <span class="rotulo">Como instalar no Windows</span>
-        <h2><span class="marcado rolar">Três passos</span> e você já está estudando.</h2>
+        <h2>Três passos e você já está estudando.</h2>
       </div>
       <ol class="passos">
         <li><h3>Baixe e extraia</h3><p><a href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip" target="_blank" rel="noopener">Baixe o Aprova</a> e extraia o .zip numa pasta, por exemplo <code>Documentos\Aprova</code>.</p></li>
@@ -721,7 +825,6 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
   <section class="secao" id="perguntas">
     <div class="caixa">
       <div class="cabeca">
-        <span class="rotulo">Dúvidas comuns</span>
         <h2>Antes de baixar.</h2>
       </div>
       <div class="perguntas">
@@ -740,12 +843,11 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
   <section class="final">
     <div class="caixa">
       <div class="final-texto">
-        <span class="rotulo">O próximo resultado final</span>
-        <h2>Um dia o seu nome está <span class="marcado rolar">nessa lista</span>. <em class="it">O método começa hoje.</em></h2>
+        <h2>Um dia o seu nome está <span class="marcado">nessa lista</span>. O método começa hoje.</h2>
         <p class="texto-grande">Baixe o Aprova, escolha o seu concurso e faça a primeira prova ainda hoje.</p>
         <div class="acoes">
           <a class="bt bt-azul" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-baixar"/></svg>Baixar grátis para Windows</a>
-          <a class="bt bt-linha" href="https://github.com/NatanaelSantz/aprova" target="_blank" rel="noopener">Ver no GitHub</a>
+          <a class="bt bt-texto" href="https://github.com/NatanaelSantz/aprova" target="_blank" rel="noopener">Ver no GitHub</a>
         </div>
       </div>
       <div class="diario" aria-label="Exemplo ilustrativo de uma lista de aprovados com o seu nome marcado">
@@ -763,6 +865,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
           </table>
         </div>
         <p class="rodape-diario">Ilustração. A lista de verdade quem escreve é você.</p>
+        <div class="confete" aria-hidden="true"></div>
       </div>
     </div>
   </section>
@@ -771,7 +874,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
 <footer>
   <div class="caixa">
     <a class="marca-app" href="#inicio"><img src="icon.png" alt="" width="30" height="30"><span>Aprova</span></a>
-    <span>Estudo para concursos · versão 1.33.0 · feito no Brasil</span>
+    <span>Estudo para concursos, feito no Brasil. Versão 1.34.0.</span>
     <nav aria-label="Links">
       <a href="https://github.com/NatanaelSantz/aprova" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/NatanaelSantz/aprova/blob/main/docs/MANUAL.md" target="_blank" rel="noopener">Manual</a>
@@ -828,6 +931,107 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
       ["--rx", "--ry", "--px", "--py"].forEach(function (k) { v.style.removeProperty(k); });
     });
   })();
+/* movimento: entra quando chega na tela, topo que acompanha a seção e os bonecos da turma */
+(function () {
+  var raiz = document.documentElement;
+  var mover = raiz.classList.contains('mov');
+  window.aprovaMov = true;
+
+  // o que entra quando aparece (o CSS só esconde isso enquanto .mov estiver ligado)
+  var sel = '.cabeca, .recurso-texto, .novo-destaque, .linha-tempo, .linha-tempo li, .cinema-duo, .revisao, .duas > div, .turma-texto, .temas figure, ' +
+            '.conforto > div, .passos li, .aviso-atualiza, .perguntas, .final-texto, .fatos li, .recurso .tela, .turma-vitrine .tela, .desfile, .diario';
+  var alvos = Array.prototype.slice.call(document.querySelectorAll(sel));
+  alvos.forEach(function (el) {
+    var irmaos = Array.prototype.filter.call(el.parentNode.children, function (x) { return x.matches(sel); });
+    var n = irmaos.indexOf(el);
+    if (n > 0) el.style.setProperty('--n', Math.min(n, 7));
+  });
+  if (!mover || !('IntersectionObserver' in window)) {
+    alvos.forEach(function (el) { el.classList.add('visto'); });
+  } else {
+    var io = new IntersectionObserver(function (entradas) {
+      entradas.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        e.target.classList.add('visto');
+        io.unobserve(e.target);
+      });
+    }, { rootMargin: '0px 0px -10% 0px', threshold: 0.01 });
+    // a tela do app entra recortada (clip-path), e o observador não vê o que está recortado: quem é vigiado é a caixa em volta
+    alvos.forEach(function (el) {
+      if (el.classList.contains('tela')) {
+        var pai = el.parentNode;
+        var vigiaPai = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { el.classList.add('visto'); vigiaPai.disconnect(); } }); },
+          { rootMargin: '0px 0px -10% 0px', threshold: 0.01 });
+        vigiaPai.observe(pai);
+      } else io.observe(el);
+    });
+  }
+
+  // topo: linha embaixo quando rola e a marca deslizando até a seção em que você está
+  var topo = document.querySelector('.topo');
+  var nav = topo && topo.querySelector('nav');
+  var marca = nav && nav.querySelector('.nav-marca');
+  function rolou() { topo.classList.toggle('rolou', window.scrollY > 8); }
+  if (topo) { rolou(); window.addEventListener('scroll', rolou, { passive: true }); }
+  if (nav && marca && 'IntersectionObserver' in window) {
+    var links = Array.prototype.slice.call(nav.querySelectorAll('a[href^="#"]'));
+    var secoes = links.map(function (a) { return document.querySelector(a.getAttribute('href')); }).filter(Boolean);
+    var atual = null;
+    function marcar(a) {
+      links.forEach(function (x) { x.setAttribute('aria-current', String(x === a)); });
+      if (!a) { marca.style.opacity = 0; return; }
+      marca.style.width = a.offsetWidth + 'px';
+      marca.style.transform = 'translateX(' + a.offsetLeft + 'px)';
+      marca.style.opacity = 1;
+    }
+    var vigia = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) atual = e.target; });
+      var a = atual && links.filter(function (x) { return x.getAttribute('href') === '#' + atual.id; })[0];
+      marcar(window.scrollY < 300 ? null : a);
+    }, { rootMargin: '-40% 0px -55% 0px' });
+    secoes.forEach(function (s) { vigia.observe(s); });
+    window.addEventListener('resize', function () { marcar(links.filter(function (x) { return x.getAttribute('aria-current') === 'true'; })[0]); });
+  }
+
+  if (!mover) return;
+
+  // o guia do herói acena de vez em quando
+  var guia = document.querySelector('.vitrine .guia');
+  function acenar(el, classe) {
+    el.classList.remove('acena', 'pula'); void el.offsetWidth; el.classList.add(classe);
+  }
+  if (guia) {
+    guia.addEventListener('animationend', function (e) { if (e.animationName === 'espiar') guia.classList.add('pronto'); if (e.animationName === 'aceno') guia.classList.remove('acena'); });
+    setTimeout(function () { acenar(guia, 'acena'); }, 4400);
+    setInterval(function () { if (document.visibilityState === 'visible') acenar(guia, 'acena'); }, 9000);
+  }
+
+  // a turma: de vez em quando alguém acena ou pula; um toque faz pular
+  var bonecos = Array.prototype.slice.call(document.querySelectorAll('.desfile .px'));
+  bonecos.forEach(function (b) {
+    b.addEventListener('animationend', function (e) { if (e.animationName !== 'parado') b.classList.remove('acena', 'pula'); });
+    b.addEventListener('click', function () { acenar(b, 'pula'); });
+  });
+  var desfile = document.querySelector('.desfile');
+  setInterval(function () {
+    if (!desfile || !desfile.classList.contains('visto') || document.visibilityState !== 'visible') return;
+    var b = bonecos[Math.floor(Math.random() * bonecos.length)];
+    if (b && b.offsetParent) acenar(b, Math.random() < 0.6 ? 'acena' : 'pula');
+  }, 1700);
+
+  // confete em pixels quando o carimbo desce
+  var confete = document.querySelector('.diario .confete');
+  if (confete) {
+    var cores = ['#FFD84D', '#2340A8', '#1D7F53', '#E0507E', '#6E4BB8', '#E2453A'];
+    for (var i = 0; i < 28; i++) {
+      var p = document.createElement('i');
+      var ang = Math.random() * Math.PI * 2, dist = 60 + Math.random() * 150;
+      p.style.cssText = '--x:' + (30 + Math.random() * 14) + '%;--y:' + (52 + Math.random() * 8) + '%;--dx:' + Math.round(Math.cos(ang) * dist) + 'px;--dy:' +
+        Math.round(Math.sin(ang) * dist - 40) + 'px;--r:' + Math.round(Math.random() * 540 - 270) + 'deg;--c:' + cores[i % cores.length] + ';--d:' + (Math.random() * 0.25).toFixed(2) + 's';
+      confete.appendChild(p);
+    }
+  }
+})();
 </script>
 </body>
 </html>

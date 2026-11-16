@@ -6,7 +6,7 @@ App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolv
 
 ## O que ele faz
 
-- **Concursos abertos** por região, com prazo de inscrição, vagas, salário e nível. A estrela acompanha o prazo na tela Início.
+- **Concursos abertos** por região, com prazo de inscrição, vagas, salário e nível. Ao abrir um concurso, aparece também o **valor da inscrição** (a taxa para fazer a prova), tirado da notícia; quando a notícia não diz, o app avisa que o valor está no edital. A estrela acompanha o prazo na tela Início.
 - **Concursos já realizados**: busca por órgão ou cargo, abre o edital e leva às provas anteriores.
 - **Escolha um concurso e receba a prova** (aba *Provas*): digite o concurso (ex.: `Dataprev 2026`) ou cole o link da página dele no site da banca. O Aprova procura em vários lugares ao mesmo tempo:
   - **site oficial da banca**: provas separadas por cargo e caderno, com o gabarito oficial. Toque no caderno da sua área e a prova já abre pronta, com o gabarito certo;
@@ -193,7 +193,7 @@ A **primeira pessoa que cria conta** no servidor vira administrador sozinha. Dep
 
 - *Visão geral*: contas, quem estudou na semana, horas e questões somadas, quem mais estudou, os concursos mais estudados e o **espaço usado no servidor** (banco e arquivos, perto dos limites do plano grátis do Supabase: 500 MB e 1 GB). Perto de 80% aparece um aviso para apagar arquivos antigos dos grupos;
 - *Usuários*: procurar por apelido ou concurso, **tornar administrador**, voltar para aluno, **bloquear** (some do ranking) e desbloquear; clicar no rostinho de alguém abre o personagem dessa pessoa;
-- *Personagens*: a galeria com o personagem de todo mundo, cada um no seu cenário (com a busca por apelido ou concurso). Clique num para ver de perto: ele acena, pula e **dança**, e aparecem as escolhas dele (corpo, cabelo, roupa, acessórios, cenário). Quem usa foto no perfil tem o botão **Tirar a foto de perfil**;
+- *Personagens*: a galeria com o personagem de todo mundo, cada um no seu cenário (com a busca por apelido ou concurso). No alto aparece quantas pessoas ainda estão sem personagem, com o botão **Pedir para criarem**: você escreve uma mensagem e quem está logado sem personagem vê, uma vez, uma janela com o boneco sorteado chamando para montar o seu (quem já tem personagem não vê nada). Clique num para ver de perto: ele acena, pula e **dança**, e aparecem as escolhas dele (corpo, cabelo, roupa, acessórios, cenário). Quem usa foto no perfil tem o botão **Tirar a foto de perfil**;
 - *Grupos*: ver e apagar grupos;
 - *Comunicados*: escrever um aviso que aparece na tela Início de todos (ex.: “Simulado coletivo no sábado”), ligar/desligar e apagar.
 - *Erros*: os erros que aconteceram no aparelho de quem ligou **Enviar relatórios de erro** (Ajustes → Geral). O mesmo erro fica numa linha só, com quantas vezes aconteceu, as versões, os sistemas e a tela; **Ver rastro** mostra o detalhe técnico e **Resolvido** apaga. Vai só o erro técnico, sem dados pessoais;

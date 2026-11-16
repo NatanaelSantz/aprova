@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.33.0" src="https://img.shields.io/badge/vers%C3%A3o-1.33.0-2340A8">
+  <img alt="Versão 1.34.0" src="https://img.shields.io/badge/vers%C3%A3o-1.34.0-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -250,6 +250,7 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
+| **1.34.0** | **Valor da inscrição** no texto de cada concurso (a taxa para fazer a prova); **Pedir para criarem o personagem** (Admin → Personagens): quem está com o boneco sorteado recebe um convite; site repaginado com mais animações |
 | **1.33.0** | **Vídeo das novidades** no site (as funções novas e um lembrete das que você já tem) e **aviso dentro do app**: o seu personagem conta numa janela, uma vez, e um cartão no Início leva ao vídeo |
 | **1.32.0** | **Escolha da voz** da leitura em voz alta (Ajustes → Ouvir as questões), com as vozes novas do Windows 10 e 11 |
 | **1.31.3** | Correção: a tela de Ajustes não abria na 1.31.2 |
