@@ -200,6 +200,8 @@ O robô [`publicar.yml`](.github/workflows/publicar.yml) cria a etiqueta `v1.9.1
 
 Em até 12 horas (ou na hora, em *Ajustes → Atualizações → Procurar atualização*), quem tem o Aprova vê o aviso no Início. O app baixa o .zip da versão, confere se ela é mesmo mais nova e deixa tudo pronto; a troca dos arquivos acontece ao reabrir, pelo `iniciar.pyw`, que guarda uma cópia da versão anterior em `.aprova/atualizacao/anterior` e só reinstala bibliotecas se o `requirements.txt` mudou. O `ranking.json` e a pasta `.venv` nunca são trocados.
 
+**Mudou o guia (`docs/MANUAL.md`)?** Rode `python ferramentas/manual_html.py` para atualizar a página do guia no site (`docs/manual.html`; precisa do pacote `markdown`).
+
 **Avisar de uma novidade sem lançar versão** (ex.: vídeo novo): ponha um campo `destaque` no `docs/versao.json` com `id`, `titulo`, `texto`, `fala` (o que o personagem diz), `itens` (até 6), `botao`, `link` (só endereços do site, `https://natanaelsantz.github.io/aprova/...`) e, se quiser, `ate` (data em que some, `AAAA-MM-DD`). Da 1.33 em diante, o app mostra uma janela com o personagem da pessoa uma vez e deixa um cartão no Início até ela assistir ou fechar. Para avisar de novo, troque o `id`. O `nova_versao.py` mantém o destaque nas versões seguintes. As regras estão em [`aprova/destaque.py`](aprova/destaque.py).
 
 **Se a versão nova não abrir** (erro ao abrir, ou duas aberturas sem a janela aparecer), o `iniciar.pyw` devolve os arquivos da versão anterior, abre ela e pula a versão com problema até sair uma mais nova. Fica anotado em `.aprova/instalacao.log`.

@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Guia completo · Aprova</title>
+<meta name="description" content="Guia completo do Aprova: como instalar, achar provas, resolver, revisar, usar os grupos, o ranking, o personagem e a IA.">
+<meta name="theme-color" content="#2340A8">
+<link rel="icon" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..700,0..100;1,9..144,400..700,0..100&display=swap">
+<style>
+:root { --papel: #F4F6FB; --folha: #FFFFFF; --tinta: #111A33; --tinta2: #4E5772; --linha: #DCE1EC; --azul: #2340A8; --azul-suave: #E4E9F8; --sobre-azul: #FFFFFF; --marca: #FFD84D;
+  --f-titulo: "Fraunces", Georgia, serif; --f-texto: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --papel: #0C1020; --folha: #141A2C; --tinta: #E8EBF4; --tinta2: #A0A9BF; --linha: #262E46; --azul: #93A8FF; --azul-suave: #1C2646; --sobre-azul: #0C1020; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --papel: #0C1020; --folha: #141A2C; --tinta: #E8EBF4; --tinta2: #A0A9BF; --linha: #262E46; --azul: #93A8FF; --azul-suave: #1C2646; --sobre-azul: #0C1020; color-scheme: dark; }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+body { margin: 0; background: var(--papel); color: var(--tinta); font-family: var(--f-texto); font-size: 17px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
+a { color: var(--azul); text-underline-offset: 3px; }
+:focus-visible { outline: 3px solid var(--azul); outline-offset: 3px; border-radius: 6px; }
+.topo { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--papel) 85%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--linha); }
+.topo div { max-width: 1100px; margin: 0 auto; padding: 12px 22px; display: flex; align-items: center; gap: 16px; }
+.marca { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.marca img { width: 34px; height: 34px; border-radius: 9px; }
+.marca span { font-family: var(--f-titulo); font-weight: 600; font-size: 1.4rem; color: var(--azul); }
+.bt { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; background: var(--azul); color: var(--sobre-azul); font-weight: 700; font-size: .92rem; text-decoration: none; border-radius: 999px; padding: 10px 18px; }
+main { max-width: 1100px; margin: 0 auto; padding: 40px 22px 80px; display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 56px; align-items: start; }
+nav.indice { position: sticky; top: 84px; font-size: .92rem; max-height: calc(100vh - 110px); overflow: auto; }
+nav.indice p { margin: 0 0 8px; font-weight: 700; }
+nav.indice ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+nav.indice a { display: block; color: var(--tinta2); text-decoration: none; padding: 4px 10px; border-radius: 8px; }
+nav.indice a:hover { color: var(--tinta); background: var(--azul-suave); }
+article { min-width: 0; max-width: 46em; }
+h1, h2, h3 { font-family: var(--f-titulo); font-weight: 500; letter-spacing: -0.02em; line-height: 1.12; text-wrap: balance; }
+h1 { font-size: clamp(2.3rem, 5vw, 3.4rem); margin: 0 0 18px; }
+h2 { font-size: clamp(1.6rem, 3vw, 2.1rem); margin: 56px 0 14px; padding-top: 18px; border-top: 1px solid var(--linha); }
+h3 { font-size: 1.3rem; margin: 30px 0 10px; }
+p, li { color: var(--tinta); }
+ul, ol { padding-left: 1.3em; }
+li { margin: 6px 0; }
+code { font-size: .9em; background: var(--azul-suave); padding: 1px 6px; border-radius: 5px; }
+pre { background: var(--folha); border: 1px solid var(--linha); border-radius: 12px; padding: 14px 16px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+table { width: 100%; border-collapse: collapse; font-size: .95rem; margin: 16px 0; display: block; overflow-x: auto; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--linha); vertical-align: top; }
+th { color: var(--tinta2); font-weight: 700; }
+blockquote { margin: 18px 0; padding: 12px 18px; border-left: 4px solid var(--marca); background: var(--folha); border-radius: 0 12px 12px 0; }
+strong { font-weight: 700; }
+.voltar { display: inline-block; margin-bottom: 18px; font-size: .95rem; }
+@media (max-width: 860px) { main { grid-template-columns: minmax(0, 1fr); gap: 0; padding-top: 28px; } nav.indice { position: static; max-height: none; margin-bottom: 10px; }
+  nav.indice ul { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
+</head>
+<body>
+<header class="topo"><div>
+  <a class="marca" href="./"><img src="icon.png" alt="" width="34" height="34"><span>Aprova</span></a>
+  <a class="bt" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip" target="_blank" rel="noopener">Baixar grátis</a>
+</div></header>
+<main>
+  <nav class="indice" aria-label="Nesta página"><p>Nesta página</p><ul>
+    <li><a href="#o-que-ele-faz">O que ele faz</a></li>
+    <li><a href="#como-abrir-no-windows">Como abrir no Windows</a></li>
+    <li><a href="#atualizacoes">Atualizações</a></li>
+    <li><a href="#usar-no-celular">Usar no celular</a></li>
+    <li><a href="#de-onde-vem-as-provas">De onde vêm as provas</a></li>
+    <li><a href="#atalhos-durante-a-prova-computador">Atalhos durante a prova (computador)</a></li>
+    <li><a href="#marcar-pdf">Marcar PDF</a></li>
+    <li><a href="#contas-login-aluno-e-administrador">Contas: login, aluno e administrador</a></li>
+    <li><a href="#personagem-e-foto-de-perfil">Personagem e foto de perfil</a></li>
+    <li><a href="#grupos-de-estudo-e-forum">Grupos de estudo e fórum</a></li>
+    <li><a href="#ranking-comparar-com-outras-pessoas">Ranking (comparar com outras pessoas)</a></li>
+    <li><a href="#ia-sem-chave-chat-ou-com-a-chave-do-claude">IA: sem chave (chat) ou com a chave do Claude</a></li>
+    <li><a href="#onde-ficam-seus-dados">Onde ficam seus dados</a></li>
+    <li><a href="#se-nao-abrir-na-primeira-vez">Se não abrir na primeira vez</a></li>
+    <li><a href="#limites">Limites</a></li>
+  </ul></nav>
+  <article>
+    <a class="voltar" href="./">Voltar para o site</a>
+<h1 id="guia-completo-do-aprova">Guia completo do Aprova</h1>
+<p>App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolver as provas no próprio app e ver onde focar os estudos.</p>
+<h2 id="o-que-ele-faz">O que ele faz</h2>
+<ul>
+<li><strong>Concursos abertos</strong> por região, com prazo de inscrição, vagas, salário e nível. Ao abrir um concurso, aparecem a <strong>faixa de salário</strong>, o <strong>valor da inscrição</strong> (a taxa para fazer a prova) e a tabela dos <strong>cargos</strong>, com vagas, escolaridade, salário e inscrição de cada um, tirados da notícia. A taxa de cada cargo sai do nível dele (fundamental, médio, superior) quando a notícia dá a taxa por nível. O que a notícia não diz, o app avisa que está no edital. A estrela acompanha o prazo na tela Início.</li>
+<li><strong>Concursos já realizados</strong>: busca por órgão ou cargo, abre o edital e leva às provas anteriores.</li>
+<li><strong>Escolha um concurso e receba a prova</strong> (aba <em>Provas</em>): digite o concurso (ex.: <code>Dataprev 2026</code>) ou cole o link da página dele no site da banca. O Aprova procura em vários lugares ao mesmo tempo:</li>
+<li><strong>site oficial da banca</strong>: provas separadas por cargo e caderno, com o gabarito oficial. Toque no caderno da sua área e a prova já abre pronta, com o gabarito certo;</li>
+<li><strong>outros sites</strong>: PDFs de prova, gabarito e prova comentada achados na internet;</li>
+<li><strong>PCI Concursos</strong>: o acervo de provas anteriores.</li>
+<li><strong>Encher a biblioteca</strong>: escolha o concurso e o Aprova baixa de uma vez as provas das últimas edições, de todos os cargos, cada uma com o gabarito oficial. Você marca quais cargos quer.</li>
+<li>Entra um caderno por cargo (os outros tipos têm as mesmas questões em outra ordem).</li>
+<li>Questões iguais em vários cargos (como Português) aparecem uma vez só nos simulados.</li>
+<li>Onde fica: botão “Encher a biblioteca” na aba <em>Provas</em> depois da busca, em <em>Estudar</em> e em <em>Concursos → Nas bancas</em>.</li>
+<li>Na biblioteca, as provas do mesmo concurso ficam juntas numa pasta, com o botão “Simulado do concurso”.</li>
+<li><strong>Nas bancas</strong> (aba <em>Concursos</em>): a lista oficial de concursos da FGV, em andamento e realizados, com botão “Ver provas”.</li>
+<li><strong>Aviso “Saiu a prova”</strong>: os concursos que você acompanha (estrela) e cuja prova já passou são verificados uma vez por dia. Quando aparece a prova, surge um cartão na tela Início.</li>
+<li><strong>Fazer a prova no app</strong>:</li>
+<li><em>Simulado</em>: cronômetro e correção só no final.</li>
+<li><em>Modo estudo</em>: correção a cada questão.</li>
+<li>Cartão-resposta com bolinhas, marcar para revisar e resultado por disciplina.</li>
+<li><strong>Riscar alternativas</strong>: elimine as que você já descartou, como no papel. Toque no ícone de risco do lado da alternativa, clique com o botão direito nela ou aperte Shift + a letra. Riscar de novo desfaz.</li>
+<li>PDFs digitalizados (imagem) abrem com as páginas originais e um cartão-resposta ao lado.</li>
+<li><strong>Ajuda em cada questão</strong>: sempre pesquisa na internet e mostra as fontes. A <em>dica</em> não revela a resposta; a <em>explicação completa</em> revela. Com a chave da API do Claude (opcional), a explicação é escrita pela IA.</li>
+<li><strong>Montar simulado</strong>: você escolhe o número de questões e quantas de cada disciplina. Já vem o modelo da Dataprev 2026 (FGV, 70 questões).</li>
+<li>As questões saem das provas anteriores do mesmo concurso ou órgão; se faltar, de outras provas da biblioteca.</li>
+<li><strong>Sem repetição</strong>: primeiro vêm as questões que você nunca fez, depois as feitas há mais tempo e por último as que já acertou. Acerto feito em simulado, treino ou revisão conta para a questão original. A que você errou espera o dia dela na Revisão. Quando as novas acabam, o app avisa.</li>
+<li><strong>Sem questão esquisita</strong>: questão com texto quebrado na leitura do PDF (letras separadas), alternativa faltando ou repetida fica de fora; sem gabarito só entra se faltar.</li>
+<li>Com a chave do Claude, a IA completa o que faltar <strong>e troca as que você já fez</strong> por questões novas no estilo da banca, usando os assuntos do edital.</li>
+<li><strong>Resultado comentado</strong>: no fim do simulado, o Aprova diz o que foi bem, em que matéria dá para ganhar mais pontos e qual o próximo passo (com botão para treinar a matéria). Embaixo vem <strong>O que você errou</strong>, matéria por matéria: o que você marcou, a resposta certa e o porquê. Com a chave do Claude, dá para pedir a <strong>análise do professor (IA)</strong>, com os assuntos para revisar e um plano de 3 dias.</li>
+<li>Também dá para montar a partir do edital: botão “Montar simulado” na janela do concurso.</li>
+<li><strong>Meu concurso</strong> (Início ou Ajustes): diga para qual concurso você estuda e a data da prova. O Início mostra a <strong>contagem regressiva</strong> (“Faltam 47 dias para a prova do TJ-SP”), o <strong>Onde focar</strong> passa a olhar só as provas desse concurso na sua biblioteca e o personagem lembra quantos dias faltam. Na janela de um concurso (aba <em>Concursos</em>), o botão <strong>É o meu concurso</strong> já preenche tudo.</li>
+<li><strong>Onde focar</strong>: cruza quanto cada disciplina cai nas suas provas com quanto você ainda erra. <strong>Ver todas as disciplinas</strong> mostra a lista inteira.</li>
+<li><strong>Mini prova</strong>: toque numa disciplina (por exemplo, <em>Conhecimentos Específicos</em>) para fazer uma prova só dela. Você escolhe:<ul>
+<li><em>De qual prova</em>: todas da biblioteca ou só uma (útil quando os Conhecimentos Específicos mudam de cargo para cargo);</li>
+<li><em>Quantas questões</em>: 5, 10, 20, 30 ou todas;</li>
+<li><em>Como fazer</em>: <strong>Prova</strong> (com cronômetro e nota no fim) ou <strong>Estudo</strong> (vê a resposta e a explicação a cada questão).</li>
+</ul>
+</li>
+<li>Vêm primeiro as questões que você nunca fez. O acerto conta para a questão original e os erros vão para a Revisão, igual ao simulado.</li>
+<li><strong>Meta semanal (tela Início)</strong>: o painel <strong>Sua semana</strong> mostra as horas estudadas e a meta, o ritmo (em dia, à frente ou quanto falta), a sequência de dias, o dia de hoje e as horas de cada dia em barras, com um tracinho na altura da meta do dia (numa semana ainda sem estudo, as barras ficam baixinhas, sem um vão vazio). Embaixo vem “Seu próximo estudo” (revisão do dia ou treino do ponto fraco). No computador, o seu personagem fica do lado da saudação, e o aviso da primeira semana da meta aparece logo abaixo dela.</li>
+<li><strong>Tempo de estudo</strong>: conta sozinho enquanto você resolve questões (para depois de 8 minutos parado). Para estudo fora do app (livro, aula), use o <strong>cronômetro</strong> ou <strong>lance o tempo</strong> à mão.</li>
+<li><strong>Painel</strong>:</li>
+<li><em>Desempenho</em>: acertos por disciplina com selo Forte / Atenção / Precisa melhorar, evolução nas últimas 8 semanas, acertos por banca e por concurso. O ícone de <strong>assuntos</strong> do lado de cada disciplina abre o acerto por assunto (Português → Crase, Concordância, Pontuação, Interpretação de texto…), do pior para o melhor, e diz o que mais derruba você. Vale para Português, Matemática, Raciocínio Lógico, Informática, Direito Constitucional e Direito Administrativo; o assunto é reconhecido pelas palavras da questão.</li>
+<li><em>Tempo</em>: meta, horas por dia, mapa das últimas 12 semanas, em que dias da semana você estuda e tempo por disciplina.</li>
+<li><em>Lembretes</em>: alarmes de atividades extras. Na hora, o app toca e leva você ao conteúdo: pesquisa na internet, vídeo-aulas, um link, a revisão, um treino ou um simulado.</li>
+<li><em>Livros</em>: indicações por disciplina, das mais fracas para as mais fortes, com material oficial gratuito (leis no Planalto).</li>
+<li><strong>Contas e login</strong>: cada pessoa entra com e-mail e senha e tem seus estudos separados. Há dois tipos de conta: <strong>aluno</strong> e <strong>administrador</strong> (veja abaixo). Quem não quiser conta usa o app normalmente com “Usar sem conta”.</li>
+<li><strong>Tela que se ajusta ao aparelho</strong>: no celular, menu embaixo; em tela média, menu lateral compacto; em tela grande, menu lateral completo e o conteúdo centralizado.</li>
+<li><strong>Grupos de estudo (fórum)</strong>: cada grupo tem a sua conversa, onde a turma combina simulados, tira dúvidas, troca materiais (fotos e arquivos do computador), manda <strong>GIFs e figurinhas</strong> e compartilha <strong>planos de estudo</strong>. Só quem tem o convite entra e só quem está no grupo vê as mensagens. Fica no menu <strong>Grupos</strong>.</li>
+<li><strong>Personagem (estilo RPG) ou foto</strong>: crie o seu bonequinho em pixel art (tipo de corpo, pele, cabelo, barba, olhos, boca, óculos, roupa, acessórios na cabeça, no pescoço e nas costas, item na mão e cenário) ou use uma foto. Ele respira, pisca, acena e pula; aparece no Início, comemora no resultado do simulado e fica na <strong>sala da turma</strong> dos grupos, com o personagem de todo mundo.</li>
+<li><strong>Convite por link</strong>: em <strong>Grupos → Convidar</strong>, mande o link do grupo pelo WhatsApp, Telegram ou e-mail, ou salve uma imagem com QR code para os Stories do Instagram e o TikTok. Quem abre o link entra no grupo com um clique, sem digitar código nem preencher cadastro.</li>
+<li><strong>Edital verticalizado</strong> (desde a 1.30): em <strong>Painel → Edital</strong>, cole o conteúdo programático do edital (pode ser tudo de uma vez, do jeito que vem no PDF) e o Aprova separa os tópicos por disciplina. Em cada tópico você marca <strong>Teoria</strong>, <strong>Questões</strong> e <strong>Revisão</strong>; a barra mostra quanto do edital já estudou, no total e por disciplina. Quando o tópico corresponde a um assunto que o app reconhece (Crase, Pontuação, Licitações, Planilhas...), aparece o seu acerto nele e a marca de <strong>Questões</strong> se preenche sozinha (com um raio) depois de 10 questões resolvidas. Sem o edital em mãos, <strong>Começar com um modelo</strong> traz as disciplinas que mais caem. Colar de novo mantém as marcas dos tópicos iguais. O Início mostra a porcentagem no cartão do Meu concurso.</li>
+<li><strong>Ranking</strong>: crie uma conta com apelido e compare horas, questões, acerto e sequência com outras pessoas, no geral ou em grupos com código (a turma do concurso, os amigos). Dá para ver <strong>Esta semana</strong>, <strong>Semana passada</strong>, <strong>Este mês</strong> e <strong>Desde o começo</strong> (a soma de todas as semanas; na sequência vale a maior). Desde a 1.31 a tela mostra o <strong>pódio</strong> dos três primeiros, o <strong>seu cartão</strong> (posição, quanto falta para passar quem está na frente e quantas posições subiu ou desceu desde a semana passada) e a lista com barras proporcionais ao líder. Fica em Painel → Ranking.</li>
+<li><strong>Simulado da turma</strong> (desde a 1.31): em Grupos → Simulados, quem criou o grupo escolhe uma prova da biblioteca, dá um nome, um tempo e um prazo, e publica. As questões vão para o servidor <strong>sem o gabarito</strong>; cada pessoa faz pelo app (modo simulado), entrega, e o servidor corrige e só então libera o gabarito. O resultado da turma (acertos, tempo e posição) aparece para todos os membros.</li>
+<li><strong>Conquistas</strong> (desde a 1.31): marcos de estudo (primeiro simulado, 100/500/2.000 questões, 7 e 30 dias seguidos, 10/50/200 horas, 90% num simulado, 50 questões dominadas, metade do edital, uma disciplina do edital completa, 10 simulados) destravam roupas e acessórios do personagem (capelo, coroa, troféu, armadura, capa de herói…). A lista fica no criador do personagem, aba <strong>Conquistas</strong>; os itens trancados aparecem com um cadeado. Quem já usava um item antes da 1.31 continua com ele.</li>
+<li><strong>Card da semana</strong> (desde a 1.31): no Início, em <strong>Sua semana → Compartilhar</strong>, o app monta uma imagem com horas, questões, acerto, os sete dias e o seu personagem, para mandar no WhatsApp ou postar. Só entram os números de estudo e o apelido. No computador a imagem vai para a pasta de downloads (e a legenda é copiada); no celular abre o menu Compartilhar do sistema. As setas trocam de semana.</li>
+<li><strong>Discursiva corrigida por IA</strong> (desde a 1.31): em Estudar → Discursiva, escreva a redação, a questão discursiva ou a peça (tema seu ou um dos prontos) e peça a correção como a banca faria: nota de 0 a 10, aderência ao tema, argumentação, estrutura e os erros de português com a regra. Com a chave do Claude (Ajustes → IA) a correção chega no app; sem chave, <strong>Corrigir ao Claude/ChatGPT</strong> abre o chat com o pedido pronto e <strong>Colar a correção que recebi</strong> guarda a nota. O tempo escrevendo conta como estudo.</li>
+<li><strong>Revisão espaçada</strong> (Estudar → Revisão): o que você erra ou marca com a bandeira volta no dia certo (1, 3, 7, 15 e 30 dias) até ficar dominado.</li>
+<li><strong>Dúvidas</strong>: no painel de Ajuda de cada questão, escreva sua dúvida; o Aprova pesquisa na internet para responder (com a chave do Claude, a resposta vem explicada). Todas ficam guardadas em Estudar → Dúvidas.</li>
+<li><strong>Questões inéditas com IA</strong>: a IA lê questões reais das provas do concurso na sua biblioteca, cria novas no mesmo estilo e confere o gabarito resolvendo cada uma de novo (precisa da chave do Claude). Também completa os simulados montados.</li>
+<li><strong>Conforto para os olhos</strong>:</li>
+<li><strong>Tamanho da interface</strong> (Ajustes): automático, 80% a 125%. No automático, tudo fica menor em notebooks com o zoom do Windows em 125% ou 150%, para caber mais coisa na tela. Atalhos: Ctrl + e Ctrl − (Ctrl 0 volta ao automático).</li>
+<li><strong>Tela larga sem espaço sobrando</strong>: em monitores e notebooks largos, os Ajustes ficam em duas colunas, o resultado do simulado põe o resumo e <strong>Por matéria</strong> lado a lado (e os erros dois por linha), a questão fica centralizada numa coluna boa de ler e a sala da turma ocupa o cartão inteiro.</li>
+<li>Temas claro, sépia (leitura) e escuro.</li>
+<li>Fonte Atkinson Hyperlegible, com tamanho e espaçamento ajustáveis.</li>
+<li>Leitura em voz alta da questão, com a voz que você escolher em <strong>Ajustes → Ouvir as questões</strong> (desde a 1.32: todas as vozes do computador, inclusive as vozes novas do Windows 10 e 11).</li>
+<li>Lembrete de pausa 20-20-20.</li>
+<li><strong>Animações</strong> (desde a 1.29): a tela nova chega deslizando de leve, os cartões do Início e do Painel entram um depois do outro, os números contam até o valor e as barras enchem. Na prova, a questão seguinte desliza de lado, a alternativa certa dá um pulinho e a errada balança; no resultado, a nota conta como um placar e cai confete quando você faz 70% ou mais. No computador, as linhas das listas acendem quando o mouse passa. São animações do próprio Flutter (o Python só dá a ordem), então não pesam. Para desligar: <strong>Ajustes → Leitura confortável → Animações</strong>.</li>
+<li><strong>Celular</strong>: o mesmo app abre no navegador do celular, na mesma rede Wi-Fi.</li>
+<li><strong>Marcar PDF</strong> (Estudar → Marcar PDF): marca-texto em 4 cores, sublinhado e notas em qualquer PDF, e um PDF novo com as marcações, editáveis ou fixas. Veja <a href="#marcar-pdf">Marcar PDF</a>.</li>
+<li><strong>Atualização automática</strong>: o app avisa no Início quando sai versão nova e atualiza com um toque. Veja <a href="#atualizações">Atualizações</a>.</li>
+<li><strong>Cópia de segurança</strong> (Ajustes): salve todos os seus estudos num arquivo <code>.aprova</code> (pen drive, Google Drive) e restaure em outro computador. O app também faz uma cópia sozinho toda semana. Veja <a href="#onde-ficam-seus-dados">Onde ficam seus dados</a>.</li>
+</ul>
+<h2 id="como-abrir-no-windows">Como abrir no Windows</h2>
+<ol>
+<li>Extraia este .zip numa pasta (ex.: <code>Documentos\Aprova</code>).</li>
+<li>Dê dois cliques em <strong><code>Abrir Aprova.bat</code></strong>. Na primeira vez aparece a janela <strong>Preparando o Aprova</strong>, com barra de progresso:
+   - se o computador não tiver Python, ele é instalado antes, numa janela própria;
+   - depois vêm as bibliotecas do app (de 5 a 10 minutos, precisa de internet).</li>
+<li>No fim, o Aprova abre sozinho e cria o atalho <strong>Aprova</strong> na área de trabalho. Dali em diante, abra por ele: o app abre direto, sem janela preta.</li>
+</ol>
+<p>Se algo der errado, a janela mostra o motivo e o botão <strong>Tentar de novo</strong>. Os detalhes ficam em <code>C:\Users\&lt;você&gt;\.aprova\instalacao.log</code>.
+Se a instalação automática do Python falhar, instale o <strong>Python 3.12 ou 3.13</strong> em <a href="https://www.python.org/downloads/">python.org</a>, marque <strong>“Add python.exe to PATH”</strong> e abra o <code>.bat</code> de novo.</p>
+<p>No macOS/Linux: <code>./iniciar.sh</code> (ou <code>./iniciar.sh --web</code> para o modo navegador).</p>
+<h2 id="atualizacoes">Atualizações</h2>
+<p>O Aprova se atualiza sozinho:</p>
+<ol>
+<li><strong>Toda vez que abre</strong>, ele confere se saiu versão nova. Se saiu, aparece a telinha <em>Atualizando para a versão…</em> por alguns segundos e o app já abre na versão nova. Sem internet, abre normalmente a versão que você tem.</li>
+<li><strong>Com o app aberto</strong>, ele confere de novo a cada 3 horas. Quando sai versão nova, ele baixa sozinho (uns 2 MB) e avisa por uma <strong>notificação do Windows</strong> e por um aviso embaixo da tela: toque em <strong>Reiniciar agora</strong>, ou deixe para a próxima vez que abrir.</li>
+<li>Se não der para baixar sozinho, o aviso e o cartão <strong>Nova versão do Aprova</strong> no Início levam ao botão <strong>Atualizar</strong>.</li>
+</ol>
+<p>(Quem está na 1.13 ou anterior recebe esta atualização do jeito antigo, pelo botão <strong>Atualizar</strong>; dali em diante, ela passa a ser automática ao abrir.)</p>
+<p>Para procurar na hora: <strong>Ajustes → Atualizações → Procurar atualização</strong>.</p>
+<p><strong>Novidades em vídeo (da 1.33 em diante):</strong> quando sai um vídeo novo no site, o seu personagem avisa numa janela (uma vez só) e fica um cartão azul no Início com <strong>Assistir o vídeo</strong>. O botão abre o vídeo no site; o <strong>X</strong> do cartão fecha o aviso. Os vídeos ficam em <a href="https://natanaelsantz.github.io/aprova/#videos">natanaelsantz.github.io/aprova</a>, na parte <em>Vídeos</em>.</p>
+<p>Seus estudos, contas, ajustes e PDFs marcados ficam na pasta <code>.aprova</code> e não mudam. Se uma biblioteca nova for necessária, a janela <em>Preparando o Aprova</em> aparece ao reabrir e instala só o que falta. Uma cópia da versão anterior fica em <code>.aprova\atualizacao\anterior</code>.</p>
+<p><strong>Se a versão nova não abrir no seu computador</strong> (da 1.24 em diante), o Aprova volta sozinho para a versão anterior e avisa no Início. A versão com problema é pulada, e a próxima (com a correção) chega normalmente. Seus estudos não são tocados.</p>
+<p><strong>No celular (Android, da 1.28 em diante):</strong> toda vez que o app abre (e a cada 3 horas com ele aberto), ele confere se saiu versão nova. Quando o APK novo já está na página da versão, aparece a janela <strong>Versão nova</strong> com as novidades e o botão <strong>Baixar e instalar</strong>: o celular baixa o arquivo (uns 160 MB, melhor no Wi-Fi), você abre o arquivo baixado e toca em <strong>Instalar</strong>. O app novo entra por cima do antigo e os estudos do celular continuam. Também dá em <strong>Ajustes → Atualizações → Procurar atualização</strong>. Quem mantém o app pode marcar uma versão como obrigatória (<code>python ferramentas/nova_versao.py --obrigatoria-celular X.Y.Z ...</code>): aí a janela não tem o <em>Agora não</em> até a pessoa atualizar.</p>
+<p>Até a 1.27, cada APK saía assinado com uma chave diferente, e o Android não instala um por cima do outro. Por isso, quem tem a 1.27 ou anterior no celular precisa desinstalar o Aprova uma última vez antes de instalar a 1.28 (antes, salve os estudos em <strong>Ajustes → Cópia de segurança → Salvar cópia agora</strong> e restaure depois). Da 1.28 em diante, as versões instalam por cima.</p>
+<p>Quem tem a versão 1.8 ou anterior precisa baixar o .zip uma última vez no <a href="https://natanaelsantz.github.io/aprova/">site</a> e extrair por cima da pasta antiga (substituindo os arquivos). Os estudos não se perdem, porque ficam à parte, na pasta <code>.aprova</code>.</p>
+<h2 id="usar-no-celular">Usar no celular</h2>
+<ul>
+<li>Jeito mais fácil: no app, vá em <strong>Ajustes → Usar no celular → Ligar acesso pelo celular</strong> e aponte a câmera para o QR code.</li>
+<li>Ou abra <strong><code>Abrir no celular.bat</code></strong> e digite no celular o endereço inteiro que aparece na janela (ex.: <code>http://192.168.0.10:8550/?k=...</code>).</li>
+<li>O endereço tem um <strong>código de acesso</strong>: sem ele, ninguém no mesmo Wi-Fi abre o seu Aprova. O código muda cada vez que você liga o acesso.</li>
+</ul>
+<p>O celular precisa estar no mesmo Wi-Fi. Se não abrir, permita o Python no firewall do Windows em redes privadas. Para colocar um ícone na tela inicial, use “Adicionar à tela inicial” no menu do navegador do celular.</p>
+<h2 id="de-onde-vem-as-provas">De onde vêm as provas</h2>
+<table>
+<thead>
+<tr>
+<th>Fonte</th>
+<th>Como funciona</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Site oficial da FGV</td>
+<td>lista de concursos e PDFs direto do site; baixa e importa sozinho</td>
+</tr>
+<tr>
+<td>Página de qualquer banca</td>
+<td>cole o link da página do concurso na aba Provas; o Aprova lê os PDFs que estiverem nela</td>
+</tr>
+<tr>
+<td>Internet</td>
+<td>busca por PDFs de prova e gabarito em outros sites</td>
+</tr>
+<tr>
+<td><a href="https://www.pciconcursos.com.br">PCI Concursos</a></td>
+<td>acervo de provas anteriores e lista de concursos abertos</td>
+</tr>
+</tbody>
+</table>
+<p>Cebraspe e Vunesp montam as páginas com JavaScript, então o link colado nem sempre traz os PDFs; nesse caso use a busca na internet ou o PCI. O site da FCC não permite leitura automática e fica de fora.</p>
+<h3 id="pci-concursos">PCI Concursos</h3>
+<p>Hoje o PCI pede uma verificação de segurança antes de liberar os PDFs. Por isso o Aprova:</p>
+<ol>
+<li>abre a página da prova no seu navegador;</li>
+<li>você confirma a verificação e clica em “Baixar” na prova e no gabarito;</li>
+<li>o Aprova encontra os arquivos na pasta <strong>Downloads</strong> e importa sozinho.</li>
+</ol>
+<p>Se a pasta de downloads for outra, ajuste em <strong>Ajustes → Geral</strong>. Também dá para usar <strong>Estudar → Importar PDF</strong> com qualquer prova que você já tenha.</p>
+<h2 id="atalhos-durante-a-prova-computador">Atalhos durante a prova (computador)</h2>
+<table>
+<thead>
+<tr>
+<th>Tecla</th>
+<th>Ação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A, B, C, D, E</td>
+<td>responder</td>
+</tr>
+<tr>
+<td>Shift + A … E</td>
+<td>riscar (eliminar) a alternativa; de novo desfaz</td>
+</tr>
+<tr>
+<td>← →</td>
+<td>questão anterior / próxima</td>
+</tr>
+<tr>
+<td>M</td>
+<td>marcar para revisar</td>
+</tr>
+<tr>
+<td>H</td>
+<td>abrir a ajuda</td>
+</tr>
+</tbody>
+</table>
+<h2 id="marcar-pdf">Marcar PDF</h2>
+<p>Em <strong>Estudar → Marcar PDF → Abrir um PDF para marcar</strong> (ou no <strong>⋮</strong> de uma prova da biblioteca → <em>Marcar e anotar o PDF</em>):</p>
+<table>
+<thead>
+<tr>
+<th>Ferramenta</th>
+<th>Como usar</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Marca-texto</strong></td>
+<td>arraste sobre o texto; escolha a cor (amarelo, verde, azul ou rosa) nas bolinhas</td>
+</tr>
+<tr>
+<td><strong>Sublinhar</strong></td>
+<td>arraste sobre o texto</td>
+</tr>
+<tr>
+<td><strong>Nota</strong></td>
+<td>toque onde quer o balãozinho e escreva</td>
+</tr>
+<tr>
+<td><strong>Ver</strong></td>
+<td>toque numa marcação para escrever uma nota nela, trocar a cor ou apagar</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>A lista <strong>Marcações</strong>, ao lado (no celular, no botão de lista), mostra cada trecho marcado com a nota; tocar leva até a página.</li>
+<li><strong>Desfazer</strong> (ou Ctrl+Z) tira a última marcação. As setas ← → trocam de página e as teclas 1 a 4 trocam de ferramenta.</li>
+<li>Tudo é guardado na hora, numa cópia do PDF dentro do Aprova. O arquivo original nunca muda. Para continuar depois, volte em <strong>Estudar → Marcar PDF</strong>.</li>
+<li>PDF escaneado (imagem, sem texto): o marca-texto marca a área que você arrastar.</li>
+</ul>
+<p><strong>Salvar PDF</strong> cria um arquivo novo na pasta de downloads, com duas opções:</p>
+<ul>
+<li><strong>Marcações editáveis</strong> (padrão): ficam como anotações do PDF. Abrem em qualquer leitor (Edge, Chrome, Acrobat, celular) e ainda dá para mudar ou apagar.</li>
+<li><strong>Marcações fixas</strong>: viram parte da página, como se tivessem sido impressas, e ninguém consegue apagar ou mudar. O texto das notas vai para as páginas <strong>Minhas anotações</strong>, no fim do arquivo.</li>
+</ul>
+<h2 id="contas-login-aluno-e-administrador">Contas: login, aluno e administrador</h2>
+<p>Ao abrir, o Aprova mostra a tela <strong>Entrar / Criar conta</strong>:</p>
+<ul>
+<li><strong>Entrar</strong> ou <strong>Criar conta</strong> (e-mail, senha e apelido). Na próxima vez ele entra sozinho.</li>
+<li><strong>Usar sem conta</strong>: estuda normalmente no computador, sem ranking. Dá para criar a conta depois em <strong>Ajustes → Conta</strong>.</li>
+<li><strong>Esqueci a senha</strong>: o Supabase manda um e-mail para trocar a senha.</li>
+</ul>
+<p>Cada conta tem os <strong>próprios estudos</strong> (provas, respostas, metas, tempo), então duas pessoas podem usar o mesmo computador. Na primeira vez que alguém entra, se já existirem estudos feitos sem conta, o app pergunta se quer <strong>levar esses estudos para a conta</strong>.</p>
+<p>Tipos de conta:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Aluno</th>
+<th>Administrador</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Estudar, provas, painel, ranking</td>
+<td>sim</td>
+<td>sim</td>
+</tr>
+<tr>
+<td>Ver comunicados na tela Início</td>
+<td>sim</td>
+<td>sim</td>
+</tr>
+<tr>
+<td>Tela <strong>Admin</strong> (no menu)</td>
+<td>—</td>
+<td>sim</td>
+</tr>
+</tbody>
+</table>
+<p>A <strong>primeira pessoa que cria conta</strong> no servidor vira administrador sozinha. Depois disso, só um administrador transforma outra conta em administrador. Na tela <strong>Admin</strong>:</p>
+<ul>
+<li><em>Visão geral</em>: contas, quem estudou na semana, horas e questões somadas, quem mais estudou, os concursos mais estudados e o <strong>espaço usado no servidor</strong> (banco e arquivos, perto dos limites do plano grátis do Supabase: 500 MB e 1 GB). Perto de 80% aparece um aviso para apagar arquivos antigos dos grupos;</li>
+<li><em>Usuários</em>: procurar por apelido ou concurso, <strong>tornar administrador</strong>, voltar para aluno, <strong>bloquear</strong> (some do ranking) e desbloquear; clicar no rostinho de alguém abre o personagem dessa pessoa;</li>
+<li><em>Personagens</em>: a galeria com o personagem de todo mundo, cada um no seu cenário (com a busca por apelido ou concurso). No alto aparece quantas pessoas ainda estão sem personagem, com o botão <strong>Pedir para criarem</strong>: você escreve uma mensagem e quem está logado sem personagem vê, uma vez, uma janela com o boneco sorteado chamando para montar o seu (quem já tem personagem não vê nada). Clique num para ver de perto: ele acena, pula e <strong>dança</strong>, e aparecem as escolhas dele (corpo, cabelo, roupa, acessórios, cenário). Quem usa foto no perfil tem o botão <strong>Tirar a foto de perfil</strong>;</li>
+<li><em>Grupos</em>: ver e apagar grupos;</li>
+<li><em>Comunicados</em>: escrever um aviso que aparece na tela Início de todos (ex.: “Simulado coletivo no sábado”), ligar/desligar e apagar.</li>
+<li><em>Erros</em>: os erros que aconteceram no aparelho de quem ligou <strong>Enviar relatórios de erro</strong> (Ajustes → Geral). O mesmo erro fica numa linha só, com quantas vezes aconteceu, as versões, os sistemas e a tela; <strong>Ver rastro</strong> mostra o detalhe técnico e <strong>Resolvido</strong> apaga. Vai só o erro técnico, sem dados pessoais;</li>
+<li><em>Configurações</em>: a chave do GIPHY (GIFs nos grupos) e a <strong>lista de modelos da IA</strong>. Quando a Anthropic lançar modelos novos (ou aposentar um), troque a lista aqui: ela chega para todo mundo sem versão nova do app, e quem estava num modelo que saiu passa para o primeiro da lista.</li>
+</ul>
+<p>As regras ficam no próprio servidor (<code>supabase/ranking.sql</code>): um aluno não consegue se promover nem se desbloquear, mesmo mexendo no app.</p>
+<p>Sem o servidor configurado, a tela de entrada mostra <strong>Começar a estudar</strong> (o app funciona todo, só sem contas e ranking).</p>
+<h2 id="personagem-e-foto-de-perfil">Personagem e foto de perfil</h2>
+<p>Clique na sua bolinha no menu (no celular, toque no boneco no alto da tela) e escolha <strong>Personagem e foto</strong>. Também dá pelo <strong>Início</strong> (no quadro do personagem) e por <strong>Ajustes → Conta</strong>.</p>
+<ul>
+<li><strong>Corpo, Rosto, Cabelo, Óculos, Roupa, Acessórios e Cenário</strong>: cada aba muda uma parte do bonequinho. <strong>Sortear</strong> cria um aleatório; <strong>Acenar</strong>, <strong>Pular</strong> e <strong>Dançar</strong> mostram os gestos.</li>
+<li><em>Dança</em>: ele balança para os lados quicando, levanta a mão no ritmo, dá um pulinho com os braços para cima e termina com um giro. Ele dança sozinho de vez em quando no Início, na sala da turma e quando você acerta 90% ou mais num simulado.</li>
+<li><em>Corpo</em>: <strong>magro</strong>, <strong>médio</strong> (o padrão), <strong>forte</strong> (ombro largo) ou <strong>gordinho</strong>, e a cor da pele. Toda roupa, capa e mochila se ajusta ao corpo.</li>
+<li><em>Rosto</em>: olhos (normal, feliz, determinado, sonolento, piscadinha) e a cor deles (9, até brancos e roxos), boca (sorriso, sorrisão, séria, língua de fora, surpresa) e detalhes (sardas, pinta, bochecha corada, curativo).</li>
+<li><em>Cabelo</em>: 15 cortes (curto, repartido de lado, espetado, moicano, longo, chanel, coque, rabo de cavalo, maria-chiquinha, tranças, cacheado, black power, com entradas, calvo e careca; o <strong>calvo</strong> tem o alto da cabeça sem cabelo e cabelo dos lados, e <strong>com entradas</strong> tem a testa subindo nos cantos), 11 cores e <strong>barba e bigode</strong> (por fazer, bigode, cavanhaque, barba cheia), na cor do cabelo. O bigode tem as pontas para cima e a barba contorna a boca, acompanhando o sorriso, a boca aberta ou a língua de fora.</li>
+<li><em>Roupa</em>: moletom, camiseta, regata, jaqueta, vestido, terno, toga, farda, jaleco, manto de mago e armadura, com 11 cores, e a cor da calça (7).</li>
+<li><em>Óculos</em>: redondo, quadrado, meia armação, escuro, coração, monóculo e visor, com 8 cores de armação. Combinam com qualquer chapéu.</li>
+<li><em>Acessórios</em>: na cabeça (boné, gorro, capelo de formatura, coroa, tiara, chapéu de mago, capacete viking, fone, laço, flor, orelhas de gato, auréola, faixa), no pescoço e nas costas (cachecol, medalha, gravata-borboleta, colar, capa de herói, mochila) e na mão (livro, Vade Mecum, lápis gigante, marca-texto, café, diploma, troféu, espada, cajado).</li>
+<li>O desenho tem o dobro de pixels: olhos grandes estilo chibi (íris em degradê, pupila, brilho e faísca), sobrancelhas, mechas de brilho no cabelo, punho nas mangas, brilho nos sapatos e contorno fino.</li>
+<li><em>Sombreamento de pixel art</em>: a luz vem da esquerda e de cima, com tons mais quentes no claro e mais frios (puxando para o azul) na sombra, como nos jogos. Cada parte (cabelo, rosto, roupa, calça) ganha volume sozinha, há sombra onde uma peça encosta na outra, um leve contorno de luz azul do lado direito e brilho no metal (coroa, armadura, espada). O contorno é escuro em cima e à esquerda e mais suave embaixo e à direita.</li>
+<li><em>Cenários</em>: <strong>Biblioteca</strong> (estantes de livros com vasinhos, luminárias e poeira dourada no ar), <strong>Floresta</strong> (céu com nuvens, morros e pinheiros ao longe, árvores na frente, flores, borboleta e folhas caindo), <strong>Noite na cidade</strong> (lua com halo, estrelas que piscam, estrela cadente, prédios com janelas que acendem e apagam e poste com luz), <strong>Castelo</strong> (pedras com musgo, estandartes e tochas com faíscas) e <strong>Sala de aula</strong> (lousa com giz, relógio com o ponteiro andando e pozinho de giz). Todos são animados.</li>
+<li><strong>Falas</strong>: o personagem conversa com você num balão do lado dele, no Início, digitando como num jogo. Clique no balão para ele dizer outra coisa. Tudo é personalizável:</li>
+<li>ligar ou desligar; <strong>como ele te chama</strong> (ex.: “Vamos estudar, Natanael!”; sem nome, ele fala sem o nome);</li>
+<li>o que ele fala: <strong>Motivação</strong>, <strong>Engraçadas</strong> (“Eu estudaria por você, mas eu sou feito de pixels”), <strong>Dicas de estudo</strong> e <strong>Lembretes do dia</strong> (revisão esperando, meta de hoje, sequência de dias e a hora: de madrugada ele manda você dormir);</li>
+<li><strong>suas frases</strong>, uma por linha, com <code>{nome}</code> onde vai o seu nome (aparecem mais vezes que as outras);</li>
+<li>de quanto em quanto tempo ele troca de frase (12 s, 30 s, 1 min e meio ou só quando você abre o app). <strong>Ouvir uma</strong> mostra um exemplo.</li>
+<li>Algumas falas vêm com gesto: com a meta do dia cumprida, ele diz “Hoje eu danço!” e dança. As falas ficam só neste computador (não vão para o servidor).</li>
+<li><strong>Foto</strong>: escolha uma imagem do computador. O Aprova recorta em quadrado, diminui e tira os dados escondidos da foto. Ligue <strong>Mostrar a foto</strong> para ela aparecer no lugar do personagem nos grupos e no ranking.</li>
+<li><strong>Onde aparece</strong>: na sua bolinha do menu, no Início (o boneco no cenário), no resultado do simulado (ele comemora quando você vai bem e dá força quando não), nas mensagens e na lista de membros dos grupos, no ranking e na <strong>sala da turma</strong>.</li>
+<li><strong>Sala da turma</strong>: no topo de cada grupo, os personagens de quem está no grupo aparecem juntos, como no lobby de um jogo. Quem ainda não criou o seu aparece com um personagem sorteado. <strong>Esconder</strong> guarda a sala.</li>
+<li>Sem conta, o personagem fica só neste computador; quando você entra numa conta, ele vai junto. Com conta, ele também vai para outro computador em que você entrar.</li>
+<li>O servidor guarda só as escolhas do personagem (uma lista curta, sem texto livre) e a foto pequena. O administrador pode apagar uma foto imprópria em <strong>Admin → Usuários</strong>.</li>
+</ul>
+<h2 id="grupos-de-estudo-e-forum">Grupos de estudo e fórum</h2>
+<p>No menu <strong>Grupos</strong>:</p>
+<ul>
+<li><strong>Criar grupo</strong> (quem cria vira <strong>moderador</strong>) e <strong>Convidar</strong>: o botão abre o link do grupo para mandar pelo WhatsApp, Telegram, e-mail, Instagram ou TikTok (veja abaixo). Também dá para <strong>Entrar com código</strong>.</li>
+<li><strong>Conversa</strong>: escreva para a turma e escolha o tipo: <em>Conversa</em>, <em>Dúvida</em> ou <em>Material</em> (links viram o botão “Abrir link”). Cada mensagem tem <strong>Útil</strong> e <strong>Responder</strong>.</li>
+<li><strong>Planos de estudo</strong>: em <strong>Compartilhar um plano</strong>, coloque as horas por semana de cada disciplina, os dias de estudo e como usar. Quem gostar toca em <strong>Usar este plano</strong>: a meta semanal e os dias passam a ser os do plano, e a tela <strong>Início</strong> mostra quanto você já estudou de cada disciplina na semana.</li>
+<li><strong>Fotos, arquivos, GIFs e figurinhas</strong>: na caixa de mensagem (e nas respostas), o <strong>clipe</strong> manda fotos e arquivos do computador (PDF, Word, Excel, PowerPoint, imagens, GIF, áudio, vídeo MP4, TXT e ZIP, até 20 MB cada e 10 por mensagem; foto grande de celular é reduzida sozinha). A <strong>carinha</strong> abre as <strong>figurinhas do Aprova</strong> (Bora estudar!, Passei!, Gabaritei, Café + lei seca…) e, se o administrador ligar, a busca de <strong>GIFs</strong> e figurinhas animadas do GIPHY. Fotos e GIFs aparecem na conversa (clique para ampliar); arquivos têm <strong>Abrir</strong> e <strong>Salvar</strong>. Só quem é do grupo vê os arquivos.</li>
+<li><em>Mandar figurinha ou GIF</em>: o toque põe a figurinha na <strong>prévia da mensagem</strong> (como no Teams), sem mandar. Dá para escrever algo junto, trocar por outra ou tirar no <strong>X</strong>; ela vai quando você clica em <strong>Publicar</strong> (nas respostas, Enter ou a setinha). Só figurinha aparece na hora na conversa (“enviando…”). A aba <strong>Recentes</strong> guarda as últimas que você usou.</li>
+<li>Mensagem que é só figurinha aparece compacta, sem moldura em volta do desenho, com <strong>Útil</strong> e <strong>Responder</strong> ao lado. Nas respostas, a figurinha também vem sem o balão.</li>
+<li><strong>Minhas figurinhas (as do WhatsApp)</strong>: na carinha, aba <strong>Minhas</strong>. <strong>Importar</strong> aceita figurinhas soltas (.webp, .png, .gif, .jpg) e pacotes (.wastickers, ou o .zip de uma conversa exportada: o Aprova pega as figurinhas de dentro). <strong>Colar</strong> (ou Ctrl+V) traz a imagem que você copiou; no WhatsApp Web, clique com o botão direito na figurinha → Copiar imagem. No Android, as figurinhas ficam na pasta WhatsApp › Media › WhatsApp Stickers (no Android 11 ou mais novo, dentro de Android › media › com.whatsapp). Figurinha que alguém mandou no grupo: clique nela → <strong>Guardar nas minhas figurinhas</strong>; foto ampliada tem <strong>Virar figurinha</strong>. As figurinhas ficam no seu computador, separadas por conta; animadas continuam animadas.</li>
+<li><strong>Ranking</strong> do grupo (horas da semana) e <strong>Membros</strong>.</li>
+<li><strong>Moderação</strong>: quem criou o grupo (e o administrador) <strong>fixa</strong> recados no topo e <strong>apaga</strong> mensagens. Cada pessoa apaga as próprias. Conta bloqueada pelo admin não escreve.</li>
+<li>Mensagens novas aparecem num aviso na tela <strong>Início</strong> (“Novidades nos seus grupos”).</li>
+<li>O administrador vê o fórum de qualquer grupo em <strong>Admin → Grupos → Ver fórum</strong>, para moderar.</li>
+</ul>
+<h3 id="convite-por-link">Convite por link</h3>
+<p>Em <strong>Grupos → Convidar</strong>:</p>
+<ul>
+<li><strong>WhatsApp</strong>, <strong>Telegram</strong> e <strong>E-mail</strong> abrem a mensagem pronta com o link.</li>
+<li><strong>Instagram</strong> e <strong>TikTok</strong> não deixam compartilhar direto do computador. O Aprova salva na pasta Downloads uma <strong>imagem 1080×1920 com QR code</strong> para os Stories e o TikTok, e copia o link para você colar no adesivo de link, na bio ou no direct.</li>
+<li><strong>Copiar link</strong> e <strong>Copiar mensagem pronta</strong> servem para qualquer outro lugar.</li>
+</ul>
+<p>O link é assim: <code>https://natanaelsantz.github.io/aprova/convite/?g=CODIGO</code>. Quem abre:</p>
+<ol>
+<li>Vê o nome do grupo e quantas pessoas estudam nele.</li>
+<li>Clica em <strong>Entrar no grupo</strong>. Se já tem o Aprova, o app abre sozinho (endereço <code>aprova://</code>, registrado no Windows quando o Aprova abre pela primeira vez).</li>
+<li>Se tem conta, já entra no grupo. Se não tem, só confere o apelido sugerido e toca em <strong>Entrar no grupo</strong> (conta rápida, sem e-mail e senha).</li>
+<li>Se ainda não tem o Aprova: baixa pela própria página. O link fica copiado e, quando o app abre, ele encontra o convite e oferece entrar no grupo.</li>
+</ol>
+<p>O grupo é fechado: ninguém encontra o grupo procurando, e só entra quem tem o link do convite. A conversa, as fotos e os arquivos aparecem só para quem é do grupo, então mande o link só para a sua turma.</p>
+<p>No celular, a página explica que o Aprova é para computador e oferece copiar o link ou mandar para si mesmo no WhatsApp.</p>
+<p>A <strong>conta rápida</strong> fica só naquele computador. Para entrar de outro lugar, a pessoa coloca e-mail e senha em <strong>Minha conta → Proteger minha conta</strong>.</p>
+<p>No celular, a barra de baixo mostra Início, Concursos, Provas, Estudar, Grupos e Painel. No alto de todas as telas, o seu boneco dá oi com uma frase daquela tela; toque nele para abrir o menu (<strong>Personagem e foto</strong>, <strong>Ajustes</strong>, <strong>Administração</strong> para o admin e a conta). O botão de ajustes no canto direito leva direto aos <strong>Ajustes</strong>. O <strong>Voltar</strong> do Android volta uma tela; no Início, ele fecha o app.</p>
+<h2 id="ranking-comparar-com-outras-pessoas">Ranking (comparar com outras pessoas)</h2>
+<p>O ranking e as contas precisam de um servidor na internet. Usamos o <strong>Supabase</strong>, que tem plano grátis. Quem cuida do app configura <strong>uma vez</strong> (uns 10 minutos):</p>
+<ol>
+<li>Crie uma conta em <a href="https://supabase.com">supabase.com</a> e um projeto novo no plano <strong>Free</strong>.</li>
+<li>No projeto, abra <strong>SQL Editor</strong>, cole todo o arquivo <code>supabase/ranking.sql</code> (está na pasta do app) e clique em <strong>Run</strong>.</li>
+<li>Em <strong>Authentication → Sign In / Providers</strong>: desligue <strong>Confirm email</strong> (as pessoas entram sem confirmar o e-mail) e ligue <strong>Allow anonymous sign-ins</strong> e <strong>Allow manual linking</strong> (conta rápida dos convites e "Proteger minha conta").</li>
+<li>No botão <strong>Connect</strong> do projeto (ou em <strong>Settings → API Keys</strong>), copie a <strong>Project URL</strong> e a chave pública (<strong>publishable</strong> ou <strong>anon</strong>).</li>
+<li>No Aprova: na tela de entrada, <strong>Ligar as contas online</strong> (ou <strong>Ajustes → Ranking → Servidor do ranking</strong>), cole as duas e salve.</li>
+<li>Crie a sua conta primeiro: a primeira conta vira <strong>administrador</strong>.</li>
+</ol>
+<p>Se você já tinha rodado o <code>ranking.sql</code> de uma versão anterior, rode o arquivo novo de novo: ele acrescenta o que falta (papéis, comunicados, fórum dos grupos) sem apagar nada.</p>
+<p>O passo 5 cria o arquivo <code>ranking.json</code> na pasta do app. O servidor oficial do Aprova vem em <code>aprova/servidor.json</code> (endereço e chave pública), então quem baixa o app já entra nele; o <code>ranking.json</code>, quando existe, vale mais.</p>
+<p>Nunca coloque no app a chave <strong>service_role</strong> / <strong>secret</strong> (o Aprova recusa).</p>
+<p>Como funciona:
+- No ranking aparecem só o <strong>apelido</strong> e os <strong>números de estudo</strong> (da semana, do mês ou somados desde o começo). O e-mail fica escondido e a senha não fica no computador.
+- Os números são enviados pelo próprio app de cada pessoa (ao abrir, a cada 15 minutos e ao terminar uma prova). O servidor recusa valores absurdos, mas o ranking é de confiança, entre quem estuda junto.
+- Em <strong>Minha conta</strong> dá para mudar o apelido, sair ou <strong>apagar a conta</strong> e todos os dados do ranking.
+- Plano grátis do Supabase: 500 MB de banco e até 50 mil usuários por mês; o projeto pausa depois de 7 dias sem nenhum uso (reative no painel do Supabase).</p>
+<h2 id="ia-sem-chave-chat-ou-com-a-chave-do-claude">IA: sem chave (chat) ou com a chave do Claude</h2>
+<p><strong>Sem chave, de graça:</strong> na ajuda de cada questão e no resultado do simulado, os botões <strong>Perguntar ao Claude</strong> e <strong>Perguntar ao ChatGPT</strong> abrem o chat no navegador com a pergunta já escrita (a questão, as alternativas e o que você marcou; no resultado, os seus erros com o pedido de um plano de 3 dias). Funciona com a conta grátis de cada um. A pergunta também vai para a área de transferência: se o chat abrir vazio, cole com Ctrl+V e envie. Durante o simulado, a pergunta não leva o gabarito (para não estragar o simulado).</p>
+<p><strong>Com a chave do Claude, a IA trabalha dentro do app:</strong> explica cada questão com fontes, cria questões novas nos simulados (no lugar das que faltam ou que você já fez), dá a <strong>análise do professor</strong> no resultado e organiza provas em PDF difíceis de ler.</p>
+<p>Como conseguir a chave (também tem esse passo a passo no app, em <strong>Ajustes → Explicações com IA → Passo a passo</strong>):</p>
+<ol>
+<li>Entre em <a href="https://platform.claude.com">platform.claude.com</a> (o Claude Console) e crie uma conta.</li>
+<li>Em <strong>Billing</strong>, coloque crédito com cartão. É pré-pago: você só gasta o que colocou. A assinatura do Claude Pro não inclui esse crédito; os planos Max e Team vêm com um crédito por mês.</li>
+<li>Em <strong>API keys</strong> (<a href="https://platform.claude.com/settings/keys">platform.claude.com/settings/keys</a>), clique em <strong>Create key</strong>, dê o nome Aprova e copie a chave (começa com <code>sk-ant-</code> e aparece uma vez só).</li>
+<li>No Aprova, em <strong>Ajustes → Explicações com IA</strong>, cole a chave e clique em <strong>Salvar</strong>.</li>
+</ol>
+<p>A chave é como um cartão: quem tiver a chave gasta o seu crédito, então não mande no grupo nem mostre em print. Ela fica guardada só no seu computador e, no Windows, cifrada pela proteção do próprio Windows (presa à sua conta naquele computador; em outro computador é só colar a chave de novo). A chave do ChatGPT (OpenAI) não funciona no lugar da do Claude. O modelo padrão é o Haiku, o mais barato.</p>
+<h2 id="onde-ficam-seus-dados">Onde ficam seus dados</h2>
+<p>Tudo fica no seu computador, na pasta <code>.aprova</code> dentro da sua pasta de usuário (<code>C:\Users\&lt;você&gt;\.aprova</code>): provas importadas, respostas, favoritos, ajustes e PDFs marcados (pasta <code>marcados</code>). Os estudos de cada conta ficam em <code>.aprova\contas\&lt;conta&gt;</code>; os de quem usa sem conta, direto em <code>.aprova</code>. No servidor vão só o apelido, o concurso e os números da semana.</p>
+<p><strong>Cópia de segurança</strong> (Ajustes → Cópia de segurança):</p>
+<ul>
+<li><strong>Salvar cópia agora</strong> grava um arquivo <code>.aprova</code> com tudo: provas e questões da biblioteca, respostas, revisão, metas, tempo, dúvidas, lembretes, favoritos, ajustes, PDFs marcados e figurinhas. Guarde num pen drive ou no seu Drive. A chave da IA e o login não vão na cópia (ficam só neste computador), nem os PDFs originais das provas (dá para baixar de novo).</li>
+<li><strong>Restaurar de uma cópia</strong> troca os estudos de agora pelos da cópia. Antes, o Aprova guarda uma cópia do que existe agora em <code>.aprova\copias</code>, então dá para voltar atrás.</li>
+<li>Toda semana o app faz uma cópia sozinho em <code>.aprova\copias</code> (guarda as 4 últimas). Em Ajustes aparece a data da última, com o botão <strong>Restaurar esta</strong>.</li>
+<li>No celular, a cópia vai pelo menu Compartilhar (salvar em Arquivos, Drive ou mandar para você mesmo).</li>
+</ul>
+<p><strong>Relatórios de erro (opcional):</strong> em <strong>Ajustes → Geral</strong>, a chave <em>Enviar relatórios de erro</em> manda para quem mantém o Aprova só o erro técnico quando algo dá errado (versão, sistema, a tela e o rastro do erro), sem seus estudos, e-mail, chave ou o nome da sua pasta. Vem desligada. Com ela desligada, os erros ficam só no arquivo <code>aprova.log</code>, na pasta <code>.aprova</code>.</p>
+<h2 id="se-nao-abrir-na-primeira-vez">Se não abrir na primeira vez</h2>
+<p>Na primeira vez, o Aprova baixa da internet a janela do app (uns 30 MB). Se aparecer <strong>CERTIFICATE_VERIFY_FAILED</strong> (certificado), é um antivírus que inspeciona a internet, a rede da escola ou empresa, ou um Windows novo que ainda não tem o certificado do site de onde ele baixa. A partir da versão 1.14.1 o Aprova verifica o certificado pelo próprio Windows, como o navegador. Quem tem uma versão mais antiga resolve assim:</p>
+<ol>
+<li>Baixe o Aprova de novo pelo site e extraia por cima da pasta antiga (os estudos ficam guardados à parte, em <code>.aprova</code>, e não se perdem).</li>
+<li>Abra o <strong>Abrir Aprova.bat</strong>. Ele instala o que falta e abre.</li>
+<li>Se ainda falhar, tente uma vez em outra rede (por exemplo, o roteador do celular). Depois da primeira abertura, ele não precisa baixar de novo.</li>
+</ol>
+<h2 id="limites">Limites</h2>
+<ul>
+<li>A leitura automática das questões depende do layout do PDF. Quando falha, a prova abre no modo cartão-resposta com as páginas originais. Figuras e tabelas aparecem pelo botão “Ver na prova original”.</li>
+<li>Provas com vários tipos de caderno podem ter gabaritos diferentes. Confira em <strong>⋮ → Gabarito</strong>.</li>
+<li>Se o PCI Concursos mudar o layout do site, a leitura das listas pode precisar de ajuste no arquivo <code>aprova/pci.py</code>. Um robô confere isso todo dia e avisa quem mantém o app.</li>
+<li>A leitura em voz alta funciona no computador, com as vozes instaladas nele. Para ter mais vozes em português no Windows: Configurações &gt; Hora e idioma &gt; Fala &gt; Adicionar vozes &gt; Português (Brasil); depois feche e abra o Aprova. No celular, use o recurso de leitura do próprio aparelho.</li>
+<li>Os alarmes tocam com o Aprova aberto no computador (pode ficar minimizado).</li>
+</ul>
+  </article>
+</main>
+</body>
+</html>
