@@ -7,7 +7,8 @@ Uso (na pasta do Aprova):
 --obrigatoria-celular: no app do celular, quem tem versão mais velha que esta só volta a usar depois de
 atualizar (a janela não tem "Agora não"). A marca vale para as versões seguintes até outra mais nova.
 
-Muda o número em aprova/__init__.py e escreve docs/versao.json. Depois é só enviar para o GitHub
+Muda o número em aprova/__init__.py e escreve docs/versao.json (mantendo o "destaque", o aviso de novidade
+que o app mostra; veja aprova/destaque.py). Depois é só enviar para o GitHub
 (git commit e git push na main). O robô .github/workflows/publicar.yml cria a etiqueta vX.Y.Z e a
 página da versão (com o Aprova.zip). Quem tem o Aprova baixa sempre o .zip dessa etiqueta: o que
 for para a main depois (testes, rascunhos) só chega às pessoas na versão seguinte.
@@ -53,13 +54,16 @@ def main(argv: list[str]) -> int:
     }
     arquivo = RAIZ / "docs" / "versao.json"
     try:
-        minima = json.loads(arquivo.read_text(encoding="utf-8")).get("celular_minima") or ""
+        antes = json.loads(arquivo.read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        minima = ""
+        antes = {}
+    minima = antes.get("celular_minima") or ""
     if obrigatoria:
         minima = versao
     if minima:
         dados["celular_minima"] = minima  # a marca de obrigatória continua valendo nas versões seguintes
+    if antes.get("destaque"):
+        dados["destaque"] = antes["destaque"]  # a novidade do site (aviso no app) continua até trocar ou vencer
     (RAIZ / "docs" / "versao.json").write_text(json.dumps(dados, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Pronto: {atual} -> {versao}. Agora envie para o GitHub:")
     print(f'  git commit -am "Versão {versao}" && git push')

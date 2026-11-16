@@ -3155,9 +3155,19 @@ class PaginaFalsa:
         return lambda *a, **k: None
 
 
+from aprova.ui import destaque as dq
+
 falhas, vistas = [], []
 for largura in (1280, 400):
     app = App(PaginaFalsa(largura, 860))
+    app.sessao.set("destaque", {"id": "teste", "titulo": "Tem vídeo novo!", "texto": "As novidades.", "itens": ["Edital", "Simulado da turma"],
+                                "botao": "Assistir", "link": "https://natanaelsantz.github.io/aprova/#videos"})
+    try:
+        assert dq.cartao_inicio(app), "sem cartão"
+        dq.mostrar(app, dq.atual(app))
+        vistas.append(f"destaque@{largura}")
+    except Exception as e:
+        falhas.append(f"destaque ({largura}px): {type(e).__name__}: {e}")
     for chave, *_ in app.destinos():
         tela = app._tela(chave)
         abas = {"painel": [k for k, _ in painel.ABAS], "estudar": ["biblioteca", "revisao", "duvidas", "discursiva", "pdfs"]}.get(chave, [None])
@@ -3189,6 +3199,36 @@ def test_todas_as_telas_montam(tmp_path):
     resultado = json.loads(saida.stdout.strip().splitlines()[-1])
     assert resultado["falhas"] == [], resultado["falhas"]
     assert len(resultado["vistas"]) >= 2 * 15
+
+
+def test_destaque_do_site(monkeypatch):
+    """1.33: a novidade do site (ex.: vídeo novo) vem conferida: só link do site, some quando vence, nada fora do formato."""
+    import json
+    from datetime import date
+
+    from aprova import atualizar
+    from aprova import destaque as dq
+
+    base = {"id": "video-novidades-1-33", "titulo": "  Tem vídeo   novo!  ", "texto": "x" * 500, "itens": ["Edital", "", 7, "Simulado"] + ["a"] * 9,
+            "botao": "Assistir", "link": "https://natanaelsantz.github.io/aprova/?video=novidades#videos", "ate": "2026-12-31"}
+    d = dq.ler(base, hoje=date(2026, 11, 16))
+    assert d["titulo"] == "Tem vídeo novo!" and len(d["texto"]) == 240 and d["itens"][:3] == ["Edital", "7", "Simulado"] and len(d["itens"]) == 6
+    assert dq.ler(base, hoje=date(2027, 1, 1)) is None  # venceu
+    assert dq.ler({**base, "link": "https://exemplo.com/aprova"}) is None  # só o site do Aprova
+    assert dq.ler({**base, "link": "https://natanaelsantz.github.io/aprova/\"><script>"}) is None
+    assert dq.ler({**base, "id": "Com Espaço"}) is None and dq.ler({**base, "titulo": " "}) is None and dq.ler({**base, "ate": "logo"}) is None
+    assert dq.ler(None) is None and dq.ler([]) is None
+    assert dq.ler({**base, "botao": "", "ate": ""}, hoje=date(2030, 1, 1))["botao"] == "Ver agora"
+
+    monkeypatch.setattr(atualizar, "_baixar", lambda url, timeout, progresso=None, limite=0: json.dumps({"versao": "9.9", "destaque": base}).encode())
+    assert dq.buscar("https://x/versao.json")["id"] == "video-novidades-1-33" or date.today() > date(2026, 12, 31)
+    monkeypatch.setattr(atualizar, "_baixar", lambda url, timeout, progresso=None, limite=0: b'{"versao": "9.9"}')
+    assert dq.buscar("https://x/versao.json") is None
+
+    # o destaque publicado no site precisa passar na conferência do app (senão ninguém vê)
+    site = json.loads((Path(__file__).resolve().parent.parent / "docs" / "versao.json").read_text(encoding="utf-8"))
+    if "destaque" in site:
+        assert dq.ler(site["destaque"], hoje=date(2000, 1, 1)), site["destaque"]
 
 
 def test_vozes_escolha_e_comandos(monkeypatch):

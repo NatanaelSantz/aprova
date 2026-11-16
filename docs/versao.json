@@ -1,8 +1,24 @@
 {
-  "versao": "1.32.0",
+  "versao": "1.33.0",
   "data": "15/11/2026",
   "notas": [
-    "Escolha a voz da leitura em voz alta (Ajustes → Ouvir as questões): todas as vozes do computador, inclusive as vozes novas do Windows 10 e 11 que o app não enxergava. Ao escolher, ela já fala para você ouvir."
+    "Vídeo novo com as novidades e um lembrete do que você já tem: o seu personagem avisa numa janela (uma vez) e um cartão no Início leva direto ao vídeo no site."
   ],
-  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.32.0.zip"
+  "zip": "https://github.com/NatanaelSantz/aprova/archive/refs/tags/v1.33.0.zip",
+  "destaque": {
+    "id": "video-novidades-1-33",
+    "titulo": "Tem vídeo novo no Aprova!",
+    "fala": "Saiu vídeo novo! Bora ver?",
+    "texto": "Em 2 minutos: as 9 funções novas e 6 atalhos que você já tem.",
+    "itens": [
+      "Edital verticalizado",
+      "Simulado da turma",
+      "Conquistas",
+      "Discursiva com IA",
+      "Escolha da voz"
+    ],
+    "botao": "Assistir o vídeo",
+    "link": "https://natanaelsantz.github.io/aprova/?video=novidades#videos",
+    "ate": "2027-01-31"
+  }
 }

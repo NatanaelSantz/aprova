@@ -99,6 +99,8 @@ O Aprova se atualiza sozinho:
 
 Para procurar na hora: **Ajustes → Atualizações → Procurar atualização**.
 
+**Novidades em vídeo (da 1.33 em diante):** quando sai um vídeo novo no site, o seu personagem avisa numa janela (uma vez só) e fica um cartão azul no Início com **Assistir o vídeo**. O botão abre o vídeo no site; o **X** do cartão fecha o aviso. Os vídeos ficam em [natanaelsantz.github.io/aprova](https://natanaelsantz.github.io/aprova/#videos), na parte *Vídeos*.
+
 Seus estudos, contas, ajustes e PDFs marcados ficam na pasta `.aprova` e não mudam. Se uma biblioteca nova for necessária, a janela *Preparando o Aprova* aparece ao reabrir e instala só o que falta. Uma cópia da versão anterior fica em `.aprova\atualizacao\anterior`.
 
 **Se a versão nova não abrir no seu computador** (da 1.24 em diante), o Aprova volta sozinho para a versão anterior e avisa no Início. A versão com problema é pulada, e a próxima (com a correção) chega normalmente. Seus estudos não são tocados.

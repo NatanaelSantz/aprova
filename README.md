@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 1.32.0" src="https://img.shields.io/badge/vers%C3%A3o-1.32.0-2340A8">
+  <img alt="Versão 1.33.0" src="https://img.shields.io/badge/vers%C3%A3o-1.33.0-2340A8">
   <img alt="Python 3.12 e 3.13" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Flet" src="https://img.shields.io/badge/Flet-1.0-02569B?logo=flutter&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-plano%20gr%C3%A1tis-3ECF8E?logo=supabase&logoColor=white">
@@ -200,6 +200,8 @@ O robô [`publicar.yml`](.github/workflows/publicar.yml) cria a etiqueta `v1.9.1
 
 Em até 12 horas (ou na hora, em *Ajustes → Atualizações → Procurar atualização*), quem tem o Aprova vê o aviso no Início. O app baixa o .zip da versão, confere se ela é mesmo mais nova e deixa tudo pronto; a troca dos arquivos acontece ao reabrir, pelo `iniciar.pyw`, que guarda uma cópia da versão anterior em `.aprova/atualizacao/anterior` e só reinstala bibliotecas se o `requirements.txt` mudou. O `ranking.json` e a pasta `.venv` nunca são trocados.
 
+**Avisar de uma novidade sem lançar versão** (ex.: vídeo novo): ponha um campo `destaque` no `docs/versao.json` com `id`, `titulo`, `texto`, `fala` (o que o personagem diz), `itens` (até 6), `botao`, `link` (só endereços do site, `https://natanaelsantz.github.io/aprova/...`) e, se quiser, `ate` (data em que some, `AAAA-MM-DD`). Da 1.33 em diante, o app mostra uma janela com o personagem da pessoa uma vez e deixa um cartão no Início até ela assistir ou fechar. Para avisar de novo, troque o `id`. O `nova_versao.py` mantém o destaque nas versões seguintes. As regras estão em [`aprova/destaque.py`](aprova/destaque.py).
+
 **Se a versão nova não abrir** (erro ao abrir, ou duas aberturas sem a janela aparecer), o `iniciar.pyw` devolve os arquivos da versão anterior, abre ela e pula a versão com problema até sair uma mais nova. Fica anotado em `.aprova/instalacao.log`.
 
 **Robôs do GitHub:** [`testes.yml`](.github/workflows/testes.yml) roda os testes no Windows a cada envio; [`vigias.yml`](.github/workflows/vigias.yml) roda todo dia, mantém o Supabase acordado (o plano grátis pausa depois de 7 dias sem uso) e confere se o app ainda lê o PCI e a FGV ([`ferramentas/conferir_sites.py`](ferramentas/conferir_sites.py)). Quando um deles falha, o GitHub manda e-mail.
@@ -248,6 +250,7 @@ As regras do servidor também podem ser testadas num PostgreSQL de verdade:
 
 | Versão | O que chegou |
 |---|---|
+| **1.33.0** | **Vídeo das novidades** no site (as funções novas e um lembrete das que você já tem) e **aviso dentro do app**: o seu personagem conta numa janela, uma vez, e um cartão no Início leva ao vídeo |
 | **1.32.0** | **Escolha da voz** da leitura em voz alta (Ajustes → Ouvir as questões), com as vozes novas do Windows 10 e 11 |
 | **1.31.3** | Correção: a tela de Ajustes não abria na 1.31.2 |
 | **1.31.2** | O boneco chama você pelo apelido escolhido (Falas do personagem ou Ajustes), não pelo nome da conta |

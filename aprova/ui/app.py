@@ -547,6 +547,10 @@ class App:
             p.run_task(atualizacao.vigiar, self)
         elif atualizacao.disponivel_celular(self):
             p.run_task(atualizacao.vigiar_celular, self)  # APK: avisa da versão nova e manda baixar
+        if not self.modo_web and not config.FIXTURES_DIR:
+            from . import destaque
+
+            p.run_task(destaque.vigiar, self)  # novidade do site (ex.: vídeo novo): janela uma vez e cartão no Início
         if self.ranking.configurado and self.ranking.logado and not config.FIXTURES_DIR:
             from .personagem import sincronizar
 
@@ -930,6 +934,54 @@ class App:
             if arg == "fixas":
                 self.aj.set("marcador_fixas", True)
             tela.dialogo_salvar()
+        elif nome == "edital_colar":
+            sec = getattr(self._tela("painel"), "_secao_edital", None)
+            if sec is not None:
+                sec.dialogo_colar()
+        elif nome == "cartao":
+            from . import cartao_semana
+
+            cartao_semana.abrir(self)
+        elif nome == "resultado_turma":
+            # abre o resultado de um simulado da turma (arg = id; sem arg, o primeiro que eu já entreguei)
+            from .simulado_turma import dialogo_resultado
+
+            t = self._tela("grupos")
+            for _ in range(30):
+                if t.grupo:
+                    break
+                await asyncio.sleep(0.5)
+            sims = await self.em_segundo_plano(self.ranking.simulados_turma, t.codigo)
+            s = next((x for x in sims if (str(x["id"]) == arg if arg else x.get("meu"))), None)
+            if s:
+                dialogo_resultado(self, s)
+        elif nome == "discursiva":
+            t = self._tela("estudar")
+            sec = getattr(t, "_secao_discursiva", None)
+            lista = self.db.discursivas()
+            if sec is not None and lista:
+                sec._abrir(lista[0])
+        elif nome == "vozes_demo":
+            # vozes de um Windows 11 com as vozes naturais instaladas (para as capturas de tela do vídeo)
+            from .. import voz as _voz
+
+            _voz._cache_vozes[:] = [[
+                {"id": f"{m}|{n}", "nome": n, "idioma": i, "genero": g}
+                for m, n, i, g in [("winrt", "Microsoft Francisca (natural)", "pt-BR", "feminina"), ("winrt", "Microsoft Antonio (natural)", "pt-BR", "masculina"),
+                                   ("sapi", "Microsoft Maria", "pt-BR", "feminina"), ("winrt", "Microsoft Daniel", "pt-BR", "masculina"),
+                                   ("winrt", "Microsoft Thalita (natural)", "pt-BR", "feminina"), ("sapi", "Microsoft Zira", "en-US", "feminina")]]]
+        elif nome in ("destaque", "destaque_cartao"):
+            # finge que o site mandou uma novidade (capturas de tela): "destaque" abre a janela; "destaque_cartao", só o cartão
+            from . import destaque
+
+            self.sessao.set("destaque", {"id": "demo", "titulo": "Tem vídeo novo no Aprova!", "fala": "Saiu vídeo novo! Bora ver?",
+                                         "texto": "Em 2 minutos e meio: as 9 funções novas e 6 atalhos que você já tem.",
+                                         "itens": ["Edital verticalizado", "Simulado da turma", "Conquistas", "Discursiva com IA", "Escolha da voz"],
+                                         "botao": "Assistir o vídeo", "link": destaque.destaque.SITE + "?video=novidades#videos"})
+            self.sessao.set("destaque_em", time.time())
+            destaque._atualizar_inicio(self)
+            if nome == "destaque":
+                destaque.mostrar(self, destaque.atual(self))
         elif nome == "nota_aberta" and tela is not None and hasattr(tela, "doc"):
             m = next((x for x in tela.doc.marcacoes() if x["nota"] and x["tipo"] != "nota"), None)
             if m:

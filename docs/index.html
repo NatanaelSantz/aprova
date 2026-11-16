@@ -159,15 +159,21 @@ em.it { font-style: italic; font-weight: 500; }
 .tela { margin: 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--linha); box-shadow: var(--sombra); background: var(--folha); min-width: 0; }
 .cinema-duo { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 .capitulos { display: grid; gap: 14px; min-width: 0; }
-.capitulo { display: grid; gap: 10px; align-content: start; width: 100%; text-align: left; padding: 10px 10px 14px; border-radius: 14px; border: 1.5px solid var(--linha); background: var(--folha); color: var(--tinta); font: inherit; cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
+.capitulo { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; width: 100%; text-align: left; padding: 10px 10px 14px; border-radius: 14px; border: 1.5px solid var(--linha); background: var(--folha); color: var(--tinta); font: inherit; cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
 .capitulo img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 9px; border: 1px solid var(--linha); }
 .capitulo span { display: grid; gap: 2px; padding-inline: 4px; }
+.capitulos.tres .capitulo:not(:first-child) { grid-template-columns: 96px minmax(0, 1fr); align-items: center; padding: 8px; }
+.capitulos.tres .capitulo:not(:first-child) img { border-radius: 7px; }
+.capitulo .novo { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--marca, #FFD84D); color: #1F1A2E; font-family: var(--f-mono); font-size: 0.66rem; font-weight: 700; font-style: normal; letter-spacing: 0.06em; vertical-align: 2px; }
+.selo-link { text-decoration: none; transition: border-color .15s ease; }
+.selo-link:hover { border-color: var(--azul); color: var(--tinta); }
 .capitulo strong { font-size: 1rem; }
 .capitulo small { font-size: 0.86rem; color: var(--tinta2); }
 .capitulo:hover { border-color: var(--azul); }
 .capitulo[aria-pressed="true"] { border-color: var(--azul); box-shadow: 0 0 0 3px var(--azul-suave); }
 .capitulo:focus-visible { outline: 3px solid var(--azul); outline-offset: 2px; }
-@media (max-width: 860px) { .cinema-duo { grid-template-columns: minmax(0, 1fr); } .capitulos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 860px) { .cinema-duo { grid-template-columns: minmax(0, 1fr); } .capitulos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .capitulos.tres { grid-template-columns: minmax(0, 1fr); } .capitulos.tres .capitulo { grid-template-columns: 112px minmax(0, 1fr); align-items: center; padding: 8px; } }
 .cinema { margin: 0; border-radius: 16px; overflow: hidden; border: 1px solid var(--linha); box-shadow: var(--sombra); background: #0D1428; }
 .cinema video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #0D1428; }
 .cinema figcaption { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--folha); border-top: 1px solid var(--linha); font-size: 0.92rem; color: var(--tinta2); }
@@ -451,7 +457,8 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
           <a class="bt bt-azul" href="https://github.com/NatanaelSantz/aprova/releases/latest/download/Aprova.zip" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-baixar"/></svg>Baixar para Windows</a>
           <a class="bt bt-linha" href="#recursos">Ver o que ele faz<svg aria-hidden="true"><use href="#i-seta"/></svg></a>
         </div>
-        <p class="miudo">Versão 1.32.0 · se atualiza sozinho toda vez que abre · também roda no macOS e no Linux</p>
+        <a class="selo selo-link" href="#videos"><b>NOVO</b> Assista: o que tem de novo no Aprova (2 min)</a>
+        <p class="miudo">Versão 1.33.0 · se atualiza sozinho toda vez que abre · também roda no macOS e no Linux</p>
       </div>
 
       <div class="vitrine">
@@ -506,12 +513,12 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
         <figure class="novo-cel"><img src="img/celular-inicio.png" width="412" height="1000" alt="Tela inicial do Aprova no celular: a meta da semana com as horas de cada dia e o próximo estudo" loading="lazy"></figure>
       </article>
       <div class="novidades-lista">
+        <div class="mini"><span class="versao">1.33</span><h3>Vídeo das novidades</h3><p>Dois minutos mostrando tudo o que chegou e relembrando o que você já tem. O seu personagem avisa dentro do app e leva direto ao <a href="#videos">vídeo</a>.</p></div>
+        <div class="mini"><span class="versao">1.32</span><h3>Escolha a voz</h3><p>A leitura em voz alta usa a voz que você escolher, até as vozes naturais do Windows 11, e na velocidade que preferir.</p></div>
         <div class="mini"><span class="versao">1.31</span><h3>Simulado da turma e discursiva</h3><p>O grupo marca um simulado, o servidor corrige e todo mundo vê o resultado. A discursiva é corrigida por IA como a banca faria. E conquistas destravam roupas do boneco.</p></div>
         <div class="mini"><span class="versao">1.30</span><h3>Edital verticalizado</h3><p>Cole o conteúdo programático e marque teoria, questões e revisão de cada tópico. O app mostra seu acerto em cada assunto e quanto do edital já foi. E o ranking agora tem o mês e desde o começo.</p></div>
         <div class="mini"><span class="versao">1.29</span><h3>Animações</h3><p>Telas que deslizam, números que contam, barras que enchem e confete quando o simulado vai bem. E a prova ficou mais rápida.</p></div>
         <div class="mini"><span class="versao">1.28</span><h3>Atualização no celular</h3><p>Ao abrir, o app do Android avisa quando sai versão nova e baixa a atualização, que instala por cima sem perder os estudos.</p></div>
-        <div class="mini"><span class="versao">1.27</span><h3>Celular mais fácil de usar</h3><p>O seu boneco dá oi no alto de todas as telas. Um toque nele abre o menu com personagem, ajustes e conta, e o Voltar do Android volta uma tela.</p></div>
-        <div class="mini"><span class="versao">1.26</span><h3>Acerto por assunto</h3><p>No Painel, cada disciplina se abre em assuntos: crase, porcentagem, licitações. Você vê exatamente o que mais derruba você.</p></div>
       </div>
     </div>
   </section>
@@ -521,21 +528,25 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
       <div class="cabeca">
         <span class="rotulo">Vídeos</span>
         <h2>Veja o Aprova <span class="marcado rolar">funcionando</span>.</h2>
-        <p class="texto-grande">Comece pela apresentação ou vá direto ao tutorial: o seu personagem em pixel art mostra o app, passo a passo.</p>
+        <p class="texto-grande">Veja o que chegou de novo, a apresentação ou o tutorial completo: o seu personagem em pixel art mostra o app, passo a passo.</p>
       </div>
       <div class="cinema-duo">
         <figure class="cinema">
-          <video id="player" controls preload="none" playsinline poster="video/capa-promo.webp" width="1920" height="1080" aria-label="Vídeo de apresentação do Aprova">
-            <source src="video/aprova-promo.mp4" type="video/mp4">
+          <video id="player" controls preload="none" playsinline poster="video/capa-novidades.webp" width="1920" height="1080" aria-label="Novidades do Aprova">
+            <source src="video/aprova-novidades.mp4" type="video/mp4">
           </video>
-          <figcaption id="cinema-leg"><span><strong>Apresentação</strong> · provas reais, simulados, revisão, painel e grupos</span></figcaption>
+          <figcaption id="cinema-leg"><span><strong>Novidades</strong> · edital verticalizado, ranking, simulado da turma, conquistas, discursiva com IA, card da semana, vozes, personagem e celular, mais 6 atalhos que você já tem</span></figcaption>
         </figure>
-        <div class="capitulos" aria-label="Escolha o vídeo">
-          <button type="button" class="capitulo" aria-pressed="true" data-src="video/aprova-promo.mp4" data-capa="video/capa-promo.webp" data-nome="Vídeo de apresentação do Aprova" data-leg="&lt;span&gt;&lt;strong&gt;Apresentação&lt;/strong&gt; · provas reais, simulados, revisão, painel e grupos&lt;/span&gt;">
+        <div class="capitulos tres" aria-label="Escolha o vídeo">
+          <button type="button" class="capitulo" aria-pressed="true" data-id="novidades" data-src="video/aprova-novidades.mp4" data-capa="video/capa-novidades.webp" data-nome="Novidades do Aprova" data-leg="&lt;span&gt;&lt;strong&gt;Novidades&lt;/strong&gt; · edital verticalizado, ranking, simulado da turma, conquistas, discursiva com IA, card da semana, vozes, personagem e celular, mais 6 atalhos que você já tem&lt;/span&gt;">
+            <img src="video/capa-novidades.webp" alt="" width="1280" height="720" loading="lazy">
+            <span><strong>O que tem de novo<em class="novo">NOVO</em></strong><small>9 funções novas e 6 que você já tem · 2min20</small></span>
+          </button>
+          <button type="button" class="capitulo" aria-pressed="false" data-id="apresentacao" data-src="video/aprova-promo.mp4" data-capa="video/capa-promo.webp" data-nome="Vídeo de apresentação do Aprova" data-leg="&lt;span&gt;&lt;strong&gt;Apresentação&lt;/strong&gt; · provas reais, simulados, revisão, painel e grupos&lt;/span&gt;">
             <img src="video/capa-promo.webp" alt="" width="1280" height="720" loading="lazy">
             <span><strong>Apresentação</strong><small>O que o Aprova faz</small></span>
           </button>
-          <button type="button" class="capitulo" aria-pressed="false" data-src="video/aprova-tutorial.mp4" data-capa="video/capa-tutorial.webp" data-nome="Tutorial: como usar o Aprova" data-leg="&lt;span&gt;&lt;strong&gt;Tutorial&lt;/strong&gt; · instalar, criar o personagem, achar provas, resolver, mini prova, simulado, resultado, painel, PDFs, grupos e ajustes&lt;/span&gt;">
+          <button type="button" class="capitulo" aria-pressed="false" data-id="tutorial" data-src="video/aprova-tutorial.mp4" data-capa="video/capa-tutorial.webp" data-nome="Tutorial: como usar o Aprova" data-leg="&lt;span&gt;&lt;strong&gt;Tutorial&lt;/strong&gt; · instalar, criar o personagem, achar provas, resolver, mini prova, simulado, resultado, painel, PDFs, grupos e ajustes&lt;/span&gt;">
             <img src="video/capa-tutorial.webp" alt="" width="1280" height="720" loading="lazy">
             <span><strong>Tutorial: como usar</strong><small>Com o seu personagem de guia</small></span>
           </button>
@@ -760,7 +771,7 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
 <footer>
   <div class="caixa">
     <a class="marca-app" href="#inicio"><img src="icon.png" alt="" width="30" height="30"><span>Aprova</span></a>
-    <span>Estudo para concursos · versão 1.32.0 · feito no Brasil</span>
+    <span>Estudo para concursos · versão 1.33.0 · feito no Brasil</span>
     <nav aria-label="Links">
       <a href="https://github.com/NatanaelSantz/aprova" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/NatanaelSantz/aprova/blob/main/docs/MANUAL.md" target="_blank" rel="noopener">Manual</a>
@@ -775,20 +786,31 @@ main { overflow-x: clip; } /* as telas que entram de lado não podem empurrar a 
   const player = document.getElementById('player');
   const leg = document.getElementById('cinema-leg');
   if (!player) return;
+  function escolher(bt, tocar) {
+    document.querySelectorAll('.capitulo').forEach(function (x) { x.setAttribute('aria-pressed', String(x === bt)); });
+    player.pause();
+    player.poster = bt.dataset.capa;
+    player.querySelector('source').src = bt.dataset.src;
+    player.setAttribute('aria-label', bt.dataset.nome);
+    leg.innerHTML = bt.dataset.leg;
+    player.load();
+    if (tocar) player.play().catch(function () {});
+  }
   document.querySelectorAll('.capitulo').forEach(function (bt) {
     bt.addEventListener('click', function () {
       if (bt.getAttribute('aria-pressed') === 'true') { player.play().catch(function () {}); return; }
-      document.querySelectorAll('.capitulo').forEach(function (x) { x.setAttribute('aria-pressed', String(x === bt)); });
-      player.pause();
-      player.poster = bt.dataset.capa;
-      player.querySelector('source').src = bt.dataset.src;
-      player.setAttribute('aria-label', bt.dataset.nome);
-      leg.innerHTML = bt.dataset.leg;
-      player.load();
-      player.play().catch(function () {});
+      escolher(bt, true);
       if (player.getBoundingClientRect().top < 0) player.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
   });
+  // ?video=tutorial (ou novidades, apresentacao): já abre no vídeo pedido
+  var pedido = new URLSearchParams(location.search).get('video');
+  var alvo = pedido && document.querySelector('.capitulo[data-id="' + pedido.replace(/[^a-z]/g, '') + '"]');
+  if (alvo && alvo.getAttribute('aria-pressed') !== 'true') escolher(alvo, false);
+  if (pedido) {
+    var sec = document.getElementById('videos');
+    if (sec && !location.hash) sec.scrollIntoView({ block: 'start' });
+  }
 })();
   // herói: a janela do app inclina de leve seguindo o mouse (só com mouse, e só se o sistema permite movimento)
   (function () {

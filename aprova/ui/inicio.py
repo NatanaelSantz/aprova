@@ -128,9 +128,20 @@ class TelaInicio:
             pass
 
     def _cartoes_topo(self) -> list[ft.Control]:
+        from . import destaque
         from .atualizacao import cartao_inicio
 
-        return cartao_inicio(self.app) + self._cartoes_comunicados(self.app.comunicados_cache()) + self._cartoes_grupos()
+        return (cartao_inicio(self.app) + destaque.cartao_inicio(self.app) + self._cartoes_comunicados(self.app.comunicados_cache())
+                + self._cartoes_grupos())
+
+    def atualizar_topo(self) -> None:
+        """Redesenha só os avisos do alto (versão nova, novidade do site, comunicados e grupos)."""
+        try:
+            self.caixa_comunicados.controls = self._cartoes_topo()
+            self.caixa_comunicados.visible = bool(self.caixa_comunicados.controls)
+            self.caixa_comunicados.update()
+        except Exception:  # noqa: BLE001 - a tela não está montada agora
+            pass
 
     def _cartoes_grupos(self) -> list[ft.Control]:
         """Aviso de mensagens novas nos grupos desde a última visita."""
