@@ -118,6 +118,8 @@ class Edital:
     provas_url: str | None = None
     taxa: str = ""  # a frase da notícia com o valor da inscrição ("As taxas são de R$ 60,93 para nível fundamental...")
     taxa_resumo: str = ""  # "R$ 85,00", "R$ 32,00 a R$ 80,00" ou "Grátis"
+    salario_resumo: str = ""  # "R$ 2.571,28 a R$ 10.428,05" (a faixa que a notícia dá)
+    cargos: list[dict] = field(default_factory=list)  # [{"cargo", "vagas", "nivel", "salario", "taxa"}] (o que a notícia diz de cada cargo)
 
 
 # --------------------------------------------------------------------------
@@ -298,6 +300,142 @@ def taxa_inscricao(paragrafos: list[str]) -> tuple[str, str]:
     return " ".join(frases[:2]), resumo
 
 
+# ---------------------------------------------------------------- cargos, salário e inscrição de cada cargo
+
+NIVEIS = {"alfabetizado": "Alfabetizado", "fundamental": "Fundamental", "medio": "Médio", "tecnico": "Técnico", "superior": "Superior"}
+
+
+def _niveis(texto: str) -> list[str]:
+    """Os níveis de escolaridade citados num trecho, na ordem: "médio/técnico" vira ["medio", "tecnico"]."""
+    t = texto.lower()
+    achados = []
+    for chave, padrao in (("alfabetizado", r"alfabetizad"), ("fundamental", r"fundamental"), ("medio", r"m[ée]dio"),
+                          ("tecnico", r"t[ée]cnico(?!\s+(?:judici|administrat|em\s|de\s|legislat|ministerial))"), ("superior", r"superior")):
+        m = re.search(padrao, t)
+        if m:
+            achados.append((m.start(), chave))
+    return [k for _, k in sorted(achados)]
+
+
+def _cabecalho_de_nivel(texto: str) -> list[str]:
+    """Uma linha como "Ensino médio/técnico", "Nível Superior:" ou "Para o nível fundamental, os cargos são:"."""
+    if "R$" in texto or len(texto) > 90:
+        return []
+    if len(texto) > 40 and not texto.rstrip().endswith(":"):
+        return []
+    return _niveis(texto)
+
+
+def _cargo_da_linha(texto: str) -> dict | None:
+    """"Agente Administrativo (8 vagas + CR)", "Escrevente - 100 vagas - R$ 6.043,00", "Assistente Social (CR)"."""
+    t = " ".join(texto.split()).strip(" ;.")
+    if not t or len(t) > 150:
+        return None
+    vagas = ""
+    m = re.search(r"\(([^)]*(?:\d|CR|cadastro)[^)]*)\)", t, re.I)
+    if m:
+        vagas = m.group(1).strip()
+    else:
+        m = re.search(r"(\d+\s+vagas?(?:\s*\+\s*CR)?|cadastro\s+de\s+reserva|\bCR\b)", t, re.I)
+        if m:
+            vagas = m.group(1).strip()
+    salario = ""
+    valores = [v for v in (_real(x) for x in _VALOR.findall(t)) if v >= 300]
+    if valores:
+        salario = _brl(max(valores))
+    base = t[:m.start()] if m and m.group(0).startswith("(") else t  # "Analista (Informática) (1 vaga)": o que vem antes das vagas
+    nome = re.split(r"\s+[-–—:]\s+|\s*,\s*(?=\d+\s+vaga|com\s|R\$)|\s+R\$|\s+\d+\s+vagas?\b", base, maxsplit=1)[0].strip(" -–—:;.")
+    if not nome or len(nome) > 90 or "R$" in nome or not (vagas or salario):
+        return None
+    if re.match(r"(?:inscri|prova|o\s|a\s|os\s|as\s|edital|data|per[íi]odo)", nome, re.I):
+        return None
+    vagas = re.sub(r"\bCR\b", "cadastro reserva", vagas) if vagas.upper() == "CR" else vagas
+    return {"cargo": nome, "vagas": vagas, "nivel": "", "salario": salario, "taxa": ""}
+
+
+def _taxas_por_alvo(frase: str, cargos: list[dict]) -> tuple[dict[str, float], dict[str, float]]:
+    """De "R$ 48,00 para fundamental, R$ 55,00 para médio/técnico" tira {nível: taxa}; de "R$ 85,00 para Escrevente", {cargo: taxa}."""
+    por_nivel: dict[str, float] = {}
+    por_cargo: dict[str, float] = {}
+    achados = list(_VALOR.finditer(frase))
+    for i, m in enumerate(achados):
+        v = _real(m.group(1))
+        if not 0 < v < 1000:
+            continue
+        depois = frase[m.end(): achados[i + 1].start() if i + 1 < len(achados) else len(frase)][:70]
+        antes = frase[max(achados[i - 1].end() if i else 0, m.start() - 45): m.start()]
+        niveis = _niveis(depois) or (_niveis(antes) if re.search(r"\(\s*$|:\s*$|[ée]\s+de\s*$", antes) else [])
+        if niveis:
+            for n in niveis:
+                por_nivel.setdefault(n, v)
+            continue
+        alvo = depois.lower()
+        for c in cargos:
+            primeiro = c["cargo"].lower().split(" ")[0]
+            if len(primeiro) > 3 and re.search(r"\b" + re.escape(primeiro), alvo):
+                por_cargo.setdefault(c["cargo"], v)
+    return por_nivel, por_cargo
+
+
+def cargos_da_noticia(corpo, frase_taxa: str) -> list[dict]:
+    """Os cargos da notícia (lista com vagas e, às vezes, salário), com o nível de cada um e a taxa que vale para ele."""
+    cargos: list[dict] = []
+    nivel: list[str] = []
+    for no in corpo.find_all(["p", "li", "h2", "h3", "h4", "strong", "b"]):
+        if no.name in ("strong", "b") and no.find_parent(["li"]):
+            continue
+        texto = _limpo(no.get_text(" "))
+        if not texto:
+            continue
+        if no.name == "li":
+            c = _cargo_da_linha(texto)
+            if c:
+                c["nivel"] = NIVEIS.get(nivel[0], "") if len(nivel) == 1 else ("Médio/técnico" if nivel == ["medio", "tecnico"] else "")
+                c["_niveis"] = list(nivel)
+                if all(c["cargo"] != x["cargo"] for x in cargos):
+                    cargos.append(c)
+            continue
+        cab = _cabecalho_de_nivel(texto)
+        if cab:
+            nivel = cab
+    if not cargos:
+        return []
+    por_nivel, por_cargo = _taxas_por_alvo(frase_taxa, cargos) if frase_taxa else ({}, {})
+    # o primeiro grupo às vezes vem sem título ("Os cargos são:" e já a lista): se só um nível da taxa ficou sem grupo, é ele
+    usados = {n for c in cargos for n in c["_niveis"]}
+    sobra = [n for n in por_nivel if n not in usados and not (n == "tecnico" and "medio" in usados)]
+    if len(sobra) == 1:
+        for c in cargos:
+            if not c["_niveis"]:
+                c["_niveis"] = sobra
+                c["nivel"] = NIVEIS[sobra[0]]
+    unica = [_real(v) for v in _VALOR.findall(frase_taxa or "")]
+    unica = unica[0] if len(set(unica)) == 1 else None
+    for c in cargos:
+        niveis = c.pop("_niveis")
+        v = por_cargo.get(c["cargo"])
+        if v is None:
+            v = next((por_nivel[n] for n in niveis if n in por_nivel), None)
+        if v is None and unica is not None:
+            v = unica
+        c["taxa"] = _brl(v) if v is not None else ""
+    return cargos[:80]
+
+
+def faixa_salarial(paragrafos: list[str]) -> str:
+    """"Os salários variam de R$ 2.571,28 a R$ 10.428,05" vira "R$ 2.571,28 a R$ 10.428,05"."""
+    for par in paragrafos:
+        for frase in re.split(r"(?<=[.!?;])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ(])", par):
+            if not re.search(r"sal[áa]ri|remunera|vencimento|subs[íi]dio", frase, re.I) or _FALA_DE_TAXA.search(frase):
+                continue
+            frase = re.split(r"\b(?:mais|al[ée]m\s+d[eoa]s?|vale|aux[íi]lio|abono|benef[íi]cio|gratifica|adicional)", frase, flags=re.I)[0]  # sem os extras
+            valores = [v for v in (_real(x) for x in _VALOR.findall(frase)) if v >= 300]
+            if valores:
+                menor, maior = min(valores), max(valores)
+                return _brl(menor) if menor == maior else f"{_brl(menor)} a {_brl(maior)}"
+    return ""
+
+
 def parse_edital(html: str, url: str) -> Edital:
     soup = BeautifulSoup(html, "html.parser")
     art = soup.select_one("article#noticia") or soup.find("article") or soup
@@ -328,6 +466,12 @@ def parse_edital(html: str, url: str) -> Edital:
         provas_url = urljoin(BASE, cand["href"]) if cand else None
     descricao = _limpo(desc.get_text(" ")) if desc else ""
     taxa, taxa_resumo = taxa_inscricao([descricao, *paragrafos])
+    cargos = cargos_da_noticia(corpo, taxa)
+    salarios = [c["salario"] for c in cargos if c["salario"]]
+    salario_resumo = faixa_salarial([descricao, *paragrafos])
+    if not salario_resumo and salarios:
+        vals = sorted(_real(x[3:]) for x in salarios)
+        salario_resumo = _brl(vals[0]) if vals[0] == vals[-1] else f"{_brl(vals[0])} a {_brl(vals[-1])}"
     return Edital(
         titulo=titulo,
         url=url,
@@ -338,6 +482,8 @@ def parse_edital(html: str, url: str) -> Edital:
         provas_url=provas_url,
         taxa=taxa,
         taxa_resumo=taxa_resumo,
+        salario_resumo=salario_resumo,
+        cargos=cargos,
     )
 
 

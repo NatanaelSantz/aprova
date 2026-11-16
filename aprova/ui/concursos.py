@@ -456,22 +456,70 @@ class TelaConcursos:
         self.app.atualizar()
 
 
-def _bloco_taxa(app, ed) -> ft.Control:
-    """O valor da inscrição (a taxa para fazer a prova), como está na notícia; sem ele, onde procurar."""
+def _nb(texto: str) -> str:
+    """"R$ 85,00" sem quebrar a linha entre o R$ e o número."""
+    return (texto or "").replace("R$ ", "R$\u00a0")
+
+
+def _bloco_valores(app, ed, concurso) -> ft.Control:
+    """Quanto paga e quanto custa: a faixa de salário e o valor da inscrição (a taxa para fazer a prova), como a notícia diz."""
     c = app.c
+    salario = _nb(ed.salario_resumo or concurso.salario)
+    linhas: list[ft.Control] = []
+    if salario:
+        linhas.append(ft.Text(spans=[ft.TextSpan("Salário: ", ft.TextStyle(color=c["texto2"])), ft.TextSpan(salario, ft.TextStyle(weight=ft.FontWeight.W_700))],
+                              size=15.5, color=c["texto"]))
     if ed.taxa:
-        titulo = "Inscrição grátis" if ed.taxa_resumo == "Grátis" else f"Valor da inscrição: {ed.taxa_resumo}"
-        corpo = [ft.Text(titulo, size=15.5, weight=ft.FontWeight.W_700, color=c["texto"]), ft.Text(ed.taxa, size=14, color=c["texto2"], selectable=True)]
+        valor = "grátis" if ed.taxa_resumo == "Grátis" else _nb(ed.taxa_resumo)
+        linhas.append(ft.Text(spans=[ft.TextSpan("Inscrição: ", ft.TextStyle(color=c["texto2"])), ft.TextSpan(valor, ft.TextStyle(weight=ft.FontWeight.W_700))],
+                              size=15.5, color=c["texto"]))
+        linhas.append(ft.Text(_nb(ed.taxa), size=13.5, color=c["texto2"], selectable=True))
     else:
-        corpo = [ft.Text("Valor da inscrição", size=15.5, weight=ft.FontWeight.W_700, color=c["texto"]),
-                 comp.apagado("A notícia não diz o valor. Ele fica no edital: veja os arquivos abaixo ou abra a notícia no site.", c, 14)]
+        linhas.append(ft.Text(spans=[ft.TextSpan("Inscrição: ", ft.TextStyle(color=c["texto2"])), ft.TextSpan("a notícia não diz o valor", ft.TextStyle(italic=True))],
+                              size=15.5, color=c["texto"]))
+        linhas.append(comp.apagado("Ele fica no edital: veja os arquivos abaixo ou abra a notícia no site.", c, 13.5))
     return ft.Container(
-        ft.Row([ft.Icon(ft.Icons.PAYMENTS_OUTLINED, color=c["tinta"], size=24), ft.Column(corpo, spacing=2, expand=True)], spacing=12,
+        ft.Row([ft.Icon(ft.Icons.PAYMENTS_OUTLINED, color=c["tinta"], size=24), ft.Column(linhas, spacing=3, expand=True)], spacing=12,
                vertical_alignment=ft.CrossAxisAlignment.START),
         bgcolor=c["tinta_suave"],
         border_radius=12,
         padding=ft.Padding.only(left=14, right=14, top=12, bottom=12),
     )
+
+
+def _tabela_cargos(app, ed, largura: float) -> list[ft.Control]:
+    """Cada cargo com as vagas, a escolaridade, o salário e o valor da inscrição (o que a notícia trouxer)."""
+    c = app.c
+    cargos = ed.cargos
+    if not cargos:
+        return []
+    tem = {k: any(x.get(k) for x in cargos) for k in ("nivel", "vagas", "salario", "taxa")}
+    saida: list[ft.Control] = [comp.subtitulo(f"Cargos ({len(cargos)})", c, 17)]
+    if largura >= 560:
+        colunas = [("cargo", "Cargo", None), *[(k, r, w) for k, r, w in (("nivel", "Escolaridade", 112), ("vagas", "Vagas", 120), ("salario", "Salário", 112),
+                                                                       ("taxa", "Inscrição", 92)) if tem[k]]]
+
+        def celula(k, texto, w, cabeca=False):
+            t = ft.Text(_nb(texto) or "—", size=12.5 if cabeca else 13.5, color=c["texto2"] if cabeca or not texto else c["texto"],
+                        weight=ft.FontWeight.W_700 if cabeca or k == "taxa" and texto else None, selectable=not cabeca)
+            return ft.Container(t, expand=True) if w is None else ft.Container(t, width=w)
+
+        linhas = [ft.Container(ft.Row([celula(k, r, w, True) for k, r, w in colunas], spacing=10), padding=ft.Padding.symmetric(horizontal=10, vertical=6))]
+        for i, x in enumerate(cargos):
+            linhas.append(ft.Container(ft.Row([celula(k, x.get(k, ""), w) for k, _, w in colunas], spacing=10, vertical_alignment=ft.CrossAxisAlignment.START),
+                                       bgcolor=c["sup2"] if i % 2 == 0 else None, border_radius=8, padding=ft.Padding.symmetric(horizontal=10, vertical=7)))
+        saida.append(ft.Column(linhas, spacing=0))
+    else:
+        for x in cargos:
+            detalhes = [_nb(t) for t in (x.get("nivel"), x.get("vagas"), f"salário {x['salario']}" if x.get("salario") else "",
+                                         f"inscrição {x['taxa']}" if x.get("taxa") else "") if t]
+            saida.append(ft.Container(ft.Column([ft.Text(x["cargo"], size=14.5, weight=ft.FontWeight.W_600, color=c["texto"], selectable=True),
+                                                 comp.apagado(" · ".join(detalhes), c, 13)], spacing=1),
+                                      padding=ft.Padding.only(top=6, bottom=6), border=ft.Border.only(bottom=ft.BorderSide(1, c["borda"]))))
+    faltou = [r for k, r in (("salario", "o salário de cada cargo"), ("taxa", "a inscrição de cada cargo")) if not tem[k]]
+    nota = "Como a notícia traz." + (f" Ela não diz {' nem '.join(faltou)}: veja no edital." if faltou else " Confira sempre no edital.")
+    saida.append(comp.apagado(nota, c, 12.5))
+    return saida
 
 
 async def abrir_edital(app, concurso: Concurso) -> None:
@@ -496,12 +544,11 @@ async def abrir_edital(app, concurso: Concurso) -> None:
     linha_dados = [comp.pilula(concurso.uf or "—", c["sup2"], c["texto2"])]
     if concurso.vagas:
         linha_dados.append(comp.pilula(concurso.vagas, c["tinta_suave"], c["tinta"]))
-    if concurso.salario:
-        linha_dados.append(comp.pilula(concurso.salario, c["ok_suave"], c["ok"]))
     if concurso.prazo:
         linha_dados.append(comp.pilula("Inscrições: " + concurso.prazo, c["marca_suave"], c["texto"]))
     resumo.append(ft.Row(linha_dados, wrap=True, spacing=8, run_spacing=8))
-    resumo.append(_bloco_taxa(app, ed))
+    resumo.append(_bloco_valores(app, ed, concurso))
+    resumo += _tabela_cargos(app, ed, largura)
     if ed.titulo:
         resumo.append(comp.texto(ed.titulo, c, 16, peso=ft.FontWeight.W_600))
     if ed.data:

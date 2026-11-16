@@ -55,7 +55,7 @@ EDITAL = """<html><body><article id="noticia"><h1 itemprop="headline">TJSP abre 
 <div class="description">O Tribunal de Justiça do Estado de São Paulo publicou editais com 132 vagas.</div>
 <abbr class="published" title="2026-10-20T10:00:00-03:00">20/10/2026</abbr>
 <div itemprop="articleBody"><p>O Tribunal de Justiça do Estado de São Paulo (TJSP) anuncia a abertura de concursos públicos para Oficial de Justiça e Escrevente Técnico Judiciário.</p>
-<h2>Inscrições</h2><p>As inscrições ficam abertas de 28 de outubro a 10 de dezembro de 2026, pela internet.</p><p>As taxas de inscrição são de R$ 85,00 para Escrevente e R$ 110,00 para Oficial de Justiça.</p>
+<p>Os cargos são:</p><ul><li>Escrevente Técnico Judiciário (100 vagas) - R$ 6.043,00</li><li>Oficial de Justiça (32 vagas) - R$ 9.856,95</li></ul><h2>Inscrições</h2><p>As inscrições ficam abertas de 28 de outubro a 10 de dezembro de 2026, pela internet.</p><p>As taxas de inscrição são de R$ 85,00 para Escrevente e R$ 110,00 para Oficial de Justiça.</p>
 <h2>Provas</h2><p>A prova objetiva terá questões de Língua Portuguesa, Conhecimentos em Direito, Matemática, Informática e Raciocínio Lógico.</p></div>
 </article><aside id="links"><ul><li class="pdf"><a href="https://arquivos.pciconcursos.com.br/edital-tjsp-2026.pdf">Edital de abertura</a></li>
 <li class="li_provas"><a href="https://www.pciconcursos.com.br/provas/tj-sp">Provas anteriores do TJ-SP</a></li></ul></aside></body></html>"""

@@ -6,7 +6,7 @@ App em Python (Flet) para acompanhar concursos, baixar provas anteriores, resolv
 
 ## O que ele faz
 
-- **Concursos abertos** por região, com prazo de inscrição, vagas, salário e nível. Ao abrir um concurso, aparece também o **valor da inscrição** (a taxa para fazer a prova), tirado da notícia; quando a notícia não diz, o app avisa que o valor está no edital. A estrela acompanha o prazo na tela Início.
+- **Concursos abertos** por região, com prazo de inscrição, vagas, salário e nível. Ao abrir um concurso, aparecem a **faixa de salário**, o **valor da inscrição** (a taxa para fazer a prova) e a tabela dos **cargos**, com vagas, escolaridade, salário e inscrição de cada um, tirados da notícia. A taxa de cada cargo sai do nível dele (fundamental, médio, superior) quando a notícia dá a taxa por nível. O que a notícia não diz, o app avisa que está no edital. A estrela acompanha o prazo na tela Início.
 - **Concursos já realizados**: busca por órgão ou cargo, abre o edital e leva às provas anteriores.
 - **Escolha um concurso e receba a prova** (aba *Provas*): digite o concurso (ex.: `Dataprev 2026`) ou cole o link da página dele no site da banca. O Aprova procura em vários lugares ao mesmo tempo:
   - **site oficial da banca**: provas separadas por cargo e caderno, com o gabarito oficial. Toque no caderno da sua área e a prova já abre pronta, com o gabarito certo;

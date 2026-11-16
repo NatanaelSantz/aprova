@@ -44,6 +44,9 @@ def test_edital_e_provas(tmp_path):
     ed = c.edital(tj.url)
     assert ed.provas_url.endswith("/provas/tj-sp") and ed.pdfs
     assert ed.taxa_resumo == "R$ 85,00 a R$ 110,00" and ed.taxa.startswith("As taxas de inscrição são de R$ 85,00")
+    assert ed.salario_resumo == "R$ 6.043,00 a R$ 9.856,95"
+    assert [(x["cargo"], x["vagas"], x["salario"], x["taxa"]) for x in ed.cargos] == [
+        ("Escrevente Técnico Judiciário", "100 vagas", "R$ 6.043,00", "R$ 85,00"), ("Oficial de Justiça", "32 vagas", "R$ 9.856,95", "R$ 110,00")]
     itens, paginas = c.provas(ed.provas_url)
     assert len(itens) == 5 and paginas == 1 and itens[0].banca == "VUNESP"
     arquivos, navegador = c.arquivos_prova(itens[0].url)
@@ -63,6 +66,43 @@ def test_taxa_de_inscricao():
     assert taxa(["O salário é de R$ 4.000,00 e a taxa custa R$ 120,00."])[1] == "R$ 120,00"
     assert taxa(["As inscrições são gratuitas e vão até 5 de dezembro."])[1] == "Grátis"
     assert taxa(["Os salários chegam a R$ 9.717,00.", "A isenção da taxa vale para doadores de sangue."]) == ("", "")
+
+
+def test_cargos_salario_e_inscricao_de_cada_cargo():
+    """1.35: cada cargo da notícia com vagas, escolaridade e a taxa do nível dele; a faixa de salário sem os benefícios."""
+    from aprova.pci import parse_edital
+
+    campinas = """<article id="noticia"><h1 itemprop="headline">SETEC</h1><div itemprop="articleBody">
+    <p>A SETEC abriu concurso. As vagas são para os seguintes cargos:</p>
+    <ul><li>Agente de Apoio Operacional (6 vagas + CR)</li><li>Motorista Especializado (3 vagas + CR)</li></ul>
+    <p>Ensino médio/técnico</p><ul><li>Agente Administrativo (8 vagas + CR)</li><li>Técnico em Segurança do Trabalho (1 vaga + CR)</li></ul>
+    <p>Ensino superior</p><ul><li>Analista Técnico (Informática) (1 vaga + CR)</li><li>Assistente Social (CR)</li></ul>
+    <p>Os salários iniciais variam de R$ 2.571,28 a R$ 10.428,05, mais vale-alimentação de R$ 2.150,12.</p>
+    <p>As inscrições vão até 30/09. As taxas de inscrição variam conforme o cargo ( R$ 48,00 para fundamental, R$ 55,00 para médio/técnico, R$ 78,00 para superior).</p>
+    </div></article>"""
+    ed = parse_edital(campinas, "x")
+    assert ed.salario_resumo == "R$ 2.571,28 a R$ 10.428,05"  # o vale-alimentação não entra
+    assert [(x["cargo"], x["nivel"], x["taxa"]) for x in ed.cargos] == [
+        ("Agente de Apoio Operacional", "Fundamental", "R$ 48,00"), ("Motorista Especializado", "Fundamental", "R$ 48,00"),
+        ("Agente Administrativo", "Médio/técnico", "R$ 55,00"), ("Técnico em Segurança do Trabalho", "Médio/técnico", "R$ 55,00"),
+        ("Analista Técnico (Informática)", "Superior", "R$ 78,00"), ("Assistente Social", "Superior", "R$ 78,00")]
+    assert ed.cargos[-1]["vagas"] == "cadastro reserva"
+
+    suzano = """<article id="noticia"><div itemprop="articleBody"><p>Os cargos de nível fundamental são:</p><ul><li>Merendeira (5 vagas)</li></ul>
+    <p><strong>Nível superior:</strong></p><ul><li>Contador (1 vaga)</li></ul>
+    <p>As taxas são de R$ 60,93 para nível fundamental e R$ 106,62 para nível superior.</p></div></article>"""
+    assert [(x["cargo"], x["taxa"]) for x in parse_edital(suzano, "x").cargos] == [("Merendeira", "R$ 60,93"), ("Contador", "R$ 106,62")]
+
+    # só a faixa: os cargos aparecem sem inventar a taxa de cada um
+    leme = """<article id="noticia"><div itemprop="articleBody"><p>Os cargos são:</p><ul><li>Biólogo (1 vaga)</li><li>Médico do Trabalho (CR)</li></ul>
+    <p>As taxas variam de R$ 32,00 a R$ 80,00.</p></div></article>"""
+    ed = parse_edital(leme, "x")
+    assert ed.taxa_resumo == "R$ 32,00 a R$ 80,00" and [x["taxa"] for x in ed.cargos] == ["", ""]
+    # uma taxa só vale para todos
+    unica = """<article id="noticia"><div itemprop="articleBody"><ul><li>Escrevente - 100 vagas - R$ 6.043,00</li></ul>
+    <p>A taxa de inscrição é de R$ 85,00.</p><ul><li>Prova objetiva em 10 de janeiro</li></ul></div></article>"""
+    ed = parse_edital(unica, "x")
+    assert [(x["cargo"], x["salario"], x["taxa"]) for x in ed.cargos] == [("Escrevente", "R$ 6.043,00", "R$ 85,00")]
 
 
 def test_prazos():
